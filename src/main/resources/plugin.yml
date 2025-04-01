@@ -1,0 +1,4 @@
+name: DiscordPlotSystem
+version: '1.0-SNAPSHOT'
+main: github.tintinkung.discordps.DiscordPS
+api-version: '1.21'
