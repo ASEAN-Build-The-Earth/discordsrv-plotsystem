@@ -1,5 +1,6 @@
 package github.tintinkung.discordps.core.database;
 
+import github.tintinkung.discordps.ConfigPaths;
 import github.tintinkung.discordps.DiscordPS;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -21,10 +22,10 @@ public class DatabaseConnection {
         Class.forName("org.mariadb.jdbc.Driver"); // newer: com.mysql.cj.jdbc.Driver
 
         FileConfiguration configFile = DiscordPS.getPlugin().getConfig();
-        String URL = configFile.getString("database.url");
-        String name = configFile.getString("database.name");
-        String username = configFile.getString("database.username");
-        String password = configFile.getString("database.password");
+        String URL = configFile.getString(ConfigPaths.DATABASE_URL);
+        String name = configFile.getString(ConfigPaths.DATABASE_NAME);
+        String username = configFile.getString(ConfigPaths.DATABASE_USERNAME);
+        String password = configFile.getString(ConfigPaths.DATABASE_PASSWORD);
 
         config.setJdbcUrl(URL + name);
         config.setUsername(username);

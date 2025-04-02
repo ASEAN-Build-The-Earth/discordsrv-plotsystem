@@ -26,12 +26,12 @@ public class DiscordSRVListener {
     public void onDiscordChat(DiscordGuildMessageSentEvent event) {
         DiscordPS.info("[DiscordPS] DiscordGuildMessageSentEvent: " + event.getChannel().getId());
 
-        if (event.getChannel().getId().equals("PLACEHOLDER_CONFIG")) {
+        // if (event.getChannel().getId().equals("PLACEHOLDER_CONFIG")) {
             // event.setCancelled(true); // Cancel this message from getting sent to global chat.
-            DiscordPS.info("[DiscordPS] Webhook created on messageID: " + event.getMessage().getId());
+        //    DiscordPS.info("[DiscordPS] Webhook created on messageID: " + event.getMessage().getId());
 
             // Handle this on the main thread next tick.
             // plugin.sync().run(() -> plugin.submitMessageFromDiscord(event.getAuthor(), event.getMessage()));
-        }
+        // }
     }
 }

@@ -1,5 +1,6 @@
 package github.tintinkung.discordps;
 
+import github.scarsz.discordsrv.dependencies.jda.api.entities.ChannelType;
 import github.tintinkung.discordps.core.listeners.DiscordSRVListener;
 import github.tintinkung.discordps.core.listeners.DiscordSRVLoadedListener;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -12,6 +13,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.PrintWriter;
@@ -23,8 +25,7 @@ import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Compone
 public final class DiscordPS extends JavaPlugin {
     private static final String VERSION = "1.4.2";
 
-    public static final String DISCORD_SRV = "DiscordSRV";
-    public static final String CHANNEL = "PLACEHOLDER_CONFIG";
+    public static final String DISCORD_SRV = "DiscordSRV"; // DiscordSRV main class symbol
 
     private static DiscordPS plugin;
     private YamlConfiguration config;
@@ -120,10 +121,19 @@ public final class DiscordPS extends JavaPlugin {
         return discordSrvHook != null;
     }
 
-   public TextChannel getDiscordChannelOrNull() {
-        return (isDiscordSrvHookEnabled())
-                ? DiscordSRV.getPlugin().getDestinationTextChannelForGameChannelName(CHANNEL)
-                : null;
+    @Nullable
+    public TextChannel getStatusChannelOrNull() {
+        return getDiscordChannelOrNull(config.getString(ConfigPaths.PLOT_STATUS));
+    }
+
+    @Nullable
+    public TextChannel getDiscordChannelOrNull(String channelID) {
+        return isDiscordSrvHookEnabled() ? DiscordSRV.getPlugin().getJda().getTextChannelById(channelID) : null;
+    }
+
+    @Nullable
+    public TextChannel getDiscordChannelOrNull(long channelID) {
+        return isDiscordSrvHookEnabled() ? DiscordSRV.getPlugin().getJda().getTextChannelById(channelID) : null;
     }
 
     // log messages
