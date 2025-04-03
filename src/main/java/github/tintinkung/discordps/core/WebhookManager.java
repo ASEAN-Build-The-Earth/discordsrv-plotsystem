@@ -1,5 +1,22 @@
 package github.tintinkung.discordps.core;
 
+import github.scarsz.discordsrv.dependencies.jda.api.AccountType;
+import github.scarsz.discordsrv.dependencies.jda.api.JDA;
+import github.scarsz.discordsrv.dependencies.jda.api.exceptions.AccountTypeException;
+import github.scarsz.discordsrv.dependencies.jda.api.exceptions.RateLimitedException;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.Request;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.Response;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
+import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
+import github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl;
+import github.scarsz.discordsrv.dependencies.jda.internal.requests.Requester;
+import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
+import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
+import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
+import github.scarsz.discordsrv.dependencies.okhttp3.MediaType;
+import github.scarsz.discordsrv.dependencies.okhttp3.MultipartBody;
+import github.scarsz.discordsrv.dependencies.okhttp3.OkHttpClient;
+import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.Debug;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -11,17 +28,23 @@ import github.scarsz.discordsrv.dependencies.jda.api.requests.restaction.Message
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.BufferedRequestBody;
 import github.scarsz.discordsrv.dependencies.json.JSONArray;
 import github.scarsz.discordsrv.dependencies.json.JSONObject;
-import github.scarsz.discordsrv.dependencies.okhttp3.*;
 import github.scarsz.discordsrv.dependencies.okio.Okio;
 import github.scarsz.discordsrv.util.*;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.CheckReturnValue;
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
+import java.util.function.BiFunction;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -222,68 +245,67 @@ public class WebhookManager {
         executeWebhook(channel, null, null, editMessageId, message, embeds, attachments, interactions, true, scheduleAsync);
     }
 
-    public static void newThreadFromWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, MessageEmbed embed) {
-        newThreadFromWebhook(webhook, threadName, player, displayName, message, Collections.singletonList(embed), null, null);
+    public static RestAction<Optional<MessageReference>> newThreadFromWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, MessageEmbed embed) throws NoSuchElementException {
+        return executeWebhook(webhook, threadName, player, displayName, message, Collections.singletonList(embed), null, null).orElseThrow();
     }
 
-    public static void newThreadFromWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        newThreadFromWebhook(webhook, threadName, player, displayName, message, Collections.singletonList(embed), attachments, interactions);
+    public static RestAction<Optional<MessageReference>> newThreadFromWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) throws NoSuchElementException {
+        return executeWebhook(webhook, threadName, player, displayName, message, Collections.singletonList(embed), attachments, interactions).orElseThrow();
     }
 
-    public static void newThreadFromWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        SchedulerUtil.runTaskAsynchronously(DiscordSRV.getPlugin(), () -> {
-            String avatarUrl, username = "", content = null;
-            if (player instanceof Player) {
-                avatarUrl = DiscordSRV.getAvatarUrl((Player) player);
-            } else {
-                avatarUrl = DiscordSRV.getAvatarUrl(player.getName(), player.getUniqueId());
+    public static Optional<RestAction<Optional<MessageReference>>> executeWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
+        String avatarUrl, username = "", content = null;
+        if (player instanceof Player) {
+            avatarUrl = DiscordSRV.getAvatarUrl((Player) player);
+        } else {
+            avatarUrl = DiscordSRV.getAvatarUrl(player.getName(), player.getUniqueId());
+        }
+
+        for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getGameRegexes().entrySet()) {
+            username = entry.getKey().matcher(displayName).replaceAll(entry.getValue());
+            content = entry.getKey().matcher(message).replaceAll(entry.getValue());
+
+            if (StringUtils.isBlank(username)) {
+                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Not processing Minecraft message because the webhook username was cleared by a filter: " + entry.getKey().pattern());
+                return Optional.empty();
             }
 
-            for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getGameRegexes().entrySet()) {
-                username = entry.getKey().matcher(displayName).replaceAll(entry.getValue());
-                content = entry.getKey().matcher(message).replaceAll(entry.getValue());
-
-                if (StringUtils.isBlank(username)) {
-                    DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Not processing Minecraft message because the webhook username was cleared by a filter: " + entry.getKey().pattern());
-                    return;
-                }
-
-                if (StringUtils.isBlank(content)) {
-                    DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Not processing Minecraft message because the webhook content was cleared by a filter: " + entry.getKey().pattern());
-                    return;
-                }
+            if (StringUtils.isBlank(content)) {
+                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Not processing Minecraft message because the webhook content was cleared by a filter: " + entry.getKey().pattern());
+                return Optional.empty();
             }
+        }
 
-            String userId = DiscordSRV.getPlugin().getAccountLinkManager().getDiscordId(player.getUniqueId());
-            if (userId != null) {
-                Member member = DiscordUtil.getMemberById(userId);
-                username = username
-                        .replace("%discordname%", member != null ? member.getEffectiveName() : "")
-                        .replace("%discordusername%", member != null ? member.getUser().getName() : "");
-                if (member != null) {
-                    if (DiscordSRV.config().getBoolean("Experiment_WebhookChatMessageAvatarFromDiscord"))
-                        avatarUrl = member.getUser().getEffectiveAvatarUrl();
-                    if (DiscordSRV.config().getBoolean("Experiment_WebhookChatMessageUsernameFromDiscord"))
-                        username = member.getEffectiveName();
-                }
-            } else {
-                username = username
-                        .replace("%discordname%", "")
-                        .replace("%discordusername%", "");
+        String userId = DiscordSRV.getPlugin().getAccountLinkManager().getDiscordId(player.getUniqueId());
+        if (userId != null) {
+            Member member = DiscordUtil.getMemberById(userId);
+            username = username
+                    .replace("%discordname%", member != null ? member.getEffectiveName() : "")
+                    .replace("%discordusername%", member != null ? member.getUser().getName() : "");
+            if (member != null) {
+                if (DiscordSRV.config().getBoolean("Experiment_WebhookChatMessageAvatarFromDiscord"))
+                    avatarUrl = member.getUser().getEffectiveAvatarUrl();
+                if (DiscordSRV.config().getBoolean("Experiment_WebhookChatMessageUsernameFromDiscord"))
+                    username = member.getEffectiveName();
             }
+        } else {
+            username = username
+                    .replace("%discordname%", "")
+                    .replace("%discordusername%", "");
+        }
 
-            if (username.length() > 80) {
-                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "The webhook username in " + player.getName() + "'s message was too long! Reducing to 80 characters");
-                username = username.substring(0, 80);
-            }
+        if (username.length() > 80) {
+            DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "The webhook username in " + player.getName() + "'s message was too long! Reducing to 80 characters");
+            username = username.substring(0, 80);
+        }
 
-            DiscordPS.info("Processing thread for user: " + username);
+        DiscordPS.info("Processing thread for user: " + username);
 
-            executeWebhook(webhook, threadName, avatarUrl, null, content, embeds, attachments, interactions, true, true);
-        });
+
+        return executeWebhook(webhook, threadName, avatarUrl, null, content, embeds, attachments, interactions, true);
     }
 
-    private static void executeWebhook(
+    private static Optional<RestAction<Optional<MessageReference>>> executeWebhook(
             Webhook webhook,
             String threadName,
             String webhookAvatarUrl,
@@ -292,8 +314,7 @@ public class WebhookManager {
             Collection<? extends MessageEmbed> embeds,
             Map<String, InputStream> attachments,
             Collection<? extends ActionRow> interactions,
-            boolean allowSecondAttempt,
-            boolean scheduleAsync) {
+            boolean allowSecondAttempt) {
 
         if (webhook == null) {
             if (attachments != null) {
@@ -304,9 +325,10 @@ public class WebhookManager {
                     }
                 });
             }
-            return;
+            return Optional.empty();
         }
 
+        // RestFuture<MessageReference> out = new RestFuture<>();
 
         String webhookUrlForChannel = webhook.getUrl();
         if (editMessageId != null) {
@@ -315,156 +337,177 @@ public class WebhookManager {
         webhookUrlForChannel += "?wait=true";
         String webhookUrl = webhookUrlForChannel;
 
-        Runnable task = () -> {
-            try {
-                // Parse JSON Parameters
-                JSONObject jsonObject = new JSONObject();
-                if (editMessageId == null) {
-                    String webName = webhook.getName();
-                    for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getWebhookUsernameRegexes().entrySet()) {
-                        webName = entry.getKey().matcher(webName).replaceAll(entry.getValue());
-                    }
-
-                    // Handle Discord banned words in a way that isn't against their developer policy
-                    String username = webName;
-                    username = username
-                            .replaceAll("(?i)(cly)d(e)", "$1*$2")
-                            .replaceAll("(?i)(d)i(scord)", "$1*$2");
-                    if (!username.equals(webName) && loggedBannedWords) {
-                        DiscordSRV.info("Some webhook usernames are being altered to remove blocked words (eg. Clyde and Discord)");
-                        loggedBannedWords = true;
-                    }
-
-                    jsonObject.put("username", username);
-                    jsonObject.put("avatar_url", webhookAvatarUrl);
+        try {
+            // Parse JSON Parameters
+            JSONObject jsonObject = new JSONObject();
+            if (editMessageId == null) {
+                String webName = webhook.getName();
+                for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getWebhookUsernameRegexes().entrySet()) {
+                    webName = entry.getKey().matcher(webName).replaceAll(entry.getValue());
                 }
 
-                // Webhooks posted to forum channels must have a thread_name or thread_id
-                if(threadName != null) {
-                    jsonObject.put("thread_name", threadName);
+                // Handle Discord banned words in a way that isn't against their developer policy
+                String username = webName;
+                username = username
+                        .replaceAll("(?i)(cly)d(e)", "$1*$2")
+                        .replaceAll("(?i)(d)i(scord)", "$1*$2");
+                if (!username.equals(webName) && loggedBannedWords) {
+                    DiscordSRV.info("Some webhook usernames are being altered to remove blocked words (eg. Clyde and Discord)");
+                    loggedBannedWords = true;
                 }
 
-                if (StringUtils.isNotBlank(message)) jsonObject.put("content", message);
-                if (embeds != null) {
-                    JSONArray jsonArray = new JSONArray();
-                    for (MessageEmbed embed : embeds) {
-                        if (embed != null) {
-                            jsonArray.put(embed.toData().toMap());
-                        }
-                    }
-                    jsonObject.put("embeds", jsonArray);
-                }
-                if (interactions != null) {
-                    JSONArray jsonArray = new JSONArray();
-                    for (ActionRow actionRow : interactions) {
-                        jsonArray.put(actionRow.toData().toMap());
-                    }
-                    jsonObject.put("components", jsonArray);
-                }
-                List<String> attachmentIndex = null;
-                if (attachments != null) {
-                    attachmentIndex = new ArrayList<>(attachments.size());
-                    JSONArray jsonArray = new JSONArray();
-                    int i = 0;
-                    for (String name : attachments.keySet()) {
-                        attachmentIndex.add(name);
-                        JSONObject attachmentObject = new JSONObject();
-                        attachmentObject.put("id", i);
-                        attachmentObject.put("filename", name);
-                        jsonArray.put(attachmentObject);
-                        i++;
-                    }
-                    jsonObject.put("attachments", jsonArray);
-                }
+                jsonObject.put("username", username);
+                jsonObject.put("avatar_url", webhookAvatarUrl);
+            }
 
-                JSONObject allowedMentions = new JSONObject();
-                Set<String> parse = MessageAction.getDefaultMentions().stream()
-                        .filter(Objects::nonNull)
-                        .map(Message.MentionType::getParseKey)
-                        .collect(Collectors.toSet());
-                allowedMentions.put("parse", parse);
-                jsonObject.put("allowed_mentions", allowedMentions);
+            // Webhooks posted to forum channels must have a thread_name or thread_id
+            if(threadName != null) {
+                jsonObject.put("thread_name", threadName);
+            }
 
-                // Send payload
-                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Sending webhook payload: " + jsonObject);
-
-                MultipartBody.Builder bodyBuilder = new MultipartBody.Builder().setType(MultipartBody.FORM);
-                bodyBuilder.addFormDataPart("payload_json", null, RequestBody.create(MediaType.get("application/json"), jsonObject.toString()));
-
-                if (attachmentIndex != null) {
-                    for (int i = 0; i < attachmentIndex.size(); i++) {
-                        String name = attachmentIndex.get(i);
-                        InputStream data = attachments.get(name);
-                        if (data != null) {
-                            bodyBuilder.addFormDataPart("files[" + i + "]", name, new BufferedRequestBody(Okio.source(data), null));
-                            data.close();
-                        }
+            if (StringUtils.isNotBlank(message)) jsonObject.put("content", message);
+            if (embeds != null) {
+                JSONArray jsonArray = new JSONArray();
+                for (MessageEmbed embed : embeds) {
+                    if (embed != null) {
+                        jsonArray.put(embed.toData().toMap());
                     }
                 }
-
-
-                Request.Builder requestBuilder = new Request.Builder()
-                        .url(webhookUrl)
-                        .header("User-Agent", "DiscordSRV/" + DiscordSRV.getPlugin().getDescription().getVersion());
-                if (editMessageId == null) {
-                    requestBuilder.post(bodyBuilder.build());
-                } else {
-                    requestBuilder.patch(bodyBuilder.build());
+                jsonObject.put("embeds", jsonArray);
+            }
+            if (interactions != null) {
+                JSONArray jsonArray = new JSONArray();
+                for (ActionRow actionRow : interactions) {
+                    jsonArray.put(actionRow.toData().toMap());
                 }
+                jsonObject.put("components", jsonArray);
+            }
+            List<String> attachmentIndex = null;
+            if (attachments != null) {
+                attachmentIndex = new ArrayList<>(attachments.size());
+                JSONArray jsonArray = new JSONArray();
+                int i = 0;
+                for (String name : attachments.keySet()) {
+                    attachmentIndex.add(name);
+                    JSONObject attachmentObject = new JSONObject();
+                    attachmentObject.put("id", i);
+                    attachmentObject.put("filename", name);
+                    jsonArray.put(attachmentObject);
+                    i++;
+                }
+                jsonObject.put("attachments", jsonArray);
+            }
 
-                OkHttpClient httpClient = DiscordSRV.getPlugin().getJda().getHttpClient();
-                try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
-                    int status = response.code();
+            JSONObject allowedMentions = new JSONObject();
+            Set<String> parse = MessageAction.getDefaultMentions().stream()
+                    .filter(Objects::nonNull)
+                    .map(Message.MentionType::getParseKey)
+                    .collect(Collectors.toSet());
+            allowedMentions.put("parse", parse);
+            jsonObject.put("allowed_mentions", allowedMentions);
+
+            // Send payload
+            DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Sending webhook payload: " + jsonObject);
+
+            MultipartBody.Builder bodyBuilder = new MultipartBody.Builder().setType(MultipartBody.FORM);
+            bodyBuilder.addFormDataPart("payload_json", null, RequestBody.create(MediaType.get("application/json"), jsonObject.toString()));
+
+            if (attachmentIndex != null) {
+                for (int i = 0; i < attachmentIndex.size(); i++) {
+                    String name = attachmentIndex.get(i);
+                    InputStream data = attachments.get(name);
+                    if (data != null) {
+                        bodyBuilder.addFormDataPart("files[" + i + "]", name, new BufferedRequestBody(Okio.source(data), null));
+                        data.close();
+                    }
+                }
+            }
+
+//            Request.Builder requestBuilder = new Request.Builder()
+//                    .url(webhookUrl)
+//                    .header("User-Agent", "DiscordSRV/" + DiscordSRV.getPlugin().getDescription().getVersion());
+//            if (editMessageId == null) {
+//                requestBuilder.post(bodyBuilder.build());
+//            } else {
+//                requestBuilder.patch(bodyBuilder.build());
+//            }
+
+            Route.CompiledRoute route = Route.Webhooks.EXECUTE_WEBHOOK
+                    .compile(webhook.getId(), webhook.getToken())
+                    .withQueryParams("wait", "true");
+
+            DiscordPS.info("Querying URL: " + route.getCompiledRoute());
+            JDAImpl jda = (JDAImpl) webhook.getJDA();
+
+            return Optional.of(new RestActionImpl<>(jda, route, bodyBuilder.build(), (response, request) -> {
+                try {
+                    int status = response.code;
                     if (status == 404) {
                         // 404 = Invalid Webhook (most likely to have been deleted)
                         DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Webhook delivery returned 404, marking webhooks URLs as invalid to let them regenerate" + (allowSecondAttempt ? " & trying again" : ""));
                         // invalidWebhookUrlForChannel(webhook.getChannel()); // tell it to get rid of the urls & get new ones
-                        if (allowSecondAttempt)
-                            executeWebhook(webhook, threadName, webhookAvatarUrl, editMessageId, message, embeds, attachments, interactions, false, scheduleAsync);
-                        return;
+                        //if (allowSecondAttempt)
+                        //   executeWebhook(webhook, threadName, webhookAvatarUrl, editMessageId, message, embeds, attachments, interactions, false, scheduleAsync);
+                        request.cancel();
+                        return Optional.empty();
                     }
-                    String body = response.body().string();
-                    try {
-                        JSONObject jsonObj = new JSONObject(body);
-                        if (jsonObj.has("code")) {
-                            // 10015 = unknown webhook, https://discord.com/developers/docs/topics/opcodes-and-status-codes#json-json-error-codes
-                            if (jsonObj.getInt("code") == 10015) {
-                                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Webhook delivery returned 10015 (Unknown Webhook), marking webhooks url's as invalid to let them regenerate" + (allowSecondAttempt ? " & trying again" : ""));
-                                // invalidWebhookUrlForChannel(webhook.getChannel()); // tell it to get rid of the urls & get new ones
-                                if (allowSecondAttempt)
-                                    executeWebhook(webhook, threadName, webhookAvatarUrl, editMessageId, message, embeds, attachments, interactions, false, scheduleAsync);
-                                return;
+                    Optional<DataObject> body = response.optObject();
+                    if (body.isPresent()) {
+                        if (body.get().hasKey("code")) {
+                            if (body.get().getInt("code") == 10015) {
+                                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Webhook delivery returned 10015 (Unknown Webhook)");
+                                return Optional.empty();
                             }
                         }
-                    } catch (Throwable ignored) {
-                    }
-                    if (editMessageId == null ? status == 204 : status == 200) {
-                        DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Received API response for webhook message delivery: " + status + " for request: " + body);
-                    } else {
-                        DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Received unexpected API response for webhook message delivery: " + status + " for request: " + jsonObject.toString() + ", response: " + body);
-                    }
-                }
-            } catch (Exception e) {
-                DiscordSRV.error("Failed to deliver webhook message to Discord: " + e.getMessage());
-                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, e);
-                if (attachments != null) {
-                    attachments.values().forEach(inputStream -> {
-                        try {
-                            inputStream.close();
-                        } catch (IOException ignore) {
-                        }
-                    });
-                }
-            }
-        };
+                        DiscordPS.info("Packaging API response of: " + body.get().toPrettyString());
 
-        if (scheduleAsync) {
-            SchedulerUtil.runTaskAsynchronously(DiscordSRV.getPlugin(), task);
-        } else {
-            task.run();
+                        String channelID = body.get().getString("channel_id");
+                        String messageID = body.get().getString("id");
+                        DiscordPS.info("Received API response for webhook message delivery: " + status + " for response: " + body);
+
+                        return Optional.of(new MessageReference(
+                            Long.parseUnsignedLong(messageID),
+                            Long.parseUnsignedLong(channelID),
+                            DiscordSRV.getPlugin().getMainGuild().getIdLong(),
+                            null,
+                            webhook.getJDA())
+                        );
+                    }
+                }
+                catch (Throwable ex) {
+                    DiscordPS.info("Failed to receive API response: " + ex.toString());
+                }
+                return Optional.empty();
+            })
+            );
+        } catch (Exception e) {
+            DiscordSRV.error("Failed to deliver webhook message to Discord: " + e.getMessage());
+            DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, e);
+            if (attachments != null) {
+                attachments.values().forEach(inputStream -> {
+                    try {
+                        inputStream.close();
+                    } catch (IOException ignore) {
+                    }
+                });
+            }
         }
+        return Optional.empty();
     }
 
+//    @Nonnull
+//    @CheckReturnValue
+//    private static RestAction<Message> retrieveMessageById(@Nonnull String messageId) {
+//        AccountTypeException.check(this.getJDA().getAccountType(), AccountType.BOT);
+//        Checks.isSnowflake(messageId, "Message ID");
+//        JDAImpl jda = (JDAImpl)this.getJDA();
+//        Route.CompiledRoute route = Route.Messages.GET_MESSAGE.compile(new String[]{this.getId(), messageId});
+//        return new RestActionImpl<>(jda, route, (response, request) -> {
+//            return jda.getEntityBuilder().createMessage(response.getObject(), this, false);
+//        });
+//    }
+
+    @Deprecated
     private static void executeWebhook(TextChannel channel, String webhookName, String webhookAvatarUrl, String editMessageId, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions, boolean allowSecondAttempt, boolean scheduleAsync) {
         if (channel == null) {
             if (attachments != null) {
@@ -576,7 +619,7 @@ public class WebhookManager {
                     }
                 }
 
-                Request.Builder requestBuilder = new Request.Builder()
+                github.scarsz.discordsrv.dependencies.okhttp3.Request.Builder requestBuilder = new github.scarsz.discordsrv.dependencies.okhttp3.Request.Builder()
                         .url(webhookUrl + "?wait=true")
                         .header("User-Agent", "DiscordSRV/" + DiscordSRV.getPlugin().getDescription().getVersion());
                 if (editMessageId == null) {
@@ -586,7 +629,7 @@ public class WebhookManager {
                 }
 
                 OkHttpClient httpClient = DiscordSRV.getPlugin().getJda().getHttpClient();
-                try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
+                try (github.scarsz.discordsrv.dependencies.okhttp3.Response response = httpClient.newCall(requestBuilder.build()).execute()) {
                     int status = response.code();
                     if (status == 404) {
                         // 404 = Invalid Webhook (most likely to have been deleted)
