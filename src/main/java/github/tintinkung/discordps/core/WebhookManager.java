@@ -13,10 +13,8 @@ import github.scarsz.discordsrv.dependencies.jda.internal.requests.Requester;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
-import github.scarsz.discordsrv.dependencies.okhttp3.MediaType;
-import github.scarsz.discordsrv.dependencies.okhttp3.MultipartBody;
-import github.scarsz.discordsrv.dependencies.okhttp3.OkHttpClient;
-import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
+import github.scarsz.discordsrv.dependencies.okhttp3.*;
+import github.scarsz.discordsrv.dependencies.okhttp3.internal.Util;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.Debug;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -39,6 +37,8 @@ import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -253,8 +253,17 @@ public class WebhookManager {
         return executeWebhook(webhook, threadName, player, displayName, message, Collections.singletonList(embed), attachments, interactions).orElseThrow();
     }
 
+    public static Optional<RestAction<Optional<MessageReference>>> editWebhookMessage(Webhook webhook, String messageID, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
+        return executeWebhook(webhook, null, null, messageID, message, Collections.singletonList(embed), attachments, interactions, false);
+    }
+
+    public static Optional<RestAction<Optional<MessageReference>>> editWebhookMessage(Webhook webhook, String messageID, String message, MessageEmbed embed) {
+        DiscordPS.info("Editing message ID: " + messageID);
+        return executeWebhook(webhook, null, null, messageID, message, Collections.singletonList(embed), null, null, false);
+    }
+
     public static Optional<RestAction<Optional<MessageReference>>> executeWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        String avatarUrl, username = "", content = null;
+        String avatarUrl, username = displayName, content = message;
         if (player instanceof Player) {
             avatarUrl = DiscordSRV.getAvatarUrl((Player) player);
         } else {
@@ -302,6 +311,7 @@ public class WebhookManager {
         DiscordPS.info("Processing thread for user: " + username);
 
 
+
         return executeWebhook(webhook, threadName, avatarUrl, null, content, embeds, attachments, interactions, true);
     }
 
@@ -309,38 +319,29 @@ public class WebhookManager {
             Webhook webhook,
             String threadName,
             String webhookAvatarUrl,
-            String editMessageId,
+            String editMessageID,
             String message,
             Collection<? extends MessageEmbed> embeds,
             Map<String, InputStream> attachments,
             Collection<? extends ActionRow> interactions,
             boolean allowSecondAttempt) {
 
+        // Validate
         if (webhook == null) {
-            if (attachments != null) {
+            if (attachments != null)
                 attachments.values().forEach(inputStream -> {
-                    try {
-                        inputStream.close();
-                    } catch (IOException ignore) {
-                    }
+                    try { inputStream.close(); }
+                    catch (IOException ignore) {}
                 });
-            }
             return Optional.empty();
         }
-
-        // RestFuture<MessageReference> out = new RestFuture<>();
-
-        String webhookUrlForChannel = webhook.getUrl();
-        if (editMessageId != null) {
-            webhookUrlForChannel += "/messages/" + editMessageId;
-        }
-        webhookUrlForChannel += "?wait=true";
-        String webhookUrl = webhookUrlForChannel;
 
         try {
             // Parse JSON Parameters
             JSONObject jsonObject = new JSONObject();
-            if (editMessageId == null) {
+
+            // Special payload when first creating a new webhook message
+            if (editMessageID == null) {
                 String webName = webhook.getName();
                 for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getWebhookUsernameRegexes().entrySet()) {
                     webName = entry.getKey().matcher(webName).replaceAll(entry.getValue());
@@ -356,15 +357,19 @@ public class WebhookManager {
                     loggedBannedWords = true;
                 }
 
+
+                int queryStart = webhookAvatarUrl.indexOf(63);
+
                 jsonObject.put("username", username);
-                jsonObject.put("avatar_url", webhookAvatarUrl);
+                jsonObject.put("avatar_url", webhookAvatarUrl.substring(0, queryStart));
+
+                // Webhooks posted to forum channels must have a thread_name or thread_id
+                if(threadName != null) {
+                    jsonObject.put("thread_name", threadName);
+                }
             }
 
-            // Webhooks posted to forum channels must have a thread_name or thread_id
-            if(threadName != null) {
-                jsonObject.put("thread_name", threadName);
-            }
-
+            // General Message payload
             if (StringUtils.isNotBlank(message)) jsonObject.put("content", message);
             if (embeds != null) {
                 JSONArray jsonArray = new JSONArray();
@@ -423,20 +428,13 @@ public class WebhookManager {
                 }
             }
 
-//            Request.Builder requestBuilder = new Request.Builder()
-//                    .url(webhookUrl)
-//                    .header("User-Agent", "DiscordSRV/" + DiscordSRV.getPlugin().getDescription().getVersion());
-//            if (editMessageId == null) {
-//                requestBuilder.post(bodyBuilder.build());
-//            } else {
-//                requestBuilder.patch(bodyBuilder.build());
-//            }
 
-            Route.CompiledRoute route = Route.Webhooks.EXECUTE_WEBHOOK
-                    .compile(webhook.getId(), webhook.getToken())
-                    .withQueryParams("wait", "true");
+            Route.CompiledRoute route = (editMessageID == null)
+                ? Route.Webhooks.EXECUTE_WEBHOOK.compile(webhook.getId(), webhook.getToken()).withQueryParams("wait", "true")
+                : Route.Webhooks.EXECUTE_WEBHOOK_EDIT.compile(webhook.getId(), webhook.getToken(), editMessageID).withQueryParams("thread_id", editMessageID);
 
             DiscordPS.info("Querying URL: " + route.getCompiledRoute());
+
             JDAImpl jda = (JDAImpl) webhook.getJDA();
 
             return Optional.of(new RestActionImpl<>(jda, route, bodyBuilder.build(), (response, request) -> {
@@ -452,7 +450,11 @@ public class WebhookManager {
                         return Optional.empty();
                     }
                     Optional<DataObject> body = response.optObject();
+                    DiscordPS.info("Got API response: " + response.getString());
+
                     if (body.isPresent()) {
+
+
                         if (body.get().hasKey("code")) {
                             if (body.get().getInt("code") == 10015) {
                                 DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Webhook delivery returned 10015 (Unknown Webhook)");
@@ -494,18 +496,6 @@ public class WebhookManager {
         }
         return Optional.empty();
     }
-
-//    @Nonnull
-//    @CheckReturnValue
-//    private static RestAction<Message> retrieveMessageById(@Nonnull String messageId) {
-//        AccountTypeException.check(this.getJDA().getAccountType(), AccountType.BOT);
-//        Checks.isSnowflake(messageId, "Message ID");
-//        JDAImpl jda = (JDAImpl)this.getJDA();
-//        Route.CompiledRoute route = Route.Messages.GET_MESSAGE.compile(new String[]{this.getId(), messageId});
-//        return new RestActionImpl<>(jda, route, (response, request) -> {
-//            return jda.getEntityBuilder().createMessage(response.getObject(), this, false);
-//        });
-//    }
 
     @Deprecated
     private static void executeWebhook(TextChannel channel, String webhookName, String webhookAvatarUrl, String editMessageId, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions, boolean allowSecondAttempt, boolean scheduleAsync) {
