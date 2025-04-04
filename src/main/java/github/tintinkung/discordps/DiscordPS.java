@@ -1,6 +1,6 @@
 package github.tintinkung.discordps;
 
-import github.scarsz.discordsrv.dependencies.jda.api.entities.ChannelType;
+import github.scarsz.discordsrv.util.SchedulerUtil;
 import github.tintinkung.discordps.core.listeners.DiscordSRVListener;
 import github.tintinkung.discordps.core.listeners.DiscordSRVLoadedListener;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -18,6 +18,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
@@ -26,10 +27,17 @@ public final class DiscordPS extends JavaPlugin {
     private static final String VERSION = "1.4.2";
 
     public static final String DISCORD_SRV = "DiscordSRV"; // DiscordSRV main class symbol
+    public static final int LOADING_TIMEOUT = 5000;
 
     private static DiscordPS plugin;
     private YamlConfiguration config;
     private DiscordSRVListener discordSrvHook;
+
+    public static DiscordPS getPlugin() { return plugin; }
+
+    public @NotNull YamlConfiguration getConfig() {
+        return config;
+    }
 
     @Override
     public void onEnable() {
@@ -38,34 +46,8 @@ public final class DiscordPS extends JavaPlugin {
         // Create configs
         createConfig();
 
-        Plugin discordSrv = getServer().getPluginManager().getPlugin(DISCORD_SRV);
-
-        if (discordSrv != null) {
-            DiscordPS.info("DiscordSRV is enabled");
-            subscribeToDiscordSrv(discordSrv);
-        } else {
-            DiscordPS.error("DiscordSRV is not enabled: continuing without discord support");
-
-            getLogger().warning("DiscordSRV is not currently enabled (messages will NOT be sent to Discord).");
-            getLogger().warning("Staff chat messages will still work in-game, however.");
-
-            // Subscribe to DiscordSRV later if it somehow hasn't enabled yet.
-            getServer().getPluginManager().registerEvents(new DiscordSRVLoadedListener(this), this);
-
-            // getServer().getPluginManager().registerEvents(new EventListener(), this);
-        }
-
-        // Initialize database connection
-        try {
-            DatabaseConnection.InitializeDatabase();
-            Bukkit.getConsoleSender().sendMessage("Successfully initialized database connection.");
-        } catch (Exception ex) {
-            Bukkit.getConsoleSender().sendMessage("Could not initialize database connection.");
-            DiscordPS.error(ex.getMessage(), ex);
-
-            this.getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
+        Thread initThread = getInitThread();
+        initThread.start();
 
         // Register Events
         // getServer().getPluginManager().registerEvents(new EventListener(), this);
@@ -77,10 +59,61 @@ public final class DiscordPS extends JavaPlugin {
                 .append(text("] Loaded successfully!")).content());
     }
 
-    public static DiscordPS getPlugin() { return plugin; }
+    public void disablePlugin() {
+        SchedulerUtil.runTask(
+        this,
+            () -> Bukkit.getPluginManager().disablePlugin(this)
+        );
+    }
 
-    public @NotNull YamlConfiguration getConfig() {
-        return config;
+    private @NotNull Thread getInitThread() {
+        Thread initThread = new Thread(this::init, "DiscordPlotSystem - Initialization");
+        initThread.setUncaughtExceptionHandler((t, e) -> {
+            // make DiscordSRV go red in /plugins
+            disablePlugin();
+            error(e);
+            error("==============================================================");
+            error("DiscordPlotSystem failed to load properly: " + e.getMessage());
+            error("==============================================================");
+        });
+        return initThread;
+    }
+
+    private void init() {
+
+        Plugin discordSRV = getServer().getPluginManager().getPlugin(DISCORD_SRV);
+
+        if (discordSRV != null) {
+            DiscordPS.info("DiscordSRV is enabled");
+            subscribeToDiscordSRV(discordSRV);
+        } else {
+            DiscordPS.error("DiscordSRV is not enabled: continuing without discord support");
+
+            DiscordPS.warning("DiscordSRV is not currently enabled (Plot System will not be manage).");
+
+            // Subscribe to DiscordSRV later if it somehow hasn't enabled yet.
+            Bukkit.getPluginManager().registerEvents(new DiscordSRVLoadedListener(this), this);
+
+            // Timeout if it takes too long to load
+            SchedulerUtil.runTaskLater(this, () -> {
+                if (!isDiscordSrvHookEnabled()) {
+                    DiscordPS.error(new TimeoutException("DiscordSRV never loaded. timed out."));
+                    this.disablePlugin();
+                }
+            }, LOADING_TIMEOUT);
+        }
+
+        // Initialize database connection
+        try {
+            DatabaseConnection.InitializeDatabase();
+            DiscordPS.info("Successfully initialized database connection.");
+        } catch (Exception ex) {
+            DiscordPS.error("Could not initialize database connection.");
+            DiscordPS.error(ex.getMessage(), ex);
+
+            this.disablePlugin();
+            return;
+        }
     }
 
     private void createConfig() {
@@ -97,7 +130,7 @@ public final class DiscordPS extends JavaPlugin {
         }
     }
 
-    public void subscribeToDiscordSrv(Plugin plugin) {
+    public void subscribeToDiscordSRV(Plugin plugin) {
         DiscordPS.info("subscribing to DiscordSRV: " + plugin);
 
         if (!DISCORD_SRV.equals(plugin.getName()) || !(plugin instanceof DiscordSRV)) {
@@ -113,8 +146,7 @@ public final class DiscordPS extends JavaPlugin {
         }
 
         DiscordSRV.api.subscribe(discordSrvHook = new DiscordSRVListener(this));
-
-        DiscordSRV.info("Subscribed to DiscordSRV: messages will be sent to Discord");
+        DiscordPS.info("Subscribed to DiscordSRV: Plot System will be manage by its JDA instance.");
     }
 
     public boolean isDiscordSrvHookEnabled() {

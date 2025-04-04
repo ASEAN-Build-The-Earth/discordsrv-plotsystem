@@ -19,5 +19,13 @@ public abstract class ConfigPaths {
     public static final String WEBHOOK_NAME = WEBHOOK + "name";
     public static final String WEBHOOK_ID = WEBHOOK + "id";
     public static final String WEBHOOK_CHANNEL_ID = WEBHOOK + "channel-id";
+    public static final String WEBHOOK_GUILD_ID = WEBHOOK + "guild-id";
     public static final String WEBHOOK_URL = WEBHOOK + "url";
+
+    // Status Tags
+    private static final String TAG = "available-tag.";
+    public static final String TAG_FINISHED = TAG + "finished";
+    public static final String TAG_REJECTED = TAG + "rejected";
+    public static final String TAG_APPROVED = TAG + "approved";
+    public static final String TAG_ARCHIVED = TAG + "archived";
 }

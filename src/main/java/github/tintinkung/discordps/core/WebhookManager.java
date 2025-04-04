@@ -1,20 +1,17 @@
 package github.tintinkung.discordps.core;
 
 import github.scarsz.discordsrv.dependencies.jda.api.AccountType;
-import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.AccountTypeException;
-import github.scarsz.discordsrv.dependencies.jda.api.exceptions.RateLimitedException;
-import github.scarsz.discordsrv.dependencies.jda.api.requests.Request;
-import github.scarsz.discordsrv.dependencies.jda.api.requests.Response;
+import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
+import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl;
-import github.scarsz.discordsrv.dependencies.jda.internal.requests.Requester;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.scarsz.discordsrv.dependencies.okhttp3.*;
-import github.scarsz.discordsrv.dependencies.okhttp3.internal.Util;
+import github.tintinkung.discordps.ConfigPaths;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.Debug;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -28,23 +25,16 @@ import github.scarsz.discordsrv.dependencies.json.JSONArray;
 import github.scarsz.discordsrv.dependencies.json.JSONObject;
 import github.scarsz.discordsrv.dependencies.okio.Okio;
 import github.scarsz.discordsrv.util.*;
+import github.tintinkung.discordps.core.utils.AvailableTags;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiFunction;
-import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -55,10 +45,41 @@ import java.util.stream.Collectors;
  * </a>
  */
 public class WebhookManager {
-
+    private static boolean isValidWebhook = true;
     private static boolean loggedBannedWords = false;
+    private static final String channelID;
+    private static final String webhookID;
+    private static final JDAImpl jda;
+    private static Webhook webhook;
 
     static {
+        FileConfiguration configFile = DiscordPS.getPlugin().getConfig();
+        channelID = configFile.getString(ConfigPaths.WEBHOOK_CHANNEL_ID);
+        webhookID = configFile.getString(ConfigPaths.WEBHOOK_ID);
+        jda = (JDAImpl) DiscordSRV.getPlugin().getJda();
+
+        try {
+            AccountTypeException.check(jda.getAccountType(), AccountType.BOT);
+        }
+        catch (AccountTypeException ex) {
+            isValidWebhook = false;
+            DiscordPS.error("Configured Discord BOT is not suitable for this plugin", ex);
+        }
+
+        // Parse webhook reference from config
+        try {
+            if(channelID != null) Checks.isSnowflake(channelID, "Webhook Channel ID");
+            else DiscordPS.error("Configured Channel ID is invalid, please check the config file");
+
+            if(webhookID != null) Checks.isSnowflake(webhookID, "Webhook ID");
+            else DiscordPS.error("Configured Webhook ID is invalid, please check the config file");
+        }
+        catch (IllegalArgumentException ex) {
+            isValidWebhook = false;
+            DiscordPS.error(ex);
+        }
+
+        // Fetch database to update webhooks every day
         try {
             // get rid of all previous webhooks created by DiscordSRV if they don't match a good channel
             for (Guild guild : DiscordSRV.getPlugin().getJda().getGuilds()) {
@@ -83,9 +104,106 @@ public class WebhookManager {
             }
         } catch (Exception e) {
             DiscordPS.warning("Failed to purge already existing webhooks: " + e.getMessage());
-            // DiscordPS.debug(Debug.MINECRAFT_TO_DISCORD, e);
+        }
+
+        // Initialize webhook reference
+        if(channelID != null && webhookID != null) {
+            webhook = new Webhook.WebhookReference(
+                jda,
+                Long.parseUnsignedLong(webhookID),
+                Long.parseUnsignedLong(channelID))
+            .resolve().complete();
+        }
+        else {
+            DiscordPS.error("Failed to configure webhook setting by " + WebhookManager.class.getName());
+            isValidWebhook = false;
+        }
+
+        // Resolve the config path into tag enum
+        try {
+            AvailableTags.resolveAllTag(configFile);
+        }
+        catch (NoSuchElementException ex) {
+            DiscordPS.error("Failed to resolve available tag from config file.", ex);
+            isValidWebhook = false;
         }
     }
+
+    public static void validateWebhook() throws RuntimeException {
+        if(!isValidWebhook) throw new RuntimeException("WebhookManager is not configured properly");
+    }
+
+    public static void validateStatusTags() throws RuntimeException {
+        validateWebhook();
+
+        DataArray availableTags = getAvailableTags(true)
+            .complete()
+            .orElseThrow(() -> new RuntimeException("Failed to fetch webhook channel data to validate available tags."));
+        try {
+            AvailableTags.initCache(availableTags);
+            AvailableTags.applyAllTag();
+        }
+        catch (ParsingException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    public static String getWebhookID() {
+        return webhookID;
+    }
+
+    public static String getChannelID() {
+        return channelID;
+    }
+
+    public static Guild getGuild() {
+        return webhook.getGuild();
+    }
+
+    public static RestAction<Optional<DataArray>> getAvailableTags(boolean allowSecondAttempt) {
+        Route.CompiledRoute route = Route.get(Route.Channels.MODIFY_CHANNEL.getRoute()).compile(channelID);
+
+        return new RestActionImpl<>(jda, route, (response, request) -> {
+            try {
+                int status = response.code;
+                if (status == 404) {
+                    // 404 = Invalid Webhook (most likely to have been deleted)
+                    DiscordPS.error("Channel GET returned 404" + (allowSecondAttempt? " ... retrying in 5 seconds" : ""));
+                    if (allowSecondAttempt)
+                        return getAvailableTags(false).completeAfter(5, TimeUnit.SECONDS);
+                    request.cancel();
+
+                    return Optional.empty();
+                }
+                Optional<DataObject> body = response.optObject();
+
+                DiscordPS.info("Got API response: " + response.getString());
+
+                if (body.isPresent()) {
+                    if (body.get().hasKey("code")) {
+                        if (body.get().getInt("code") == 10015) {
+                            DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Webhook delivery returned 10015 (Unknown Webhook)");
+                            request.cancel();
+                            return Optional.empty();
+                        }
+                    }
+
+                    DiscordPS.info("Packaging API response of: " + body.get().toPrettyString());
+
+                    if(body.get().hasKey("available_tags"))
+                        return Optional.of(body.get().getArray("available_tags"));
+
+                    return Optional.empty();
+                }
+            }
+            catch (Throwable ex) {
+                DiscordPS.info("Failed to receive API response: " + ex.toString());
+            }
+            request.cancel();
+            return Optional.empty();
+        });
+    }
+
 
     public static void deliverMessage(TextChannel channel, Player player, String message) {
         deliverMessage(channel, player, message, (Collection<? extends MessageEmbed>) null);

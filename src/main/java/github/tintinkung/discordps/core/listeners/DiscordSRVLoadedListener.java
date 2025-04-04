@@ -8,6 +8,7 @@ import org.bukkit.event.server.PluginEnableEvent;
 public class DiscordSRVLoadedListener implements Listener {
     private final DiscordPS plugin;
 
+
     public DiscordSRVLoadedListener(DiscordPS plugin) {
         this.plugin = plugin;
     }
@@ -15,7 +16,7 @@ public class DiscordSRVLoadedListener implements Listener {
     public void onPluginEnable(PluginEnableEvent event) {
         if (DiscordPS.DISCORD_SRV.equals(event.getPlugin().getName())) {
             DiscordPS.info("DiscordSRV loaded late: " + event.getPlugin());
-            plugin.subscribeToDiscordSrv(event.getPlugin());
+            plugin.subscribeToDiscordSRV(event.getPlugin());
         }
     }
 }
