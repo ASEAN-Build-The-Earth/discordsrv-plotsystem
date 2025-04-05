@@ -8,6 +8,8 @@ import github.scarsz.discordsrv.DiscordSRV;
 import github.tintinkung.discordps.core.database.DatabaseConnection;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTextColor;
+import github.tintinkung.discordps.core.utils.CoordinatesFormat;
+import github.tintinkung.discordps.core.utils.CoordinatesConversion;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
@@ -18,6 +20,8 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
@@ -26,12 +30,16 @@ import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Compone
 public final class DiscordPS extends JavaPlugin {
     private static final String VERSION = "1.4.2";
 
+    public static final String PLOT_SYSTEM = "Plot-System"; // PlotSystem main class symbol
     public static final String DISCORD_SRV = "DiscordSRV"; // DiscordSRV main class symbol
     public static final int LOADING_TIMEOUT = 5000;
 
     private static DiscordPS plugin;
     private YamlConfiguration config;
     private DiscordSRVListener discordSrvHook;
+
+    private CoordinatesConversion coordinatesConversion;
+    private CoordinatesFormat coordinatesFormat;
 
     public static DiscordPS getPlugin() { return plugin; }
 
@@ -82,6 +90,14 @@ public final class DiscordPS extends JavaPlugin {
     private void init() {
 
         Plugin discordSRV = getServer().getPluginManager().getPlugin(DISCORD_SRV);
+        Plugin plotSystem = getServer().getPluginManager().getPlugin(PLOT_SYSTEM);
+
+        if(plotSystem != null) {
+            DiscordPS.info("PlotSystem is enabled");
+            subscribeToPlotSystemUtil();
+        } else {
+            DiscordPS.warning("PlotSystem is not enabled: continuing without coordinate conversion support");
+        }
 
         if (discordSRV != null) {
             DiscordPS.info("DiscordSRV is enabled");
@@ -89,7 +105,7 @@ public final class DiscordPS extends JavaPlugin {
         } else {
             DiscordPS.error("DiscordSRV is not enabled: continuing without discord support");
 
-            DiscordPS.warning("DiscordSRV is not currently enabled (Plot System will not be manage).");
+            DiscordPS.error("DiscordSRV is not currently enabled (Plot System will not be manage).");
 
             // Subscribe to DiscordSRV later if it somehow hasn't enabled yet.
             Bukkit.getPluginManager().registerEvents(new DiscordSRVLoadedListener(this), this);
@@ -112,7 +128,6 @@ public final class DiscordPS extends JavaPlugin {
             DiscordPS.error(ex.getMessage(), ex);
 
             this.disablePlugin();
-            return;
         }
     }
 
@@ -147,6 +162,51 @@ public final class DiscordPS extends JavaPlugin {
 
         DiscordSRV.api.subscribe(discordSrvHook = new DiscordSRVListener(this));
         DiscordPS.info("Subscribed to DiscordSRV: Plot System will be manage by its JDA instance.");
+    }
+
+    public void subscribeToPlotSystemUtil() {
+        try {
+            Class<?> conversionUtil = Class.forName("com.alpsbte.plotsystem.utils.conversion.CoordinateConversion");
+            Method convertToGeo = conversionUtil.getMethod("convertToGeo", double.class, double.class);
+            Method formatGeoCoordinatesNumeric = conversionUtil.getMethod("formatGeoCoordinatesNumeric", double[].class);
+
+            coordinatesConversion = (xCords, yCords) -> {
+                try {
+                    return (double[]) convertToGeo.invoke(null, xCords, yCords);
+                } catch (IllegalAccessException ex) {
+                    throw new RuntimeException("Access error on method: " + formatGeoCoordinatesNumeric.getName(), ex);
+                } catch (InvocationTargetException ex) {
+                    Throwable cause = ex.getCause(); // Get original exception
+                    throw new RuntimeException("Method call failed due to: " + cause.getMessage(), cause);
+                }
+            };
+
+            coordinatesFormat = (coordinates) -> {
+                try {
+                    return (String) formatGeoCoordinatesNumeric.invoke(null, (Object) coordinates);
+                } catch (IllegalAccessException ex) {
+                    throw new RuntimeException("Access error on method: " + formatGeoCoordinatesNumeric.getName(), ex);
+                } catch (InvocationTargetException ex) {
+                    Throwable cause = ex.getCause(); // Get original exception
+                    throw new RuntimeException("Method call failed due to: " + cause.getMessage(), cause);
+                }
+            };
+
+            DiscordPS.info("Successfully validated Plot-System symbol reference.");
+        }
+        catch (ClassNotFoundException | NoSuchMethodException ex) {
+            DiscordPS.error("Failed to get Plot-System class reference, coordinates conversion will be disabled", ex);
+        }
+    }
+
+    public String formatGeoCoordinatesNumeric(double[] coordinates) throws RuntimeException {
+        if(coordinatesFormat == null) throw new RuntimeException("Not Subscribed to PlotSystem");
+        return this.coordinatesFormat.formatGeoCoordinatesNumeric(coordinates);
+    }
+
+    public double[] convertToGeo(double xCords, double yCords) throws RuntimeException {
+        if(coordinatesFormat == null) throw new RuntimeException("Not Subscribed to PlotSystem");
+        return this.coordinatesConversion.convertToGeo(xCords, yCords);
     }
 
     public boolean isDiscordSrvHookEnabled() {
