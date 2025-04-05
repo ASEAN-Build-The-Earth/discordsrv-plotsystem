@@ -13,7 +13,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class EventListener implements Listener {
+public class PlayerJoinLeaveListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();

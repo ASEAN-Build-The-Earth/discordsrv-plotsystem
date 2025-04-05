@@ -1,8 +1,10 @@
 package github.tintinkung.discordps;
 
+import github.scarsz.discordsrv.api.events.Event;
 import github.scarsz.discordsrv.util.SchedulerUtil;
+import github.tintinkung.discordps.core.api.ApiManager;
 import github.tintinkung.discordps.core.listeners.DiscordSRVListener;
-import github.tintinkung.discordps.core.listeners.DiscordSRVLoadedListener;
+import github.tintinkung.discordps.core.listeners.PluginLoadedListener;
 import github.scarsz.discordsrv.DiscordSRV;
 
 import github.tintinkung.discordps.core.database.DatabaseConnection;
@@ -34,6 +36,7 @@ public final class DiscordPS extends JavaPlugin {
     public static final String DISCORD_SRV = "DiscordSRV"; // DiscordSRV main class symbol
     public static final int LOADING_TIMEOUT = 5000;
 
+    public static final ApiManager api = new ApiManager();
     private static DiscordPS plugin;
     private YamlConfiguration config;
     private DiscordSRVListener discordSrvHook;
@@ -93,28 +96,33 @@ public final class DiscordPS extends JavaPlugin {
         Plugin plotSystem = getServer().getPluginManager().getPlugin(PLOT_SYSTEM);
 
         if(plotSystem != null) {
-            DiscordPS.info("PlotSystem is enabled");
+            DiscordPS.info("PlotSystem is loaded (enabled: " + getServer().getPluginManager().isPluginEnabled(plotSystem) + ")");
             subscribeToPlotSystemUtil();
         } else {
             DiscordPS.warning("PlotSystem is not enabled: continuing without coordinate conversion support");
         }
 
         if (discordSRV != null) {
-            DiscordPS.info("DiscordSRV is enabled");
+            DiscordPS.info("DiscordSRV is loaded (enabled: " + getServer().getPluginManager().isPluginEnabled(discordSRV) + ")");
             subscribeToDiscordSRV(discordSRV);
         } else {
             DiscordPS.error("DiscordSRV is not enabled: continuing without discord support");
-
             DiscordPS.error("DiscordSRV is not currently enabled (Plot System will not be manage).");
+        }
+
+        if(discordSRV == null || plotSystem == null) {
 
             // Subscribe to DiscordSRV later if it somehow hasn't enabled yet.
-            Bukkit.getPluginManager().registerEvents(new DiscordSRVLoadedListener(this), this);
+            Bukkit.getPluginManager().registerEvents(new PluginLoadedListener(this), this);
 
             // Timeout if it takes too long to load
             SchedulerUtil.runTaskLater(this, () -> {
                 if (!isDiscordSrvHookEnabled()) {
                     DiscordPS.error(new TimeoutException("DiscordSRV never loaded. timed out."));
                     this.disablePlugin();
+                }
+                if(!isPlotSystemHookEnabled()) {
+                    DiscordPS.warning("Plot-System never loaded: continuing without coordinate conversion support.");
                 }
             }, LOADING_TIMEOUT);
         }
@@ -211,6 +219,14 @@ public final class DiscordPS extends JavaPlugin {
 
     public boolean isDiscordSrvHookEnabled() {
         return discordSrvHook != null;
+    }
+
+    public boolean isPlotSystemHookEnabled() {
+        return coordinatesFormat != null && coordinatesConversion != null;
+    }
+
+    public <E extends Event> E callEvent(E event) {
+        return DiscordSRV.api.callEvent(event);
     }
 
     @Nullable

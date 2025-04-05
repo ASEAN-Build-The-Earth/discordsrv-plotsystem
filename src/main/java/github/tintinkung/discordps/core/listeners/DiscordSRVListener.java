@@ -11,7 +11,7 @@ import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.tintinkung.discordps.core.WebhookManager;
 
 @SuppressWarnings("unused")
-public class DiscordSRVListener extends ListenerAdapter {
+public class DiscordSRVListener {
     private final DiscordPS plugin;
 
     public DiscordSRVListener(DiscordPS plugin) {
@@ -26,6 +26,7 @@ public class DiscordSRVListener extends ListenerAdapter {
         DiscordPS.info("[DiscordPS] JDA Is Ready");
 
         DiscordSRV.getPlugin().getJda().addEventListener(new DiscordDisconnectListener());
+        DiscordPS.api.subscribe(new PlotSubmitListener());
 
         try {
             WebhookManager.validateWebhook();
@@ -41,6 +42,7 @@ public class DiscordSRVListener extends ListenerAdapter {
             return;
         }
 
+        // WebhookDeliver.fetchSubmittedPlots();
         // WebhookDeliver.sendTestEmbed();
     }
 
