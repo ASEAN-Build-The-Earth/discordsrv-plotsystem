@@ -6,7 +6,7 @@
 
     <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>discordsrv-plotsystem</name>
@@ -80,10 +80,6 @@
         <repository>
             <id>Scarsz-Nexus</id>
             <url>https://nexus.scarsz.me/content/groups/public/</url>
-        </repository>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
         </repository>
         <repository>
             <id>sonatype</id>

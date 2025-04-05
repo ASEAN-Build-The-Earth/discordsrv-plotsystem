@@ -3,3 +3,33 @@ database:
   name: ""
   username: ""
   password: ""
+
+# Channel ID references
+# discord-srv: The main text channel which DiscordSRV plugin output to
+# plot-status: The plot status forum channel, requires one persistent webhook to be created
+# plot-notify: Optional notification channel to remind staffs the plots they haven't review
+channel:
+  discord-srv: ""
+  plot-status: ""
+  plot-notify: ""
+
+# Status Webhook config
+webhook:
+  name:	      ""
+  id:	      ""
+  channel-id: ""
+  guild-id:	  ""
+  url:        "https://discord.com/api/webhooks/{webhook-id}/{webhook-token}"
+
+# Forum channel tag
+available-tag:
+  finished: "finished"
+  rejected: "rejected"
+  approved: "approved"
+  archived: "archived"
+
+embed-color:
+  finished: "#fdcb58" # Yellow
+  rejected: "#dd2e44" # Red
+  approved: "#78b159" # Green
+  archived: "#55acee" # Blue

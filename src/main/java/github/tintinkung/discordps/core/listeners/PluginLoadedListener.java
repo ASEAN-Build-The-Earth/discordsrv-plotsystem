@@ -5,17 +5,23 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginEnableEvent;
 
 @SuppressWarnings("unused")
-public class DiscordSRVLoadedListener implements Listener {
+public class PluginLoadedListener implements Listener {
     private final DiscordPS plugin;
 
-    public DiscordSRVLoadedListener(DiscordPS plugin) {
+
+    public PluginLoadedListener(DiscordPS plugin) {
         this.plugin = plugin;
     }
 
     public void onPluginEnable(PluginEnableEvent event) {
         if (DiscordPS.DISCORD_SRV.equals(event.getPlugin().getName())) {
             DiscordPS.info("DiscordSRV loaded late: " + event.getPlugin());
-            plugin.subscribeToDiscordSrv(event.getPlugin());
+            plugin.subscribeToDiscordSRV(event.getPlugin());
+        }
+
+        if (DiscordPS.PLOT_SYSTEM.equals(event.getPlugin().getName())) {
+            DiscordPS.info("Plot-System loaded late: " + event.getPlugin());
+            plugin.subscribeToPlotSystemUtil();
         }
     }
 }

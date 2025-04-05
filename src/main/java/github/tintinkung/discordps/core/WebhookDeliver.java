@@ -1,5 +1,7 @@
 package github.tintinkung.discordps.core;
 
+import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
+import github.tintinkung.discordps.ConfigPaths;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
@@ -10,6 +12,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.entities.Webhook;
 import github.scarsz.discordsrv.util.*;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.file.FileConfiguration;
 
 import java.awt.*;
 import java.util.Date;
@@ -22,12 +25,25 @@ public class WebhookDeliver {
     }
 
     public static void sendTestEmbed() {
-        TextChannel channel = DiscordSRV.getPlugin().getJda().getTextChannelById("PLACEHOLDER_CONFIG");
+        // TextChannel channel = DiscordPS.getPlugin().getStatusChannelOrNull();
 
-        Message message = DiscordUtil.sendMessageBlocking(channel, "Plot ID: 1");
+        FileConfiguration configFile = DiscordPS.getPlugin().getConfig();
+
+        Webhook.WebhookReference webhookRef = new Webhook.WebhookReference(
+                DiscordSRV.getPlugin().getJda(),
+                Long.parseUnsignedLong(configFile.getString(ConfigPaths.WEBHOOK_ID)),
+                Long.parseUnsignedLong(configFile.getString(ConfigPaths.WEBHOOK_CHANNEL_ID)));
+
+        Webhook webhook = webhookRef.resolve().complete();
 
 
-        Webhook webhook = WebhookUtil.createWebhook(channel, "test-webhook");
+        DiscordPS.info("Got webhook url: " + webhook.getUrl());
+        // DiscordPS.info("Got webhook channel: " + webhook.getChannel());
+
+        // Message message = DiscordUtil.sendMessageBlocking(channel, "Plot ID: 1");
+
+
+        // Webhook webhook = WebhookUtil.createWebhook(channel, "test-webhook");
 
 
 
@@ -41,7 +57,9 @@ public class WebhookDeliver {
 
         // channel.createWebhook("uhh-webhook").
 
-        WebhookUtil.deliverMessage(channel, test, "test", "Test Message Webhook", embed);
+        // WebhookUtil.deliverMessage(channel, test, "test", "Test Message Webhook", embed);
+
+        WebhookManager.newThreadFromWebhook(webhook, "Test Plot 1", test, "test", "Test Message", embed);
 
         SchedulerUtil.runTaskLater(DiscordPS.getPlugin(), () -> {
             MessageEmbed editedEmbed = new EmbedBuilder()
