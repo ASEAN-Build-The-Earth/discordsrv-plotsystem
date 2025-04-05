@@ -28,4 +28,12 @@ public abstract class ConfigPaths {
     public static final String TAG_REJECTED = TAG + "rejected";
     public static final String TAG_APPROVED = TAG + "approved";
     public static final String TAG_ARCHIVED = TAG + "archived";
+
+
+    // Status Tags
+    private static final String EMBED = "embed-color.";
+    public static final String EMBED_COLOR_FINISHED = EMBED + "finished";
+    public static final String EMBED_COLOR_REJECTED = EMBED + "rejected";
+    public static final String EMBED_COLOR_APPROVED = EMBED + "approved";
+    public static final String EMBED_COLOR_ARCHIVED = EMBED + "archived";
 }
