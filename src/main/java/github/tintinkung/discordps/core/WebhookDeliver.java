@@ -1,21 +1,32 @@
 package github.tintinkung.discordps.core;
 
+import github.scarsz.discordsrv.Debug;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
+import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
+import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
+import github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl;
+import github.scarsz.discordsrv.dependencies.jda.internal.entities.WebhookImpl;
+import github.scarsz.discordsrv.dependencies.jda.internal.requests.Method;
+import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
+import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
 import github.tintinkung.discordps.ConfigPaths;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.Webhook;
 import github.scarsz.discordsrv.util.*;
+import github.tintinkung.discordps.core.database.PlotEntry;
+import github.tintinkung.discordps.core.utils.BuilderUser;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.awt.*;
+import java.sql.SQLException;
 import java.util.Date;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.UUID;
 
 public class WebhookDeliver {
@@ -24,65 +35,45 @@ public class WebhookDeliver {
 
     }
 
-    public static void sendTestEmbed() {
-        // TextChannel channel = DiscordPS.getPlugin().getStatusChannelOrNull();
+    public static void fetchSubmittedPlots() {
+        try {
+            List<PlotEntry> plots = PlotEntry.fetchSubmittedPlots();
 
-        FileConfiguration configFile = DiscordPS.getPlugin().getConfig();
+            // test plot
+            PlotEntry plot = plots.getFirst();
 
-        Webhook.WebhookReference webhookRef = new Webhook.WebhookReference(
-                DiscordSRV.getPlugin().getJda(),
-                Long.parseUnsignedLong(configFile.getString(ConfigPaths.WEBHOOK_ID)),
-                Long.parseUnsignedLong(configFile.getString(ConfigPaths.WEBHOOK_CHANNEL_ID)));
+            String[] mcLocation = plot.mcCoordinates().split(",");
 
-        Webhook webhook = webhookRef.resolve().complete();
+            double xCords = Double.parseDouble(mcLocation[0].trim());
+            double zCords = Double.parseDouble(mcLocation[2].trim());
+            double[] geoCords = DiscordPS.getPlugin().convertToGeo(xCords, zCords);
 
+            String geoCoordinates = DiscordPS.getPlugin().formatGeoCoordinatesNumeric(geoCords);
 
-        DiscordPS.info("Got webhook url: " + webhook.getUrl());
-        // DiscordPS.info("Got webhook channel: " + webhook.getChannel());
-
-        // Message message = DiscordUtil.sendMessageBlocking(channel, "Plot ID: 1");
-
-
-        // Webhook webhook = WebhookUtil.createWebhook(channel, "test-webhook");
-
-
-
-        MessageEmbed embed = new EmbedBuilder()
-                .setDescription(new Date() + "\n" + "```" + "Test Message Ha Ha Ha" + "```")
-                .setColor(Color.YELLOW)
-                .setFooter("Some Footer he he")
-                .build();
-
-        OfflinePlayer test = Bukkit.getOfflinePlayer(UUID.fromString("PLACEHOLDER_PLAYER"));
-
-        // channel.createWebhook("uhh-webhook").
-
-        // WebhookUtil.deliverMessage(channel, test, "test", "Test Message Webhook", embed);
-
-        WebhookManager.newThreadFromWebhook(webhook, "Test Plot 1", test, "test", "Test Message", embed);
-
-        SchedulerUtil.runTaskLater(DiscordPS.getPlugin(), () -> {
-            MessageEmbed editedEmbed = new EmbedBuilder()
-                    .setDescription(new Date() + "\n" + "```" + "Edited Embed Ha Ha Ha" + "```")
-                    .setColor(Color.BLUE)
-                    .setFooter("Some Footer he he")
+            MessageEmbed embed = new EmbedBuilder()
+                    .setDescription(geoCoordinates)
+                    .setColor(Color.YELLOW)
+                    .setFooter(plot.status().toString())
                     .build();
-            DiscordPS.info("Editing webhook URL: " + webhook.getUrl());
-            // WebhookUtil.editMessage(channel, message.getId(), "Edited Webhook", editedEmbed);
 
-//            Request.Builder requestBuilder = (new Request.Builder()).url(webhookUrl).header("User-Agent", "DiscordSRV/" + DiscordSRV.getPlugin().getDescription().getVersion());
-//            if (editMessageId == null) {
-//                requestBuilder.post(bodyBuilder.build());
-//            } else {
-//                requestBuilder.patch(bodyBuilder.build());
-//            }
-//
-//            OkHttpClient httpClient = DiscordSRV.getPlugin().getJda().getHttpClient();
-//            Response response = httpClient.newCall(requestBuilder.build()).execute();
+            OfflinePlayer owner = Bukkit.getOfflinePlayer(UUID.fromString(plot.ownerUUID()));
+            Member ownerDiscord = BuilderUser.getAsDiscordMember(owner);
 
+            try {
+                MessageReference sentMessage = WebhookManager.newThreadFromWebhook(
+                "Plot #" + plot.plotID(),
+                    BuilderUser.getAsAvatarURL(owner),
+                "## Plot #" + plot.plotID() + " by " + ownerDiscord.getAsMention(),
+                    embed
+                ).complete().orElseThrow();
 
-        }, 1000);
+                DiscordPS.info("Sent webhook of message id: " + sentMessage.getMessageId());
+            } catch (NoSuchElementException ex) {
+                DiscordPS.error("Failed to send webhook: " + ex);
+            };
 
-        // WebhookUtil.deliverMessage(channel, "test-webhook", );
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
