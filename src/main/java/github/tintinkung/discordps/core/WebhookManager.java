@@ -204,233 +204,21 @@ public class WebhookManager {
         });
     }
 
-
-    public static void deliverMessage(TextChannel channel, Player player, String message) {
-        deliverMessage(channel, player, message, (Collection<? extends MessageEmbed>) null);
+    public static RestAction<Optional<MessageReference>> newThreadFromWebhook(String threadName, String avatarURL, String message, MessageEmbed embed) throws NoSuchElementException {
+        return executeWebhook(webhook, threadName, avatarURL, null, message, Collections.singletonList(embed), null, null, true).orElseThrow();
     }
 
-    public static void deliverMessage(TextChannel channel, Player player, String message, MessageEmbed embed) {
-        deliverMessage(channel, player, player.getDisplayName(), message, embed);
+    public static RestAction<Optional<MessageReference>> newThreadFromWebhook(String threadName, String avatarURL, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) throws NoSuchElementException {
+        return executeWebhook(webhook, threadName, avatarURL, null, message, Collections.singletonList(embed), attachments, interactions, false).orElseThrow();
     }
 
-    public static void deliverMessage(TextChannel channel, Player player, String message, Collection<? extends MessageEmbed> embeds) {
-        deliverMessage(channel, player, player.getDisplayName(), message, embeds);
-    }
-
-    public static void deliverMessage(TextChannel channel, Player player, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        deliverMessage(channel, player, player.getDisplayName(), message, embed, attachments, interactions);
-    }
-
-    public static void deliverMessage(TextChannel channel, Player player, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        deliverMessage(channel, player, player.getDisplayName(), message, embeds, attachments, interactions);
-    }
-
-    public static void deliverMessage(TextChannel channel, OfflinePlayer player, String displayName, String message, MessageEmbed embed) {
-        deliverMessage(channel, player, displayName, message, embed, null, null);
-    }
-
-    public static void deliverMessage(TextChannel channel, OfflinePlayer player, String displayName, String message, Collection<? extends MessageEmbed> embeds) {
-        deliverMessage(channel, player, displayName, message, embeds, null, null);
-    }
-
-    public static void deliverMessage(TextChannel channel, OfflinePlayer player, String displayName, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        deliverMessage(channel, player, displayName, message, Collections.singletonList(embed), null, null);
-    }
-
-    public static void deliverMessage(TextChannel channel, OfflinePlayer player, String displayName, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        SchedulerUtil.runTaskAsynchronously(DiscordSRV.getPlugin(), () -> {
-            String avatarUrl;
-            if (player instanceof Player) {
-                avatarUrl = DiscordSRV.getAvatarUrl((Player) player);
-            } else {
-                avatarUrl = DiscordSRV.getAvatarUrl(player.getName(), player.getUniqueId());
-            }
-
-            String username = DiscordSRV.config().getString("Experiment_WebhookChatMessageUsernameFormat")
-                    .replace("%displayname%", displayName)
-                    .replace("%username%", String.valueOf(player.getName()));
-            String chatMessage = DiscordSRV.config().getString("Experiment_WebhookChatMessageFormat")
-                    .replace("%displayname%", displayName)
-                    .replace("%username%", player.getName())
-                    .replace("%message%", message.replace("[", "\\["));
-            chatMessage = PlaceholderUtil.replacePlaceholdersToDiscord(chatMessage, player);
-            username = PlaceholderUtil.replacePlaceholdersToDiscord(username, player);
-            username = MessageUtil.strip(username);
-
-            for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getGameRegexes().entrySet()) {
-                username = entry.getKey().matcher(username).replaceAll(entry.getValue());
-                chatMessage = entry.getKey().matcher(chatMessage).replaceAll(entry.getValue());
-
-                if (StringUtils.isBlank(username)) {
-                    DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Not processing Minecraft message because the webhook username was cleared by a filter: " + entry.getKey().pattern());
-                    return;
-                }
-
-                if (StringUtils.isBlank(chatMessage)) {
-                    DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Not processing Minecraft message because the webhook content was cleared by a filter: " + entry.getKey().pattern());
-                    return;
-                }
-            }
-
-            String userId = DiscordSRV.getPlugin().getAccountLinkManager().getDiscordId(player.getUniqueId());
-            if (userId != null) {
-                Member member = DiscordUtil.getMemberById(userId);
-                username = username
-                        .replace("%discordname%", member != null ? member.getEffectiveName() : "")
-                        .replace("%discordusername%", member != null ? member.getUser().getName() : "");
-                if (member != null) {
-                    if (DiscordSRV.config().getBoolean("Experiment_WebhookChatMessageAvatarFromDiscord"))
-                        avatarUrl = member.getUser().getEffectiveAvatarUrl();
-                    if (DiscordSRV.config().getBoolean("Experiment_WebhookChatMessageUsernameFromDiscord"))
-                        username = member.getEffectiveName();
-                }
-            } else {
-                username = username
-                        .replace("%discordname%", "")
-                        .replace("%discordusername%", "");
-            }
-
-            if (username.length() > 80) {
-                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "The webhook username in " + player.getName() + "'s message was too long! Reducing to 80 characters");
-                username = username.substring(0, 80);
-            }
-
-            deliverMessage(channel, username, avatarUrl, chatMessage, embeds, attachments, interactions);
-        });
-    }
-
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, MessageEmbed embed) {
-        executeWebhook(channel, webhookName, webhookAvatarUrl, null, message, Collections.singletonList(embed), null, null, true, true);
-    }
-
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, MessageEmbed embed, boolean scheduleAsync) {
-        executeWebhook(channel, webhookName, webhookAvatarUrl, null, message, Collections.singletonList(embed), null, null, true, scheduleAsync);
-    }
-
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, Collection<? extends MessageEmbed> embeds) {
-        executeWebhook(channel, webhookName, webhookAvatarUrl, null, message, embeds, null, null, true, true);
-    }
-
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, Collection<? extends MessageEmbed> embeds, boolean scheduleAsync) {
-        executeWebhook(channel, webhookName, webhookAvatarUrl, null, message, embeds, null, null, true, scheduleAsync);
-    }
-
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        executeWebhook(channel, webhookName, webhookAvatarUrl, null, message, Collections.singletonList(embed), attachments, interactions, true, true);
-    }
-
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions, boolean scheduleAsync) {
-        executeWebhook(channel, webhookName, webhookAvatarUrl, null, message, Collections.singletonList(embed), attachments, interactions, true, scheduleAsync);
-    }
-
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        executeWebhook(channel, webhookName, webhookAvatarUrl, null, message, embeds, attachments, interactions, true, true);
-    }
-
-    public static void deliverMessage(TextChannel channel, String webhookName, String webhookAvatarUrl, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions, boolean scheduleAsync) {
-        executeWebhook(channel, webhookName, webhookAvatarUrl, null, message, embeds, attachments, interactions, true, scheduleAsync);
-    }
-
-    public static void editMessage(TextChannel channel, String editMessageId, String message, MessageEmbed embed) {
-        executeWebhook(channel, null, null, editMessageId, message, Collections.singletonList(embed), null, null, true, true);
-    }
-
-    public static void editMessage(TextChannel channel, String editMessageId, String message, MessageEmbed embed, boolean scheduleAsync) {
-        executeWebhook(channel, null, null, editMessageId, message, Collections.singletonList(embed), null, null, true, scheduleAsync);
-    }
-
-    public static void editMessage(TextChannel channel, String editMessageId, String message, Collection<? extends MessageEmbed> embeds) {
-        executeWebhook(channel, null, null, editMessageId, message, embeds, null, null, true, true);
-    }
-
-    public static void editMessage(TextChannel channel, String editMessageId, String message, Collection<? extends MessageEmbed> embeds, boolean scheduleAsync) {
-        executeWebhook(channel, null, null, editMessageId, message, embeds, null, null, true, scheduleAsync);
-    }
-
-    public static void editMessage(TextChannel channel, String editMessageId, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        executeWebhook(channel, null, null, editMessageId, message, Collections.singletonList(embed), attachments, interactions, true, true);
-    }
-
-    public static void editMessage(TextChannel channel, String editMessageId, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions, boolean scheduleAsync) {
-        executeWebhook(channel, null, null, editMessageId, message, Collections.singletonList(embed), attachments, interactions, true, scheduleAsync);
-    }
-
-    public static void editMessage(TextChannel channel, String editMessageId, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        executeWebhook(channel, null, null, editMessageId, message, embeds, attachments, interactions, true, true);
-    }
-
-    public static void editMessage(TextChannel channel, String editMessageId, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions, boolean scheduleAsync) {
-        executeWebhook(channel, null, null, editMessageId, message, embeds, attachments, interactions, true, scheduleAsync);
-    }
-
-    public static RestAction<Optional<MessageReference>> newThreadFromWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, MessageEmbed embed) throws NoSuchElementException {
-        return executeWebhook(webhook, threadName, player, displayName, message, Collections.singletonList(embed), null, null).orElseThrow();
-    }
-
-    public static RestAction<Optional<MessageReference>> newThreadFromWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) throws NoSuchElementException {
-        return executeWebhook(webhook, threadName, player, displayName, message, Collections.singletonList(embed), attachments, interactions).orElseThrow();
-    }
-
-    public static Optional<RestAction<Optional<MessageReference>>> editWebhookMessage(Webhook webhook, String messageID, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
+    public static Optional<RestAction<Optional<MessageReference>>> editWebhookMessage(String messageID, String message, MessageEmbed embed, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
         return executeWebhook(webhook, null, null, messageID, message, Collections.singletonList(embed), attachments, interactions, false);
     }
 
-    public static Optional<RestAction<Optional<MessageReference>>> editWebhookMessage(Webhook webhook, String messageID, String message, MessageEmbed embed) {
+    public static Optional<RestAction<Optional<MessageReference>>> editWebhookMessage(String messageID, String message, MessageEmbed embed) {
         DiscordPS.info("Editing message ID: " + messageID);
         return executeWebhook(webhook, null, null, messageID, message, Collections.singletonList(embed), null, null, false);
-    }
-
-    public static Optional<RestAction<Optional<MessageReference>>> executeWebhook(Webhook webhook, String threadName, OfflinePlayer player, String displayName, String message, Collection<? extends MessageEmbed> embeds, Map<String, InputStream> attachments, Collection<? extends ActionRow> interactions) {
-        String avatarUrl, username = displayName, content = message;
-        if (player instanceof Player) {
-            avatarUrl = DiscordSRV.getAvatarUrl((Player) player);
-        } else {
-            avatarUrl = DiscordSRV.getAvatarUrl(player.getName(), player.getUniqueId());
-        }
-
-        for (Map.Entry<Pattern, String> entry : DiscordSRV.getPlugin().getGameRegexes().entrySet()) {
-            username = entry.getKey().matcher(displayName).replaceAll(entry.getValue());
-            content = entry.getKey().matcher(message).replaceAll(entry.getValue());
-
-            if (StringUtils.isBlank(username)) {
-                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Not processing Minecraft message because the webhook username was cleared by a filter: " + entry.getKey().pattern());
-                return Optional.empty();
-            }
-
-            if (StringUtils.isBlank(content)) {
-                DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Not processing Minecraft message because the webhook content was cleared by a filter: " + entry.getKey().pattern());
-                return Optional.empty();
-            }
-        }
-
-        String userId = DiscordSRV.getPlugin().getAccountLinkManager().getDiscordId(player.getUniqueId());
-        if (userId != null) {
-            Member member = DiscordUtil.getMemberById(userId);
-            username = username
-                    .replace("%discordname%", member != null ? member.getEffectiveName() : "")
-                    .replace("%discordusername%", member != null ? member.getUser().getName() : "");
-            if (member != null) {
-                if (DiscordSRV.config().getBoolean("Experiment_WebhookChatMessageAvatarFromDiscord"))
-                    avatarUrl = member.getUser().getEffectiveAvatarUrl();
-                if (DiscordSRV.config().getBoolean("Experiment_WebhookChatMessageUsernameFromDiscord"))
-                    username = member.getEffectiveName();
-            }
-        } else {
-            username = username
-                    .replace("%discordname%", "")
-                    .replace("%discordusername%", "");
-        }
-
-        if (username.length() > 80) {
-            DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "The webhook username in " + player.getName() + "'s message was too long! Reducing to 80 characters");
-            username = username.substring(0, 80);
-        }
-
-        DiscordPS.info("Processing thread for user: " + username);
-
-
-
-        return executeWebhook(webhook, threadName, avatarUrl, null, content, embeds, attachments, interactions, true);
     }
 
     private static Optional<RestAction<Optional<MessageReference>>> executeWebhook(
@@ -475,11 +263,12 @@ public class WebhookManager {
                     loggedBannedWords = true;
                 }
 
-
-                int queryStart = webhookAvatarUrl.indexOf(63);
-
                 jsonObject.put("username", username);
-                jsonObject.put("avatar_url", webhookAvatarUrl.substring(0, queryStart));
+
+                if(webhookAvatarUrl != null) {
+                    int queryStart = webhookAvatarUrl.indexOf(63);
+                    jsonObject.put("avatar_url", webhookAvatarUrl.substring(0, queryStart));
+                }
 
                 // Webhooks posted to forum channels must have a thread_name or thread_id
                 if(threadName != null) {
@@ -561,9 +350,20 @@ public class WebhookManager {
                     if (status == 404) {
                         // 404 = Invalid Webhook (most likely to have been deleted)
                         DiscordSRV.debug(Debug.MINECRAFT_TO_DISCORD, "Webhook delivery returned 404, marking webhooks URLs as invalid to let them regenerate" + (allowSecondAttempt ? " & trying again" : ""));
-                        // invalidWebhookUrlForChannel(webhook.getChannel()); // tell it to get rid of the urls & get new ones
-                        //if (allowSecondAttempt)
-                        //   executeWebhook(webhook, threadName, webhookAvatarUrl, editMessageId, message, embeds, attachments, interactions, false, scheduleAsync);
+
+                        // Prep the same statement to try second attempt
+                        if (allowSecondAttempt) {
+                            Optional<RestAction<Optional<MessageReference>>> secondAttempt = executeWebhook(webhook,
+                                threadName,
+                                webhookAvatarUrl,
+                                editMessageID,
+                                message,
+                                embeds,
+                                attachments,
+                                interactions,
+                                false);
+                            if(secondAttempt.isPresent()) return secondAttempt.get().completeAfter(5, TimeUnit.SECONDS);
+                        }
                         request.cancel();
                         return Optional.empty();
                     }
@@ -571,7 +371,6 @@ public class WebhookManager {
                     DiscordPS.info("Got API response: " + response.getString());
 
                     if (body.isPresent()) {
-
 
                         if (body.get().hasKey("code")) {
                             if (body.get().getInt("code") == 10015) {
