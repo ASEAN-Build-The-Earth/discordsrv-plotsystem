@@ -1,0 +1,8 @@
+name: DiscordPlotSystem
+version: '1.0.1'
+main: github.tintinkung.discordps.DiscordPS
+api-version: '1.21'
+prefix: DiscordPlotSystem
+authors: [tintinkung]
+description: Plot-System's DiscordSRV extension
+website: https://github.com/tintinkung
