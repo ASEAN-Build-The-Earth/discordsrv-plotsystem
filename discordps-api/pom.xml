@@ -7,7 +7,7 @@
   <parent>
     <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
   </parent>
 
   <name>discordsrv-plotsystem:discordps-api</name>
@@ -16,7 +16,7 @@
   <properties>
     <java.version>21</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <build.number>1.0.3</build.number>
+    <build.number>1.0.4</build.number>
   </properties>
 
   <!-- Plugin Build Settings -->

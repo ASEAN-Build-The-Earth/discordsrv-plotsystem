@@ -1,26 +1,17 @@
 package github.tintinkung.discordps.api;
 
 import github.tintinkung.discordps.api.events.ApiEvent;
-import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 
 
-public final class ApiManager {
+final class ApiManager {
 
     private final List<Object> apiListeners = new CopyOnWriteArrayList<>();
 
-    /**
-     * Subscribe the given instance to DiscordPlotSystem events
-     * @param listener the instance to subscribe DiscordSRV events to
-     * @throws IllegalArgumentException if the object has zero methods that are annotated with {@link ApiSubscribe}
-     */
     public void subscribe(Object listener) {
         // ensure at least one method available in given object that is annotated with Subscribe
         int methodsAnnotatedSubscribe = 0;
@@ -38,21 +29,11 @@ public final class ApiManager {
         apiListeners.add(listener);
     }
 
-    /**
-     * Unsubscribe the given instance from DiscordSRV events
-     * @param listener the instance to unsubscribe DiscordSRV events from
-     * @return whether the instance was a listener
-     */
     public boolean unsubscribe(Object listener) {
         DiscordPlotSystemAPI.info("Unsubscribed from class " + listener.getClass().getName());
         return apiListeners.remove(listener);
     }
 
-    /**
-     * Call the given event to all subscribed API listeners
-     * @param event the event to be called
-     * @return the event that was called
-     */
     public <E extends ApiEvent> E callEvent(E event) {
         for (Object apiListener : apiListeners) {
             for (Method method : apiListener.getClass().getMethods()) {

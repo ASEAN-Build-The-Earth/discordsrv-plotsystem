@@ -7,7 +7,7 @@
     <parent>
         <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.0.3</version>
+        <version>1.0.4</version>
     </parent>
 
     <name>discordsrv-plotsystem:discordps</name>
@@ -17,7 +17,7 @@
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <build.number>1.0.3</build.number>
+        <build.number>1.0.4</build.number>
     </properties>
 
     <!-- Plugin Build Settings -->
@@ -137,12 +137,18 @@
             <scope>compile</scope>
         </dependency>
 
-
+        <!-- This Plugin's API -->
         <dependency>
-          <groupId>com.github.tintinkung.discordsrv-plotsystem</groupId>
-          <artifactId>discordps-api</artifactId>
-          <version>1.0.2</version>
-          <scope>compile</scope>
+            <groupId>com.github.tintinkung.discordsrv-plotsystem</groupId>
+            <artifactId>discordps-api</artifactId>
+            <version>1.0.3</version>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.spigotmc</groupId>
+                    <artifactId>spigot-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 

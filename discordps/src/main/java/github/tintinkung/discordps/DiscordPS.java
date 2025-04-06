@@ -2,9 +2,10 @@ package github.tintinkung.discordps;
 
 import github.scarsz.discordsrv.api.events.Event;
 import github.scarsz.discordsrv.util.SchedulerUtil;
-import github.tintinkung.discordps.core.api.ApiManager;
-import github.tintinkung.discordps.core.api.DiscordPlotSystem;
-import github.tintinkung.discordps.core.api.DiscordPlotSystemAPI;
+import github.tintinkung.discordps.api.ApiManager;
+import github.tintinkung.discordps.api.DiscordPlotSystem;
+import github.tintinkung.discordps.api.DiscordPlotSystemAPI;
+import github.tintinkung.discordps.api.events.ApiEvent;
 import github.tintinkung.discordps.core.listeners.DiscordSRVListener;
 import github.tintinkung.discordps.core.listeners.PluginLoadedListener;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -18,22 +19,18 @@ import github.tintinkung.discordps.core.utils.CoordinatesConversion;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Consumer;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 
 public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlotSystem {
-    private static final String VERSION = "1.0.3";
+    private static final String VERSION = "1.0.4";
 
     public static final String PS_UTIL = "com.alpsbte.plotsystem.utils.conversion.CoordinateConversion";
     public static final String PS_UTIL_CONVERT_TO_GEO = "convertToGeo";
@@ -43,6 +40,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
 
     public static final int LOADING_TIMEOUT = 5000;
+
 
     private YamlConfiguration config;
     private DiscordSRVListener discordSrvHook;
@@ -227,18 +225,15 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
         return this.coordinatesConversion.convertToGeo(xCords, yCords);
     }
 
-    @Override
     public boolean isDiscordSrvHookEnabled() {
         return discordSrvHook != null;
     }
 
-    @Override
     public boolean isPlotSystemHookEnabled() {
         return coordinatesFormat != null && coordinatesConversion != null;
     }
 
-    @Override
-    public <E extends Event> E callEvent(E event) {
+    public <E extends Event> E callDiscordSRVEvent(E event) {
         return DiscordSRV.api.callEvent(event);
     }
 
@@ -258,27 +253,30 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
     }
 
     // log messages
-    public static void logThrowable(Throwable throwable, Consumer<String> logger) {
-        StringWriter stringWriter = new StringWriter();
-        throwable.printStackTrace(new PrintWriter(stringWriter));
-
-        for (String line : stringWriter.toString().split("\n")) logger.accept(line);
-    }
-
     public static void info(String message) {
-        getPlugin().getLogger().info(message);
+        DiscordPlotSystemAPI.info(message);
     }
     public static void warning(String message) {
-        getPlugin().getLogger().warning(message);
+        DiscordPlotSystemAPI.warning(message);
     }
     public static void error(String message) {
-        getPlugin().getLogger().severe(message);
+        DiscordPlotSystemAPI.error(message);
     }
     public static void error(Throwable throwable) {
         logThrowable(throwable, DiscordPS::error);
     }
     public static void error(String message, Throwable throwable) {
-        error(message);
-        error(throwable);
+        DiscordPlotSystemAPI.error(message);
+        DiscordPlotSystemAPI.error(throwable);
+    }
+
+    @Override
+    public <E extends ApiEvent> E callEvent(E e) {
+        return null;
+    }
+
+    @Override
+    public boolean unsubscribe(Object o) {
+        return false;
     }
 }

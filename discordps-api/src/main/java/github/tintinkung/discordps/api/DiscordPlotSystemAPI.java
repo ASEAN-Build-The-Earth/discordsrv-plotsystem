@@ -1,6 +1,7 @@
 package github.tintinkung.discordps.api;
 
 
+import github.tintinkung.discordps.api.events.ApiEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.PrintWriter;
@@ -11,9 +12,11 @@ import java.util.function.Consumer;
  * DiscordPlotSystem super class, acts like a wrapper for API
  * providing static {@link DiscordPlotSystemAPI#getInstance()} instance.
  */
-public abstract class DiscordPlotSystemAPI extends JavaPlugin {
+public abstract class DiscordPlotSystemAPI extends JavaPlugin implements DiscordPlotSystem {
 
     protected static DiscordPlotSystem plugin;
+
+    private static final ApiManager api = new ApiManager();
 
     /**
      * Get the DiscordPlotSystem instance that supports API call.
@@ -21,6 +24,30 @@ public abstract class DiscordPlotSystemAPI extends JavaPlugin {
      */
     public static DiscordPlotSystem getInstance() {
         return plugin;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <E extends ApiEvent> E callEvent(E event) {
+        return api.callEvent(event);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean unsubscribe(Object listener) {
+        return api.unsubscribe(listener);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void subscribe(Object listener) {
+        api.subscribe(listener);
     }
 
     protected static void logThrowable(Throwable throwable, Consumer<String> logger) {

@@ -2,9 +2,7 @@ package github.tintinkung.discordps.core.listeners;
 
 
 import github.scarsz.discordsrv.DiscordSRV;
-import github.scarsz.discordsrv.dependencies.jda.api.hooks.ListenerAdapter;
 import github.tintinkung.discordps.DiscordPS;
-import github.tintinkung.discordps.core.WebhookDeliver;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.DiscordGuildMessageSentEvent;
 import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
@@ -26,7 +24,7 @@ public class DiscordSRVListener {
         DiscordPS.info("[DiscordPS] JDA Is Ready");
 
         DiscordSRV.getPlugin().getJda().addEventListener(new DiscordDisconnectListener());
-        DiscordPS.api.subscribe(new PlotSubmitListener());
+        // DiscordPS.api.subscribe(new PlotSubmitListener());
 
         try {
             WebhookManager.validateWebhook();

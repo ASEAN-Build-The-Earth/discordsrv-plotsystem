@@ -1,8 +1,8 @@
 package github.tintinkung.discordps.core.listeners;
 
 import github.tintinkung.discordps.DiscordPS;
-import github.tintinkung.discordps.core.api.ApiSubscribe;
-import github.tintinkung.discordps.core.api.PlotSubmitEvent;
+import github.tintinkung.discordps.api.ApiSubscribe;
+import github.tintinkung.discordps.api.events.PlotSubmitEvent;
 
 @SuppressWarnings("unused")
 public class PlotSubmitListener {
