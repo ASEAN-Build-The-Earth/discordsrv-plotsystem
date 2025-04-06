@@ -3,9 +3,12 @@ package github.tintinkung.discordps;
 import github.scarsz.discordsrv.api.events.Event;
 import github.scarsz.discordsrv.util.SchedulerUtil;
 import github.tintinkung.discordps.core.api.ApiManager;
+import github.tintinkung.discordps.core.api.DiscordPlotSystem;
+import github.tintinkung.discordps.core.api.DiscordPlotSystemAPI;
 import github.tintinkung.discordps.core.listeners.DiscordSRVListener;
 import github.tintinkung.discordps.core.listeners.PluginLoadedListener;
 import github.scarsz.discordsrv.DiscordSRV;
+
 
 import github.tintinkung.discordps.core.database.DatabaseConnection;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
@@ -29,29 +32,35 @@ import java.util.function.Consumer;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 
-public final class DiscordPS extends JavaPlugin {
-    private static final String VERSION = "1.4.2";
+public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlotSystem {
+    private static final String VERSION = "1.0.3";
 
-    public static final String PLOT_SYSTEM = "Plot-System"; // PlotSystem main class symbol
-    public static final String DISCORD_SRV = "DiscordSRV"; // DiscordSRV main class symbol
+    public static final String PS_UTIL = "com.alpsbte.plotsystem.utils.conversion.CoordinateConversion";
+    public static final String PS_UTIL_CONVERT_TO_GEO = "convertToGeo";
+    public static final String PS_UTIL_FORMAT_NUMERIC = "formatGeoCoordinatesNumeric";
+
+    public static final String PLOT_SYSTEM_SYMBOL = "Plot-System"; // PlotSystem main class symbol
+    public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
+
     public static final int LOADING_TIMEOUT = 5000;
 
-    public static final ApiManager api = new ApiManager();
-    private static DiscordPS plugin;
     private YamlConfiguration config;
     private DiscordSRVListener discordSrvHook;
 
     private CoordinatesConversion coordinatesConversion;
     private CoordinatesFormat coordinatesFormat;
 
-    public static DiscordPS getPlugin() { return plugin; }
-
     public @NotNull YamlConfiguration getConfig() {
         return config;
     }
 
+    public static DiscordPS getPlugin() {
+        return (DiscordPS) plugin;
+    }
+
     @Override
     public void onEnable() {
+
         plugin = this;
 
         // Create configs
@@ -62,6 +71,7 @@ public final class DiscordPS extends JavaPlugin {
 
         // Register Events
         // getServer().getPluginManager().registerEvents(new EventListener(), this);
+
 
         // Plugin startup logic
         Bukkit.getConsoleSender().sendMessage(text("[", NamedTextColor.DARK_GRAY)
@@ -92,8 +102,8 @@ public final class DiscordPS extends JavaPlugin {
 
     private void init() {
 
-        Plugin discordSRV = getServer().getPluginManager().getPlugin(DISCORD_SRV);
-        Plugin plotSystem = getServer().getPluginManager().getPlugin(PLOT_SYSTEM);
+        Plugin discordSRV = getServer().getPluginManager().getPlugin(DISCORD_SRV_SYMBOL);
+        Plugin plotSystem = getServer().getPluginManager().getPlugin(PLOT_SYSTEM_SYMBOL);
 
         if(plotSystem != null) {
             DiscordPS.info("PlotSystem is loaded (enabled: " + getServer().getPluginManager().isPluginEnabled(plotSystem) + ")");
@@ -156,7 +166,7 @@ public final class DiscordPS extends JavaPlugin {
     public void subscribeToDiscordSRV(Plugin plugin) {
         DiscordPS.info("subscribing to DiscordSRV: " + plugin);
 
-        if (!DISCORD_SRV.equals(plugin.getName()) || !(plugin instanceof DiscordSRV)) {
+        if (!DISCORD_SRV_SYMBOL.equals(plugin.getName()) || !(plugin instanceof DiscordSRV)) {
             DiscordPS.error(new IllegalArgumentException("Not DiscordSRV: " + plugin));
             return;
         }
@@ -174,9 +184,9 @@ public final class DiscordPS extends JavaPlugin {
 
     public void subscribeToPlotSystemUtil() {
         try {
-            Class<?> conversionUtil = Class.forName("com.alpsbte.plotsystem.utils.conversion.CoordinateConversion");
-            Method convertToGeo = conversionUtil.getMethod("convertToGeo", double.class, double.class);
-            Method formatGeoCoordinatesNumeric = conversionUtil.getMethod("formatGeoCoordinatesNumeric", double[].class);
+            Class<?> conversionUtil = Class.forName(PS_UTIL);
+            Method convertToGeo = conversionUtil.getMethod(PS_UTIL_CONVERT_TO_GEO, double.class, double.class);
+            Method formatGeoCoordinatesNumeric = conversionUtil.getMethod(PS_UTIL_FORMAT_NUMERIC, double[].class);
 
             coordinatesConversion = (xCords, yCords) -> {
                 try {
@@ -217,14 +227,17 @@ public final class DiscordPS extends JavaPlugin {
         return this.coordinatesConversion.convertToGeo(xCords, yCords);
     }
 
+    @Override
     public boolean isDiscordSrvHookEnabled() {
         return discordSrvHook != null;
     }
 
+    @Override
     public boolean isPlotSystemHookEnabled() {
         return coordinatesFormat != null && coordinatesConversion != null;
     }
 
+    @Override
     public <E extends Event> E callEvent(E event) {
         return DiscordSRV.api.callEvent(event);
     }
@@ -251,6 +264,7 @@ public final class DiscordPS extends JavaPlugin {
 
         for (String line : stringWriter.toString().split("\n")) logger.accept(line);
     }
+
     public static void info(String message) {
         getPlugin().getLogger().info(message);
     }
@@ -261,7 +275,7 @@ public final class DiscordPS extends JavaPlugin {
         getPlugin().getLogger().severe(message);
     }
     public static void error(Throwable throwable) {
-        logThrowable(throwable, DiscordSRV::error);
+        logThrowable(throwable, DiscordPS::error);
     }
     public static void error(String message, Throwable throwable) {
         error(message);
