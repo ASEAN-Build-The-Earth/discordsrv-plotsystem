@@ -27,12 +27,6 @@
     <!-- IMPORTANT: Output File Name -->
     <finalName>${project.artifactId}-${project.version}</finalName>
 
-    <resources>
-      <resource>
-        <directory>${basedir}/src/main/resources</directory>
-        <filtering>false</filtering>
-      </resource>
-    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
