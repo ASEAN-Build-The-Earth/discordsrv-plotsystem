@@ -24,6 +24,7 @@ public class DiscordSRVListener {
         DiscordPS.info("[DiscordPS] JDA Is Ready");
 
         DiscordSRV.getPlugin().getJda().addEventListener(new DiscordDisconnectListener());
+        DiscordPS.getInstance().subscribe(new PlotSubmitListener());
         // DiscordPS.api.subscribe(new PlotSubmitListener());
 
         try {

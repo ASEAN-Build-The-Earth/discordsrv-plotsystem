@@ -2,36 +2,24 @@ package github.tintinkung.discordps.core;
 
 import github.scarsz.discordsrv.Debug;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
-import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
-import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
-import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
-import github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl;
-import github.scarsz.discordsrv.dependencies.jda.internal.entities.WebhookImpl;
-import github.scarsz.discordsrv.dependencies.jda.internal.requests.Method;
-import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
-import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
-import github.tintinkung.discordps.ConfigPaths;
 import github.tintinkung.discordps.DiscordPS;
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
-import github.scarsz.discordsrv.util.*;
 import github.tintinkung.discordps.core.database.PlotEntry;
 import github.tintinkung.discordps.core.utils.BuilderUser;
+import github.tintinkung.discordps.core.utils.CoordinatesUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.configuration.file.FileConfiguration;
 
-import java.awt.*;
+import java.awt.Color;
 import java.sql.SQLException;
-import java.util.Date;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.UUID;
 
 public class WebhookDeliver {
 
     public WebhookDeliver() {
+
 
     }
 
@@ -46,9 +34,13 @@ public class WebhookDeliver {
 
             double xCords = Double.parseDouble(mcLocation[0].trim());
             double zCords = Double.parseDouble(mcLocation[2].trim());
-            double[] geoCords = DiscordPS.getPlugin().convertToGeo(xCords, zCords);
 
-            String geoCoordinates = DiscordPS.getPlugin().formatGeoCoordinatesNumeric(geoCords);
+
+            double[] geoCords = CoordinatesUtil.convertToGeo(xCords, zCords);
+
+
+
+            String geoCoordinates = CoordinatesUtil.formatGeoCoordinatesNumeric(geoCords);
 
             MessageEmbed embed = new EmbedBuilder()
                     .setDescription(geoCoordinates)

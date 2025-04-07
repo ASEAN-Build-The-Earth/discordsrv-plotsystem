@@ -2,10 +2,7 @@ package github.tintinkung.discordps;
 
 import github.scarsz.discordsrv.api.events.Event;
 import github.scarsz.discordsrv.util.SchedulerUtil;
-import github.tintinkung.discordps.api.ApiManager;
-import github.tintinkung.discordps.api.DiscordPlotSystem;
 import github.tintinkung.discordps.api.DiscordPlotSystemAPI;
-import github.tintinkung.discordps.api.events.ApiEvent;
 import github.tintinkung.discordps.core.listeners.DiscordSRVListener;
 import github.tintinkung.discordps.core.listeners.PluginLoadedListener;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -14,8 +11,7 @@ import github.scarsz.discordsrv.DiscordSRV;
 import github.tintinkung.discordps.core.database.DatabaseConnection;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTextColor;
-import github.tintinkung.discordps.core.utils.CoordinatesFormat;
-import github.tintinkung.discordps.core.utils.CoordinatesConversion;
+import github.tintinkung.discordps.core.utils.CoordinatesUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
@@ -29,12 +25,16 @@ import java.util.concurrent.TimeoutException;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 
-public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlotSystem {
+public final class DiscordPS extends DiscordPlotSystemAPI {
     private static final String VERSION = "1.0.4";
 
-    public static final String PS_UTIL = "com.alpsbte.plotsystem.utils.conversion.CoordinateConversion";
-    public static final String PS_UTIL_CONVERT_TO_GEO = "convertToGeo";
-    public static final String PS_UTIL_FORMAT_NUMERIC = "formatGeoCoordinatesNumeric";
+    /**
+     * Plot-System plugin Util we referenced to use (CoordinateConversion class)
+     * considering that there are running Plot-System instance the server this bot is running on.
+     * The method we use are convertToGeo and formatGeoCoordinatesNumeric.
+     */
+    private static final String PS_UTIL = "com.alpsbte.plotsystem.utils.conversion.CoordinateConversion";
+    private static final String PS_UTIL_CONVERT_TO_GEO = "convertToGeo";
 
     public static final String PLOT_SYSTEM_SYMBOL = "Plot-System"; // PlotSystem main class symbol
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
@@ -44,9 +44,6 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
 
     private YamlConfiguration config;
     private DiscordSRVListener discordSrvHook;
-
-    private CoordinatesConversion coordinatesConversion;
-    private CoordinatesFormat coordinatesFormat;
 
     public @NotNull YamlConfiguration getConfig() {
         return config;
@@ -107,7 +104,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
             DiscordPS.info("PlotSystem is loaded (enabled: " + getServer().getPluginManager().isPluginEnabled(plotSystem) + ")");
             subscribeToPlotSystemUtil();
         } else {
-            DiscordPS.warning("PlotSystem is not enabled: continuing without coordinate conversion support");
+            DiscordPS.warning("PlotSystem is not enabled: continuing without coordinate conversion optimization");
         }
 
         if (discordSRV != null) {
@@ -128,9 +125,6 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
                 if (!isDiscordSrvHookEnabled()) {
                     DiscordPS.error(new TimeoutException("DiscordSRV never loaded. timed out."));
                     this.disablePlugin();
-                }
-                if(!isPlotSystemHookEnabled()) {
-                    DiscordPS.warning("Plot-System never loaded: continuing without coordinate conversion support.");
                 }
             }, LOADING_TIMEOUT);
         }
@@ -184,29 +178,16 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
         try {
             Class<?> conversionUtil = Class.forName(PS_UTIL);
             Method convertToGeo = conversionUtil.getMethod(PS_UTIL_CONVERT_TO_GEO, double.class, double.class);
-            Method formatGeoCoordinatesNumeric = conversionUtil.getMethod(PS_UTIL_FORMAT_NUMERIC, double[].class);
 
-            coordinatesConversion = (xCords, yCords) -> {
+            CoordinatesUtil.initCoordinatesFunction((xCords, yCords) -> {
                 try {
                     return (double[]) convertToGeo.invoke(null, xCords, yCords);
                 } catch (IllegalAccessException ex) {
-                    throw new RuntimeException("Access error on method: " + formatGeoCoordinatesNumeric.getName(), ex);
+                    throw new RuntimeException("Access error on method: " + convertToGeo.getName(), ex);
                 } catch (InvocationTargetException ex) {
-                    Throwable cause = ex.getCause(); // Get original exception
-                    throw new RuntimeException("Method call failed due to: " + cause.getMessage(), cause);
+                    throw new RuntimeException("Method call failed due to: " + ex.getCause().getMessage(), ex);
                 }
-            };
-
-            coordinatesFormat = (coordinates) -> {
-                try {
-                    return (String) formatGeoCoordinatesNumeric.invoke(null, (Object) coordinates);
-                } catch (IllegalAccessException ex) {
-                    throw new RuntimeException("Access error on method: " + formatGeoCoordinatesNumeric.getName(), ex);
-                } catch (InvocationTargetException ex) {
-                    Throwable cause = ex.getCause(); // Get original exception
-                    throw new RuntimeException("Method call failed due to: " + cause.getMessage(), cause);
-                }
-            };
+            });
 
             DiscordPS.info("Successfully validated Plot-System symbol reference.");
         }
@@ -215,22 +196,9 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
         }
     }
 
-    public String formatGeoCoordinatesNumeric(double[] coordinates) throws RuntimeException {
-        if(coordinatesFormat == null) throw new RuntimeException("Not Subscribed to PlotSystem");
-        return this.coordinatesFormat.formatGeoCoordinatesNumeric(coordinates);
-    }
-
-    public double[] convertToGeo(double xCords, double yCords) throws RuntimeException {
-        if(coordinatesFormat == null) throw new RuntimeException("Not Subscribed to PlotSystem");
-        return this.coordinatesConversion.convertToGeo(xCords, yCords);
-    }
 
     public boolean isDiscordSrvHookEnabled() {
         return discordSrvHook != null;
-    }
-
-    public boolean isPlotSystemHookEnabled() {
-        return coordinatesFormat != null && coordinatesConversion != null;
     }
 
     public <E extends Event> E callDiscordSRVEvent(E event) {
@@ -268,15 +236,5 @@ public final class DiscordPS extends DiscordPlotSystemAPI implements DiscordPlot
     public static void error(String message, Throwable throwable) {
         DiscordPlotSystemAPI.error(message);
         DiscordPlotSystemAPI.error(throwable);
-    }
-
-    @Override
-    public <E extends ApiEvent> E callEvent(E e) {
-        return null;
-    }
-
-    @Override
-    public boolean unsubscribe(Object o) {
-        return false;
     }
 }
