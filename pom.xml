@@ -6,19 +6,47 @@
 
     <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>${build.number}</version>
+    <version>1.0.5</version>
     <packaging>pom</packaging>
 
     <name>discordsrv-plotsystem</name>
 
     <!-- Build Version -->
     <properties>
-        <build.number>1.0.4</build.number>
+        <build.number>1.0.5</build.number>
     </properties>
 
+    <!-- Jitpack Modules -->
+    <!-- com.github.tintinkung.discordsrv-plotsystem:discordps-api         -->
+    <!-- com.github.tintinkung.discordsrv-plotsystem:discordps             -->
+    <!-- com.github.tintinkung.discordsrv-plotsystem:discordsrv-plotsystem -->
     <modules>
         <module>discordps-api</module>
         <module>discordps</module>
     </modules>
-
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>3.7.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.8.1</version>
+                    <configuration>
+                        <source>21</source>
+                        <target>21</target>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.2.4</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

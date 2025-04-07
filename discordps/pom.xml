@@ -7,7 +7,7 @@
     <parent>
         <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.0.4</version>
+        <version>1.0.5</version>
     </parent>
 
     <name>discordsrv-plotsystem:discordps</name>
@@ -35,21 +35,17 @@
             </resource>
         </resources>
         <plugins>
+            <!-- Compile the project -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
-                <configuration>
-                    <source>21</source>
-                    <target>21</target>
-                </configuration>
             </plugin>
+            <!-- Exclude the maven metadata -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.2.4</version>
                 <configuration>
-                    <outputDirectory>../target/shaded</outputDirectory>
+                    <outputDirectory>${project.build.directory}</outputDirectory>
                     <createDependencyReducedPom>true</createDependencyReducedPom>
                     <filters>
                         <filter>
@@ -74,9 +70,30 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Assemble project to root folder -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>plugin</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <descriptors>
+                        <descriptor>src/main/assembly/jar-assembly.xml</descriptor>
+                    </descriptors>
+                    <finalName>${project.parent.artifactId}-${project.version}</finalName>
+                    <outputDirectory>${project.parent.build.directory}</outputDirectory>
+                    <appendAssemblyId>true</appendAssemblyId>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
-
 
     <repositories>
         <repository>
@@ -122,14 +139,6 @@
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
             <version>4.0.3</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <!-- Apache Commons IO -->
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.14.0</version>
             <scope>compile</scope>
         </dependency>
 
