@@ -6,18 +6,19 @@
 
     <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.0.4</version>
+    <version>${build.number}</version>
     <packaging>pom</packaging>
 
     <name>discordsrv-plotsystem</name>
 
+    <!-- Build Version -->
     <properties>
         <build.number>1.0.4</build.number>
     </properties>
 
     <modules>
-        <module>discordps</module>
         <module>discordps-api</module>
+        <module>discordps</module>
     </modules>
 
 </project>

@@ -17,7 +17,7 @@
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <build.number>1.0.4</build.number>
+        <build.number>${project.parent.version}</build.number>
     </properties>
 
     <!-- Plugin Build Settings -->
@@ -80,10 +80,6 @@
 
     <repositories>
         <repository>
-            <id>jitpack</id>
-            <url>https://jitpack.io/</url>
-        </repository>
-        <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
@@ -139,9 +135,9 @@
 
         <!-- This Plugin's API -->
         <dependency>
-            <groupId>com.github.tintinkung.discordsrv-plotsystem</groupId>
+            <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
             <artifactId>discordps-api</artifactId>
-            <version>1.0.3</version>
+            <version>${project.parent.version}</version>
             <scope>compile</scope>
             <exclusions>
                 <exclusion>

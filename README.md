@@ -4,6 +4,11 @@ DiscordSRV extension plugin for BTE Plot-System
 ## API usage
 ### Jitpack [@discordps-api](https://jitpack.io/#tintinkung/discordsrv-plotsystem/discordps-api/)
 Add jitpack repository to your `pom.xml` to access this plugin's API.
+> Jitpack's build artifacts:
+> * `com.github.tintinkung.discordsrv-plotsystem:discordps-api`  
+> * `com.github.tintinkung.discordsrv-plotsystem:discordps`  
+> * `com.github.tintinkung.discordsrv-plotsystem:discordsrv-plotsystem`
+
 ```xml
 <repositories>
     <repository>
@@ -17,6 +22,6 @@ Add jitpack repository to your `pom.xml` to access this plugin's API.
 <dependency>
     <groupId>com.github.tintinkung.discordsrv-plotsystem</groupId>
     <artifactId>discordps-api</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
 </dependency>
 ```
