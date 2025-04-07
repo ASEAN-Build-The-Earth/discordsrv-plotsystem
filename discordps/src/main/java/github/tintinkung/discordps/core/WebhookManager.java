@@ -26,9 +26,7 @@ import github.scarsz.discordsrv.dependencies.json.JSONObject;
 import github.scarsz.discordsrv.dependencies.okio.Okio;
 import github.scarsz.discordsrv.util.*;
 import github.tintinkung.discordps.core.utils.AvailableTags;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Player;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -108,11 +106,17 @@ public class WebhookManager {
 
         // Initialize webhook reference
         if(channelID != null && webhookID != null) {
-            webhook = new Webhook.WebhookReference(
-                jda,
-                Long.parseUnsignedLong(webhookID),
-                Long.parseUnsignedLong(channelID))
-            .resolve().complete();
+            try {
+                webhook = new Webhook.WebhookReference(
+                    jda,
+                    Long.parseUnsignedLong(webhookID),
+                    Long.parseUnsignedLong(channelID))
+                .resolve().complete();
+            }
+            catch (Error unknownError) {
+                DiscordPS.error("Failed to resolve webhook reference of unknown error: ", unknownError);
+                isValidWebhook = false;
+            }
         }
         else {
             DiscordPS.error("Failed to configure webhook setting by " + WebhookManager.class.getName());
