@@ -2,6 +2,7 @@ package github.tintinkung.discordps.core.listeners;
 
 
 import github.scarsz.discordsrv.DiscordSRV;
+import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ErrorResponseException;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.DiscordGuildMessageSentEvent;
@@ -11,9 +12,18 @@ import github.tintinkung.discordps.core.WebhookManager;
 @SuppressWarnings("unused")
 public class DiscordSRVListener {
     private final DiscordPS plugin;
+    private DiscordDisconnectListener onDiscordDisconnect;
 
     public DiscordSRVListener(DiscordPS plugin) {
         this.plugin = plugin;
+    }
+
+    public boolean isReady() {
+        return onDiscordDisconnect != null;
+    }
+
+    public DiscordDisconnectListener getOnDiscordDisconnect() {
+        return onDiscordDisconnect;
     }
 
     /**
@@ -23,23 +33,23 @@ public class DiscordSRVListener {
     public void onDiscordReady(DiscordReadyEvent event) {
         DiscordPS.info("[DiscordPS] JDA Is Ready");
 
-        DiscordSRV.getPlugin().getJda().addEventListener(new DiscordDisconnectListener());
-        DiscordPS.getInstance().subscribe(new PlotSubmitListener());
-        // DiscordPS.api.subscribe(new PlotSubmitListener());
-
         try {
             WebhookManager.validateWebhook();
             WebhookManager.validateStatusTags();
         }
         catch (RuntimeException ex) {
-            plugin.disablePlugin();
+            if(ex instanceof ErrorResponseException) {
+                DiscordPS.error("Likely to be Response exception code: " + ((ErrorResponseException) ex).getErrorCode());
+            }
             DiscordPS.error(ex);
-            DiscordPS.error("==============================================================");
-            DiscordPS.error("Failed to initialize Webhook references. please check DiscordPlotSystem config file");
-            DiscordPS.error("...disabling plugin");
-            DiscordPS.error("==============================================================");
+
+            plugin.disablePlugin("Failed to initialize Webhook references. please check DiscordPlotSystem config file");
+
             return;
         }
+
+        DiscordSRV.getPlugin().getJda().addEventListener(onDiscordDisconnect = new DiscordDisconnectListener());
+        DiscordPS.getInstance().subscribe(new PlotSubmitListener());
 
         // WebhookDeliver.fetchSubmittedPlots();
         // WebhookDeliver.sendTestEmbed();

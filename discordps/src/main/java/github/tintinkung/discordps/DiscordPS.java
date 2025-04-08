@@ -1,6 +1,7 @@
 package github.tintinkung.discordps;
 
 import github.scarsz.discordsrv.api.events.Event;
+import github.scarsz.discordsrv.dependencies.google.common.util.concurrent.ThreadFactoryBuilder;
 import github.scarsz.discordsrv.util.SchedulerUtil;
 import github.tintinkung.discordps.api.DiscordPlotSystemAPI;
 import github.tintinkung.discordps.core.listeners.DiscordSRVListener;
@@ -14,6 +15,7 @@ import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTe
 import github.tintinkung.discordps.core.utils.CoordinatesUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,7 +23,8 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.concurrent.TimeoutException;
+import java.util.Collections;
+import java.util.concurrent.*;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 
@@ -31,7 +34,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
     /**
      * Plot-System plugin Util we referenced to use (CoordinateConversion class)
      * considering that there are running Plot-System instance the server this bot is running on.
-     * The method we use are convertToGeo and formatGeoCoordinatesNumeric.
+     * The method we use are convertToGeo else we need to make an api call for it.
      */
     private static final String PS_UTIL = "com.alpsbte.plotsystem.utils.conversion.CoordinateConversion";
     private static final String PS_UTIL_CONVERT_TO_GEO = "convertToGeo";
@@ -45,6 +48,8 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
     private YamlConfiguration config;
     private DiscordSRVListener discordSrvHook;
 
+    private String shuttingDown = null;
+
     public @NotNull YamlConfiguration getConfig() {
         return config;
     }
@@ -55,7 +60,6 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
 
     @Override
     public void onEnable() {
-
         plugin = this;
 
         // Create configs
@@ -64,10 +68,6 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         Thread initThread = getInitThread();
         initThread.start();
 
-        // Register Events
-        // getServer().getPluginManager().registerEvents(new EventListener(), this);
-
-
         // Plugin startup logic
         Bukkit.getConsoleSender().sendMessage(text("[", NamedTextColor.DARK_GRAY)
                 .append(text("Discord Plot System", NamedTextColor.AQUA))
@@ -75,7 +75,50 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
                 .append(text("] Loaded successfully!")).content());
     }
 
-    public void disablePlugin() {
+    @Override
+    public void onDisable() {
+        final ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("DiscordPlotSystem - Shutdown").build();
+        try(final ExecutorService executor = Executors.newSingleThreadExecutor(threadFactory)) {
+            executor.invokeAll(Collections.singletonList(() -> {
+                // Unsubscribe to DiscordSRV
+                if(isDiscordSrvHookEnabled()) {
+                    if(discordSrvHook.isReady()) {
+                        DiscordSRV
+                            .getPlugin()
+                            .getJda()
+                            .removeEventListener(discordSrvHook.getOnDiscordDisconnect());
+                    }
+                    DiscordSRV.api.unsubscribe(discordSrvHook);
+                }
+
+                // shutdown scheduler tasks
+                SchedulerUtil.cancelTasks(this);
+
+
+                // unregister event listeners because of garbage reloading plugins
+                HandlerList.unregisterAll(this);
+
+                DiscordPS.warning("==============================================================");
+                DiscordPS.warning(shuttingDown);
+                DiscordPS.warning(". . . Disabling DiscordPlotSystem V" + VERSION);
+                DiscordPS.warning("==============================================================");
+
+                return null;
+            }), 15, TimeUnit.SECONDS);
+
+            executor.shutdownNow();
+        } catch (InterruptedException | NullPointerException ex) {
+            error(ex);
+            DiscordPS.warning("==============================================================");
+            DiscordPS.warning("Failed to shutdown DiscordPlotSystem properly");
+            DiscordPS.warning(". . . Disabling DiscordPlotSystem V" + VERSION);
+            DiscordPS.warning("==============================================================");
+        }
+        super.onDisable();
+    }
+
+    public void disablePlugin(@NotNull String shutdownMessage) {
+        this.shuttingDown = shutdownMessage;
         SchedulerUtil.runTask(
         this,
             () -> Bukkit.getPluginManager().disablePlugin(this)
@@ -85,12 +128,8 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
     private @NotNull Thread getInitThread() {
         Thread initThread = new Thread(this::init, "DiscordPlotSystem - Initialization");
         initThread.setUncaughtExceptionHandler((t, e) -> {
-            // make DiscordSRV go red in /plugins
-            disablePlugin();
-            error(e);
-            error("==============================================================");
-            error("DiscordPlotSystem failed to load properly: " + e.getMessage());
-            error("==============================================================");
+            DiscordPS.error(e);
+            disablePlugin("DiscordPlotSystem failed to load properly: " + e.getMessage());
         });
         return initThread;
     }
@@ -123,21 +162,23 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
             // Timeout if it takes too long to load
             SchedulerUtil.runTaskLater(this, () -> {
                 if (!isDiscordSrvHookEnabled()) {
-                    DiscordPS.error(new TimeoutException("DiscordSRV never loaded. timed out."));
-                    this.disablePlugin();
+                    this.disablePlugin("DiscordSRV never loaded. timed out.");
                 }
             }, LOADING_TIMEOUT);
         }
 
         // Initialize database connection
         try {
-            DatabaseConnection.InitializeDatabase();
-            DiscordPS.info("Successfully initialized database connection.");
+            if(DatabaseConnection.InitializeDatabase()) {
+                DiscordPS.info("Successfully initialized database connection.");
+            } else {
+
+                this.disablePlugin("Could not initialize database connection due to a misconfigured config file.");
+            }
         } catch (Exception ex) {
-            DiscordPS.error("Could not initialize database connection.");
             DiscordPS.error(ex.getMessage(), ex);
 
-            this.disablePlugin();
+            this.disablePlugin("Could not initialize database connection.");
         }
     }
 
@@ -194,6 +235,10 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         catch (ClassNotFoundException | NoSuchMethodException ex) {
             DiscordPS.error("Failed to get Plot-System class reference, coordinates conversion will be disabled", ex);
         }
+    }
+
+    public boolean isShuttingDown() {
+        return shuttingDown != null;
     }
 
 

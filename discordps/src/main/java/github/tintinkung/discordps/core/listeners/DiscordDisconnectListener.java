@@ -32,20 +32,10 @@ public class DiscordDisconnectListener extends ListenerAdapter {
             return;
         }
         mostRecentCloseCode = closeCode;
-        if (closeCode == CloseCode.DISALLOWED_INTENTS) {
-            DiscordPS.getPlugin().disablePlugin();
-            printDisconnectMessage();
-
-        } else if (!closeCode.isReconnect()) {
-            DiscordPS.getPlugin().disablePlugin();
-            printDisconnectMessage();
+        if (closeCode == CloseCode.DISALLOWED_INTENTS || !closeCode.isReconnect()) {
+            DiscordPS.error("Please check if DiscordSRV plugin is loaded correctly ...disabling plugin");
+            DiscordPS.getPlugin().disablePlugin("Discord Plot System cannot connect to DiscordSRV");
         }
     }
 
-    public static void printDisconnectMessage() {
-        DiscordPS.error("==============================================================");
-        DiscordPS.error("Discord Plot System cannot connect to DiscordSRV");
-        DiscordPS.error("Please check if DiscordSRV plugin is loaded correctly ...disabling plugin");
-        DiscordPS.error("==============================================================");
-    }
 }
