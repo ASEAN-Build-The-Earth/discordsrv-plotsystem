@@ -154,20 +154,20 @@ public enum AvailableTags {
 
             if(tagCache.containsKey(tag.tagID)) {
                 String tagName = tagCache.get(tag.tagID);
-                DiscordPS.info("Registered tag " + tag.name() + " for tag: " + tagName);
+                DiscordPS.info("Registered tag '" + tag.name() + "' for tag: " + tagName);
 
                 tag.apply(new TagReference(tag.tagID, tagName));
             }
             else {
                 DiscordPS.error(error);
-                throw new RuntimeException(error);
+                throw error;
             }
         }
         catch (IllegalArgumentException ex) {
             // If provided tag is a String name
             if(tagCache.containsValue(tag.tagID)) {
                 String tagID = tagCache.getKey(tag.tagID);
-                DiscordPS.info("Registered tag " + tag.name() + " for tag: " + tag.tagID);
+                DiscordPS.info("Registered tag '" + tag.name() + "' for tag: " + tag.tagID);
 
                 tag.apply(new TagReference(tagID, tag.tagID));
             }
