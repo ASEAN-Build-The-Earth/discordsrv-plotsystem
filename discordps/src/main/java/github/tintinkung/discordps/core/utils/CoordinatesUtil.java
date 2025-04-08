@@ -33,9 +33,11 @@ public class CoordinatesUtil {
             + "please redirect this object to use the default function."
         );
     };
-    private static final API toGeoAPI = new API("smybteapi.buildtheearth.net", "projection/toGeo", "mcpos", query);
-
-    private static void setCoordinatesFunction(CoordinatesConversion function) { coordinatesConversion = function; }
+    private static final API toGeoAPI = new API(
+        "smybteapi.buildtheearth.net",
+        "projection/toGeo",
+        "mcpos", query
+    );
 
     /**
      * Optimize {@link CoordinatesUtil#convertToGeo(double, double)}
@@ -43,7 +45,7 @@ public class CoordinatesUtil {
      * @param function The handler as a {@link BiFunction} of {@link CoordinatesConversion#convertToGeo(double, double)}
      */
     public static void initCoordinatesFunction(BiFunction<Double, Double, double[]> function) {
-        setCoordinatesFunction((CoordinatesConversion) function);
+        coordinatesConversion = function::apply;
     }
 
     /**
