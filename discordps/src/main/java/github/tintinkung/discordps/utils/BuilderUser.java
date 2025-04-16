@@ -1,4 +1,4 @@
-package github.tintinkung.discordps.core.utils;
+package github.tintinkung.discordps.utils;
 
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
@@ -7,8 +7,11 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.Nullable;
 
+import java.net.URL;
+
 public class BuilderUser {
 
+    @Deprecated
     public static String getAsAvatarURL(OfflinePlayer builder) {
         if (builder instanceof Player) {
             return DiscordSRV.getAvatarUrl((Player) builder);

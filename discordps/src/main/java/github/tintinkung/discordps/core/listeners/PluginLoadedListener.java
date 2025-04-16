@@ -1,16 +1,14 @@
 package github.tintinkung.discordps.core.listeners;
 
 import github.tintinkung.discordps.DiscordPS;
+import github.tintinkung.discordps.core.providers.PluginProvider;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginEnableEvent;
 
-@SuppressWarnings("unused")
-public class PluginLoadedListener implements Listener {
-    private final DiscordPS plugin;
-
+public class PluginLoadedListener extends PluginProvider implements Listener {
 
     public PluginLoadedListener(DiscordPS plugin) {
-        this.plugin = plugin;
+        super(plugin);
     }
 
     public void onPluginEnable(PluginEnableEvent event) {

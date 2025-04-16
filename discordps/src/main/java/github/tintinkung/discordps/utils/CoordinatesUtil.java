@@ -1,4 +1,4 @@
-package github.tintinkung.discordps.core.utils;
+package github.tintinkung.discordps.utils;
 
 import github.scarsz.discordsrv.dependencies.okhttp3.HttpUrl;
 

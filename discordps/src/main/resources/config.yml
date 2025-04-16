@@ -1,3 +1,6 @@
+# Enabled debugging commands
+debugging: true
+
 # url: the database connection URL (JDBC)
 #     Supported URL:
 #     <proto>:<engine>://<HOST>:<PORT>/?<params>
@@ -11,32 +14,23 @@ database:
   name: ""
   username: ""
   password: ""
+  webhook-table: "plotsystem_discord_webhook"
 
 # Channel ID references
-# discord-srv: The main text channel which DiscordSRV plugin output to
-# plot-status: The plot status forum channel, requires one persistent webhook to be created
-# plot-notify: Optional notification channel to remind staffs the plots they haven't review
-channel:
-  discord-srv: ""
-  plot-status: ""
-  plot-notify: ""
-
-# Status Webhook config
-webhook:
-  name:	      ""
-  id:	      ""
+# plot-notify: Notification channel to remind staffs the plots they haven't review
+notification:
   channel-id: ""
-  guild-id:	  ""
-  url:        "https://discord.com/api/webhooks/{webhook-id}/{webhook-token}"
 
 # Forum channel tag
 available-tag:
+  on-going: "on-going"
   finished: "finished"
   rejected: "rejected"
   approved: "approved"
   archived: "archived"
 
 embed-color:
+  on-going: "#808080" # Gray
   finished: "#fdcb58" # Yellow
   rejected: "#dd2e44" # Red
   approved: "#78b159" # Green

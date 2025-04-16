@@ -1,4 +1,4 @@
-package github.tintinkung.discordps.core.utils;
+package github.tintinkung.discordps.utils;
 
 import github.scarsz.discordsrv.Debug;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -33,7 +33,7 @@ interface CoordinatesConversion  {
             if(body != null) {
                 try {
                     JSONObject jsonObj = new JSONObject(body.string());
-                    DiscordPS.info("Got BTE API response: " + body.string());
+                    DiscordPS.debug("Got BTE API response: " + body.string());
                 } catch (Throwable ignored) {
                 }
             }

@@ -1,4 +1,4 @@
-package github.tintinkung.discordps.core.utils;
+package github.tintinkung.discordps.core.system;
 
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.ConfigPaths;
@@ -11,12 +11,14 @@ import github.scarsz.discordsrv.dependencies.commons.codec.DecoderException;
 import github.scarsz.discordsrv.dependencies.commons.codec.binary.Hex;
 import github.scarsz.discordsrv.objects.ExpiringDualHashBidiMap;
 
+import github.tintinkung.discordps.core.database.ThreadStatus;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.awt.Color;
 import java.awt.color.ColorSpace;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
 
@@ -25,6 +27,7 @@ import java.util.concurrent.TimeUnit;
  * configured with {@link ConfigPaths}
  */
 public enum AvailableTags {
+    ON_GOING(ConfigPaths.TAG_ON_GOING, ConfigPaths.EMBED_COLOR_ON_GOING, Color.GRAY),
     FINISHED(ConfigPaths.TAG_FINISHED, ConfigPaths.EMBED_COLOR_FINISHED, Color.YELLOW),
     REJECTED(ConfigPaths.TAG_REJECTED, ConfigPaths.EMBED_COLOR_REJECTED, Color.RED),
     APPROVED(ConfigPaths.TAG_APPROVED, ConfigPaths.EMBED_COLOR_APPROVED, Color.GREEN),
@@ -48,6 +51,10 @@ public enum AvailableTags {
         tagPath = config;
         colorPath = colorConfig;
         color = defaultColor;
+    }
+
+    public ThreadStatus toStatus() {
+        return valueOf(ThreadStatus.class, this.name().toLowerCase(Locale.ENGLISH));
     }
 
     /**
@@ -128,7 +135,7 @@ public enum AvailableTags {
                     }
 
                     this.color = new Color(colorSpace, comp, 1.0f);
-                    DiscordPS.info("Registered tag '" + tagID + "' with embed color " + this.color);
+                    DiscordPS.debug("Registered tag '" + tagID + "' with embed color " + this.color);
                     return;
                 }
                 else DiscordPS.error("The configured tag embed color '" + tagID + "' is invalid.");
@@ -144,9 +151,9 @@ public enum AvailableTags {
     }
 
     private static void tryApplyTag(@NotNull AvailableTags tag) throws RuntimeException {
-        RuntimeException error = new RuntimeException("The configured tag ID for '" + tag.name() + "' is invalid.");
+        RuntimeException error = new RuntimeException("The configured tag ID for '" + tag.name() + "' does not exist in the discord server, please check the config file.");
         if(tagCache.isEmpty()) throw new RuntimeException("Available Tags cache has not been initialized.");
-        if(tag.tagID == null) throw new RuntimeException("The tag '" + tag.name() + "' has not been resolved.");
+        if(tag.tagID == null) throw new RuntimeException("Trying to apply tag enum '" + tag.name() + "' but its value has not been resolved, possibly missing config field.");
 
         try {
             // If provided tag is snowflake ID
@@ -154,7 +161,7 @@ public enum AvailableTags {
 
             if(tagCache.containsKey(tag.tagID)) {
                 String tagName = tagCache.get(tag.tagID);
-                DiscordPS.info("Registered tag '" + tag.name() + "' for tag: " + tagName);
+                DiscordPS.debug("Registered tag '" + tag.name() + "' for tag: " + tagName);
 
                 tag.apply(new TagReference(tag.tagID, tagName));
             }
@@ -167,7 +174,7 @@ public enum AvailableTags {
             // If provided tag is a String name
             if(tagCache.containsValue(tag.tagID)) {
                 String tagID = tagCache.getKey(tag.tagID);
-                DiscordPS.info("Registered tag '" + tag.name() + "' for tag: " + tag.tagID);
+                DiscordPS.debug("Registered tag '" + tag.name() + "' for tag: " + tag.tagID);
 
                 tag.apply(new TagReference(tagID, tag.tagID));
             }
@@ -175,6 +182,28 @@ public enum AvailableTags {
                 DiscordPS.error(error);
                 throw error;
             }
+        }
+    }
+
+    /**
+     * The discord API forum tag object since the DiscordSRV JDA version does not support it yet.
+     * @see <a href="https://discord.com/developers/docs/resources/channel#forum-tag-object">Discord API</a>
+     */
+    public static class TagReference {
+        private final String tagID;
+        private final String name;
+
+        public TagReference(String tagID, String name) {
+            this.tagID = tagID;
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getID() {
+            return tagID;
         }
     }
 }

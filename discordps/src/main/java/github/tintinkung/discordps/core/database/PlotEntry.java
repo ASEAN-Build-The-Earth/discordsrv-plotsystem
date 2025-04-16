@@ -1,7 +1,5 @@
 package github.tintinkung.discordps.core.database;
 
-import github.scarsz.discordsrv.util.SQLUtil;
-
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -15,7 +13,7 @@ public record PlotEntry(
     int cityID,
     int countryID,
     int reviewID,
-    Status status,
+    PlotStatus status,
     String ownerUUID,
     String mcCoordinates,
     String cityName,
@@ -28,6 +26,7 @@ public record PlotEntry(
      * @throws SQLException on failure
      */
     public static List<PlotEntry> fetchSubmittedPlots() throws SQLException {
+        // TODO: Add configurable option to filter out unfinished plot ( AND `status` != 'unfinished' )
         String query = "SELECT plots.id AS plot_id, "
                 + "plots.city_project_id AS city_id, city_projects.country_id AS country_id, plots.review_id AS review_id, "
                 + "plots.`status` AS `status`, plots.owner_uuid AS owner_id, "
@@ -37,7 +36,7 @@ public record PlotEntry(
                 + "LEFT JOIN plotsystem_city_projects AS city_projects ON city_projects.id = plots.city_project_id "
                 + "LEFT JOIN plotsystem_reviews AS reviews ON reviews.id = plots.review_id "
                 + "LEFT JOIN plotsystem_countries AS countries ON countries.id = city_projects.country_id "
-                + "WHERE city_projects.`visible` = 1 AND `status` != 'unclaimed' AND `status` != 'unfinished' "
+                + "WHERE city_projects.`visible` = 1 AND `status` != 'unclaimed' "
                 + "ORDER BY plots.id";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
@@ -50,7 +49,7 @@ public record PlotEntry(
                     rs.getInt("city_id"),
                     rs.getInt("country_id"),
                     rs.getInt("review_id"),
-                    Status.valueOf(rs.getString("status")) ,
+                    PlotStatus.valueOf(rs.getString("status")) ,
                     rs.getString("owner_id"),
                     rs.getString("mc_coordinates"),
                     rs.getString("city_name"),

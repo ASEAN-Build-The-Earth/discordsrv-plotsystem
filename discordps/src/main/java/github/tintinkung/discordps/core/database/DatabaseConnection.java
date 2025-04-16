@@ -1,7 +1,9 @@
 package github.tintinkung.discordps.core.database;
 
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
+import github.scarsz.discordsrv.util.SQLUtil;
 import github.tintinkung.discordps.ConfigPaths;
+import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -15,14 +17,27 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class DatabaseConnection {
-    // https://regex101.com/r/qtakRP/1
-    private final static Pattern JDBC_PATTERN = Pattern.compile("^(?<proto>\\w+):(?<engine>\\w+)://(?<host>.+?)(:(?<port>\\d{1,5}|PORT))?((/\\w+)+|/)\\??(?<params>.+)?$");
+import static github.tintinkung.discordps.Debug.Error.DATABASE_NOT_INITIALIZED;
 
+public class DatabaseConnection {
+
+    private static String webhookTableName = "plotsystem_discord_webhook";
     private final static Properties config = new Properties();
     private static HikariDataSource dataSource;
 
+    /**
+     * Matches {@code  <proto>:<engine>://<HOST>:<PORT>/?<params>}
+     * <a href="https://regex101.com/r/qtakRP/1">regex101.com</a>
+     */
+    public final static Pattern JDBC_PATTERN = Pattern.compile(
+            "^(?<proto>\\w+):(?<engine>\\w+)://(?<host>.+?)(:(?<port>\\d{1,5}|PORT))?((/\\w+)+|/)\\??(?<params>.+)?$"
+    );
+
     private static int connectionClosed, connectionOpened;
+
+    public static String getWebhookTableName() {
+        return webhookTableName;
+    }
 
     public static boolean InitializeDatabase() throws ClassNotFoundException {
         FileConfiguration configFile = DiscordPS.getPlugin().getConfig();
@@ -30,18 +45,19 @@ public class DatabaseConnection {
         String name = configFile.getString(ConfigPaths.DATABASE_NAME);
         String username = configFile.getString(ConfigPaths.DATABASE_USERNAME);
         String password = configFile.getString(ConfigPaths.DATABASE_PASSWORD);
+        String webhookTable = configFile.getString(ConfigPaths.DATABASE_WEBHOOK_TABLE);
 
         // Validate config
         if(StringUtils.isBlank(URL)) return false;
         Matcher matcher = JDBC_PATTERN.matcher(URL);
 
         if(!matcher.matches()) {
-            DiscordPS.error("Not using JDBC because the JDBC connection string is invalid!");
+            DiscordPS.error(DATABASE_NOT_INITIALIZED,"Not using JDBC because the JDBC connection string is invalid!");
             return false;
         }
 
         if(!matcher.group("proto").equalsIgnoreCase("jdbc")) {
-            DiscordPS.error("Not using JDBC because the protocol of the JDBC URL is wrong!");
+            DiscordPS.error(DATABASE_NOT_INITIALIZED, "Not using JDBC because the protocol of the JDBC URL is wrong!");
             return false;
         }
 
@@ -86,22 +102,29 @@ public class DatabaseConnection {
             dataSource.getDataSourceClassName()
             : dataSource.getDriverClassName())
         );
-        createTables();
-        return true;
-    }
 
-    @Deprecated
-    public static Connection getConnection() {
-        int retries = 3;
-        while (retries > 0) {
-            try {
-                return dataSource.getConnection();
-            } catch (SQLException ex) {
-                DiscordPS.error("Database connection failed!\n\n" + ex.getMessage(), ex);
+        // Validate webhook table and create if not exist.
+        try {
+            if(webhookTable == null) {
+                validateWebhookTable(webhookTableName);
             }
-            retries--;
+            else if(StringUtils.isBlank(webhookTable)) {
+                DiscordPS.warning("A configured database webhook table name is blank, "
+                        + "please specify it or delete the entry entirely. "
+                        + "Using the default value of '" + webhookTableName + "'");
+                validateWebhookTable(webhookTableName);
+            }
+            else {
+                webhookTableName = webhookTable;
+                validateWebhookTable(webhookTable);
+            }
         }
-        return null;
+        catch (SQLException ex) {
+            DiscordPS.error(DATABASE_NOT_INITIALIZED, "Failed to validate database webhook table.");
+            return false;
+        }
+
+        return true;
     }
 
     public static StatementBuilder createStatement(String sql) {
@@ -124,16 +147,27 @@ public class DatabaseConnection {
             DiscordPS.error("There are multiple database connections opened. Please report this issue.");
     }
 
-    static void createTables() {
-        try (Connection con = dataSource.getConnection()) {
-            for (String table : StatementBuilder.Tables.getTables()) {
-                Objects.requireNonNull(con).prepareStatement(table).executeUpdate();
+    static void validateWebhookTable(String table) throws SQLException {
+        if(StringUtils.isBlank(table)) throw new SQLException("Configured Database webhook table name is blank");
+
+        try (Connection connection = dataSource.getConnection()) {
+            if (SQLUtil.checkIfTableExists(connection, table)) {
+                if (!SQLUtil.checkIfTableMatchesStructure(connection, table, StatementBuilder.WebhookTable.getExpected(), true)) {
+                    throw new SQLException("JDBC table " + table + " does not match expected structure. reconfigure it in config.yml");
+                }
+            } else {
+                DiscordPS.info("Initializing new database table '" + table + "' for webhook management.");
+                try (final PreparedStatement statement = connection.prepareStatement(
+                        StatementBuilder.WebhookTable.getCreateStatement(table))) {
+                    statement.executeUpdate();
+                }
             }
+
         } catch (SQLException ex) {
             DiscordPS.error("An error occurred while creating database table!", ex);
+            throw ex;
         }
     }
-
     /**
      * Returns a missing auto increment id
      *
@@ -228,21 +262,42 @@ public class DatabaseConnection {
             }
         }
 
-        private static class Tables {
-            private final static List<String> tables;
+        private static class WebhookTable {
+            private final static Map<String, String> expected = new HashMap<>();
+            private final static String statusEnum;
 
-            public static List<String> getTables() {
-                return tables;
+            public static Map<String, String> getExpected() {
+                return expected;
+            }
+
+            public static String getCreateStatement(String tableName) {
+                return  "CREATE TABLE IF NOT EXISTS `" + tableName.trim() + "` (" +
+                        " `thread_id`        BIGINT UNSIGNED NOT NULL," +
+                        " `plot_id`          INT NOT NULL," +
+                        " `status`           ENUM " + statusEnum + " NOT NULL" +
+                        " PRIMARY KEY        (`thread_id`)," +
+                        " INDEX              (`plot_id`)" +
+                        ");";
+            }
+
+            private static String  constructEnumString() {
+                StringBuilder enumBuilder = new StringBuilder();
+                enumBuilder.append("(");
+                for(int i = 0; i < ThreadStatus.values().length; i++) {
+                    enumBuilder.append("'");
+                    enumBuilder.append(ThreadStatus.values()[i]);
+                    enumBuilder.append("'");
+                    if(i + 1 < ThreadStatus.values().length) enumBuilder.append(",");
+                }
+                enumBuilder.append(")");
+                return enumBuilder.toString();
             }
 
             static {
-                tables = Collections.singletonList(
-                        // plotsystem_discord_webhook
-                        "CREATE TABLE IF NOT EXISTS `langUsers` (" +
-                                "`uuid` varchar(36) PRIMARY KEY," +
-                                "`lang` varchar(10)" +
-                                ");"
-                );
+                statusEnum = constructEnumString();
+                expected.put("thread_id", "bigint(20)");
+                expected.put("plot_id", "int(11)");
+                expected.put("status", "enum" + statusEnum);
             }
         }
     }

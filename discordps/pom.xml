@@ -7,7 +7,7 @@
     <parent>
         <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.0.5</version>
+        <version>1.0.6</version>
     </parent>
 
     <name>discordsrv-plotsystem:discordps</name>
@@ -125,7 +125,15 @@
         <dependency>
             <groupId>com.discordsrv</groupId>
             <artifactId>discordsrv</artifactId>
-            <version>1.27.0</version>
+            <version>1.29.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.jetbrains/annotations -->
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>26.0.2</version>
             <scope>provided</scope>
         </dependency>
 

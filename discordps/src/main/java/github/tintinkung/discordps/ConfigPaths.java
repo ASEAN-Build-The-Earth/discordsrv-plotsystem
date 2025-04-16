@@ -7,6 +7,7 @@ public abstract class ConfigPaths {
     public static final String DATABASE_NAME = DATABASE + "name";
     public static final String DATABASE_USERNAME = DATABASE + "username";
     public static final String DATABASE_PASSWORD = DATABASE + "password";
+    public static final String DATABASE_WEBHOOK_TABLE = DATABASE + "webhook-table";
 
     // Database
     private static final String CHANNEL = "channel.";
@@ -18,6 +19,7 @@ public abstract class ConfigPaths {
     private static final String WEBHOOK = "webhook.";
     public static final String WEBHOOK_NAME = WEBHOOK + "name";
     public static final String WEBHOOK_ID = WEBHOOK + "id";
+    public static final String WEBHOOK_TOKEN = WEBHOOK + "token";
     public static final String WEBHOOK_CHANNEL_ID = WEBHOOK + "channel-id";
     public static final String WEBHOOK_GUILD_ID = WEBHOOK + "guild-id";
     public static final String WEBHOOK_URL = WEBHOOK + "url";
@@ -28,6 +30,7 @@ public abstract class ConfigPaths {
     public static final String TAG_REJECTED = TAG + "rejected";
     public static final String TAG_APPROVED = TAG + "approved";
     public static final String TAG_ARCHIVED = TAG + "archived";
+    public static final String TAG_ON_GOING = TAG + "on-going";
 
 
     // Status Tags
@@ -36,4 +39,5 @@ public abstract class ConfigPaths {
     public static final String EMBED_COLOR_REJECTED = EMBED + "rejected";
     public static final String EMBED_COLOR_APPROVED = EMBED + "approved";
     public static final String EMBED_COLOR_ARCHIVED = EMBED + "archived";
+    public static final String EMBED_COLOR_ON_GOING = EMBED + "on-going";
 }
