@@ -67,7 +67,7 @@ final public class DiscordEventListener extends ListenerAdapter {
     @Override
     public void onButtonClick(@NotNull ButtonClickEvent event) {
 
-        if(!listener.hasCommandsRegistered()) return;
+        if(listener.getPluginSlashCommand() == null) return;
         if(event.getButton() == null) return;
         if(event.getButton().getId() == null) return;
 

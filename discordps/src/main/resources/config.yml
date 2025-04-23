@@ -28,6 +28,7 @@ available-tag:
   rejected: "rejected"
   approved: "approved"
   archived: "archived"
+  abandoned: "abandoned"
 
 embed-color:
   on-going: "#808080" # Gray
@@ -35,3 +36,4 @@ embed-color:
   rejected: "#dd2e44" # Red
   approved: "#78b159" # Green
   archived: "#55acee" # Blue
+  abandoned: "#808080" # Gray

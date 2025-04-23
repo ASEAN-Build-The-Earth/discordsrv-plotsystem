@@ -7,10 +7,12 @@ import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
 import github.scarsz.discordsrv.dependencies.json.JSONObject;
+import github.scarsz.discordsrv.dependencies.kyori.adventure.platform.bukkit.BukkitAudiences;
 import github.scarsz.discordsrv.dependencies.okhttp3.MediaType;
 import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
 import github.scarsz.discordsrv.util.SchedulerUtil;
 import github.tintinkung.discordps.api.DiscordPlotSystemAPI;
+import github.tintinkung.discordps.api.events.ApiEvent;
 import github.tintinkung.discordps.core.listeners.DiscordSRVListener;
 import github.tintinkung.discordps.core.listeners.PluginLoadedListener;
 import github.scarsz.discordsrv.DiscordSRV;
@@ -36,6 +38,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
+import github.scarsz.discordsrv.dependencies.kyori.adventure.audience.Audience;
 
 public final class DiscordPS extends DiscordPlotSystemAPI {
     private static final String VERSION = "1.0.6";
@@ -104,11 +107,12 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         Thread initThread = createInitThread();
         initThread.start();
 
-        // Plugin startup logic TODO: this never work
-        Bukkit.getConsoleSender().sendMessage(text("[", NamedTextColor.DARK_GRAY)
-                .append(text("Discord Plot System", NamedTextColor.AQUA))
-                .append(text("v" + VERSION, NamedTextColor.GOLD))
-                .append(text("] Loaded successfully!")).content());
+        try(BukkitAudiences bukkit = BukkitAudiences.create(this)) {
+            bukkit.console().sendMessage(text("[", NamedTextColor.GREEN)
+                    .append(text("Discord Plot System", NamedTextColor.AQUA))
+                    .append(text(" v" + VERSION, NamedTextColor.GOLD))
+                    .append(text("] Enabling plugin...", NamedTextColor.GREEN)));
+        }
     }
 
     @Override
@@ -119,14 +123,14 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
                 // Unsubscribe to DiscordSRV
                 if(isDiscordSrvHookEnabled()) {
                     // Clear DiscordSRV event listener
-                    if(discordSrvHook.isReady()) {
+                    if(discordSrvHook.hasSubscribed()) {
                         DiscordSRV
                             .getPlugin()
                             .getJda()
                             .removeEventListener(discordSrvHook.getEventListener());
                     }
                     // Clear slash command
-                    if(discordSrvHook.hasCommandsRegistered()) {
+                    if(discordSrvHook.getPluginSlashCommand() != null) {
                         discordSrvHook.getPluginSlashCommand().clearCommands();
                         DiscordSRV.api.removeSlashCommandProvider(discordSrvHook.getPluginSlashCommand());
                     }
@@ -176,10 +180,13 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
     private @NotNull Thread createInitThread() {
         Thread initThread = new Thread(this::init, "DiscordPlotSystem - Initialization");
         initThread.setUncaughtExceptionHandler((t, e) -> {
-            Bukkit.getConsoleSender().sendMessage("[DiscordPlotSystem - Initialization] ERROR: Uncaught exception");
-            Bukkit.getConsoleSender().sendMessage("[DiscordPlotSystem - Initialization] ERROR: " + e.getMessage());
+            DiscordPS.error("[DiscordPlotSystem - Initialization] ERROR: Uncaught exception");
+            DiscordPS.error("[DiscordPlotSystem - Initialization] ERROR: " + e, e);
+            for(StackTraceElement ex : e.getStackTrace()) {
+                DiscordPS.error(ex.toString());
+            }
 
-            disablePlugin("DiscordPlotSystem failed to load properly: " + e.getMessage());
+            disablePlugin("DiscordPlotSystem failed to load properly: " + e);
         });
         return initThread;
     }
@@ -191,12 +198,11 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
                 DiscordPS.info("Successfully initialized database connection.");
             } else {
                 // returned false: handled error
-                this.disablePlugin("Could not initialize database connection due to a misconfigured config file.");
+                DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, "Could not initialize database connection due to a misconfigured config file.");
             }
         }
         catch (Exception ex) { // Exception thrown: Unknown error occurred
             DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, ex.getMessage(), ex);
-            this.disablePlugin("Could not initialize database connection.");
         }
 
         Plugin discordSRV = getServer().getPluginManager().getPlugin(DISCORD_SRV_SYMBOL);
@@ -204,10 +210,12 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
 
         if(plotSystem != null) {
             DiscordPS.info("Plot-System is loaded");
-            subscribeToPlotSystemUtil();
 
-            if(!getServer().getPluginManager().isPluginEnabled(plotSystem))
-                DiscordPS.warning(Debug.Warning.PLOT_SYSTEM_LOADED_NOT_ENABLED);
+            if(plotSystem.isEnabled()) subscribeToPlotSystemUtil(plotSystem);
+            else {
+                Bukkit.getPluginManager().registerEvents(new PluginLoadedListener(this), this);
+                DiscordPS.info("Registered listener to wait for Plot-System to load");
+            }
         }
         else DiscordPS.warning(Debug.Warning.PLOT_SYSTEM_NOT_DETECTED);
 
@@ -215,29 +223,20 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         if (discordSRV != null) {
             DiscordPS.info("DiscordSRV is loaded");
             subscribeToDiscordSRV(discordSRV);
-
-            if(!getServer().getPluginManager().isPluginEnabled(discordSRV))
-                DiscordPS.error(Debug.Error.DISCORD_SRV_LOADED_NOT_ENABLED);
         }
-        else DiscordPS.error(Debug.Error.DISCORD_SRV_NOT_DETECTED);
-
-
-        if(discordSRV == null || plotSystem == null) {
-
-            // Subscribe to DiscordSRV later if it somehow hasn't enabled yet.
-            Bukkit.getPluginManager().registerEvents(new PluginLoadedListener(this), this);
-            DiscordPS.info("Registered listener to wait for DiscordSRV to load");
-
-            // Timeout if it takes too long to load
-            SchedulerUtil.runTaskLater(this, () -> {
-                if (!isDiscordSrvHookEnabled()) {
-                    this.disablePlugin("DiscordSRV never loaded. timed out.");
-                }
-            }, LOADING_TIMEOUT);
+        else { // Fatal error if DiscordSRV does not exist
+            this.disablePlugin(Debug.Error.DISCORD_SRV_NOT_DETECTED.getDefaultMessage());
+            return;
         }
+
+//        if(plotSystem != null && !plotSystem.isEnabled()) {
+//            // Subscribe to DiscordSRV later if it somehow hasn't enabled yet.
+//            Bukkit.getPluginManager().registerEvents(new PluginLoadedListener(this), this);
+//            DiscordPS.info("Registered listener to wait for Plot-System to load");
+//        }
 
         // If DiscordSRV JDA is ready before this plugin finish initializing
-        if(DiscordSRV.isReady && !discordSrvHook.isReady()) {
+        if(DiscordSRV.isReady && !discordSrvHook.hasSubscribed()) {
             DiscordPS.info("JDA Has started, subscribing to its instance");
             discordSrvHook.subscribeAndValidateJDA();
         }
@@ -295,13 +294,16 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         DiscordPS.info("Subscribed to DiscordSRV: Plot System will be manage by its JDA instance.");
     }
 
-    public void subscribeToPlotSystemUtil() {
+    public void subscribeToPlotSystemUtil(Plugin plugin) {
         try {
-            Class<?> conversionUtil = Class.forName(PS_UTIL);
+            // Find class symbol without triggering its static initializer
+            ClassLoader classLoader = plugin.getClass().getClassLoader();
+            Class<?> conversionUtil = Class.forName(PS_UTIL, false, classLoader);
             Method convertToGeo = conversionUtil.getMethod(PS_UTIL_CONVERT_TO_GEO, double.class, double.class);
 
             CoordinatesUtil.initCoordinatesFunction((xCords, yCords) -> {
                 try {
+                    if(!plugin.isEnabled()) throw new RuntimeException("Plot-System has not been enabled to use this method");
                     return (double[]) convertToGeo.invoke(null, xCords, yCords);
                 } catch (IllegalAccessException ex) {
                     throw new RuntimeException("Access error on method: " + convertToGeo.getName(), ex);
@@ -345,7 +347,6 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         });
     }
 
-
     public boolean isShuttingDown() {
         return shuttingDown != null;
     }
@@ -360,6 +361,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
      * </ul>
      * @return If the plugin is fully ready and functional.
      */
+    @Override
     public boolean isReady() {
         return getWebhook() != null
             && isDiscordSrvHookEnabled()
@@ -381,7 +383,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
 
     public void exitSlashCommand(long interactionID) {
         if(!isDiscordSrvHookEnabled()) return;
-        if(!discordSrvHook.hasCommandsRegistered()) return;
+        if(discordSrvHook.getPluginSlashCommand() == null) return;
 
         DiscordPS.info("Slash command exited: " + interactionID);
         discordSrvHook
@@ -390,23 +392,11 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
             .removeInteraction(interactionID);
     }
 
-    public <E extends Event> E callDiscordSRVEvent(E event) {
-        return DiscordSRV.api.callEvent(event);
-    }
+    @Override
+    public <E extends ApiEvent> E callEvent(E event) {
+        if(!isReady() || (isReady() && discordSrvHook.getPlotSystemListener() == null)) return null;
 
-    @Nullable
-    public TextChannel getStatusChannelOrNull() {
-        return getDiscordChannelOrNull(config.getString(ConfigPaths.PLOT_STATUS));
-    }
-
-    @Nullable
-    public TextChannel getDiscordChannelOrNull(String channelID) {
-        return isDiscordSrvHookEnabled() ? DiscordSRV.getPlugin().getJda().getTextChannelById(channelID) : null;
-    }
-
-    @Nullable
-    public TextChannel getDiscordChannelOrNull(long channelID) {
-        return isDiscordSrvHookEnabled() ? DiscordSRV.getPlugin().getJda().getTextChannelById(channelID) : null;
+        return super.callEvent(event);
     }
 
     // Debugging messages

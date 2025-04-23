@@ -2,6 +2,7 @@ package github.tintinkung.discordps.core.database;
 
 import github.scarsz.discordsrv.util.SQLUtil;
 import github.tintinkung.discordps.DiscordPS;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.sql.ResultSet;
@@ -9,7 +10,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-public record WebhookEntry(Long threadID, int plotID, ThreadStatus status) {
+public record WebhookEntry(Long threadID, int plotID, ThreadStatus status, String ownerUUID) {
 
 
     @Nullable
@@ -26,10 +27,9 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status) {
     private static WebhookEntry getByID(String key, Object value) throws SQLException {
 
         String query = "SELECT webhook.thread_id, webhook.plot_id, webhook.status "
-                + "FROM ? AS webhook "
-                + "WHERE webhook." + key + " = ?";
+                + "FROM " + DatabaseConnection.getWebhookTableName()
+                + " AS webhook WHERE webhook." + key + " = ?";
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
-            statement.setValue(DatabaseConnection.getWebhookTableName());
             statement.setValue(value);
             ResultSet rs = statement.executeQuery();
             WebhookEntry result = null;
@@ -37,7 +37,8 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status) {
                 result = new WebhookEntry(
                     rs.getLong("thread_id"),
                     rs.getInt("plot_id"),
-                    ThreadStatus.valueOf(rs.getString("status"))
+                    ThreadStatus.valueOf(rs.getString("status")),
+                    rs.getString("owner_uuid")
                 );
             }
             DatabaseConnection.closeResultSet(rs);
@@ -46,13 +47,15 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status) {
     }
 
     public static void insertNewEntry(WebhookEntry entry) throws SQLException {
-        String query = "INSERT INTO ? SET thread_id = ?, plot_id = ?, status = ?";
+        String query = "INSERT INTO " + DatabaseConnection.getWebhookTableName()
+                + " SET thread_id = ?, plot_id = ?, status = ?, owner_uuid = ?";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
             statement.setValue(DatabaseConnection.getWebhookTableName());
             statement.setValue(entry.threadID);
             statement.setValue(entry.plotID);
             statement.setValue(entry.status.name());
+            statement.setValue(entry.ownerUUID);
             statement.executeUpdate();
 
         } catch (SQLException ex) {
@@ -62,11 +65,27 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status) {
         }
     }
 
-    public static List<WebhookEntry> getAllEntries() throws SQLException {
+    public static void updateEntryStatus(long threadID, @NotNull ThreadStatus entry) throws SQLException {
+        String query = "UPDATE " + DatabaseConnection.getWebhookTableName()
+                + " SET status = ? WHERE thread_id = ?";
+
+        try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
+            statement.setValue(DatabaseConnection.getWebhookTableName())
+                    .setValue(entry.name())
+                    .setValue(threadID)
+                    .executeUpdate();
+        }
+        catch (SQLException ex) {
+            DiscordPS.error("Failed to update webhook entry by threadID");
+            throw ex;
+        }
+    }
+
+    public static @NotNull List<WebhookEntry> getAllEntries() throws SQLException {
 
         String query = "SELECT webhook.thread_id, webhook.plot_id, webhook.status "
-                     + "FROM ? AS webhook "
-                     + "ORDER BY webhook.plot_id";
+                     + "FROM " + DatabaseConnection.getWebhookTableName()
+                     + " AS webhook ORDER BY webhook.plot_id";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
             statement.setValue(DatabaseConnection.getWebhookTableName());
@@ -77,7 +96,8 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status) {
                 result.add(new WebhookEntry(
                         rs.getLong("thread_id"),
                         rs.getInt("plot_id"),
-                        ThreadStatus.valueOf(rs.getString("status"))
+                        ThreadStatus.valueOf(rs.getString("status")),
+                        rs.getString("owner_uuid")
                 ));
             }
             DatabaseConnection.closeResultSet(rs);

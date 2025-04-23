@@ -9,11 +9,9 @@ public abstract class ConfigPaths {
     public static final String DATABASE_PASSWORD = DATABASE + "password";
     public static final String DATABASE_WEBHOOK_TABLE = DATABASE + "webhook-table";
 
-    // Database
-    private static final String CHANNEL = "channel.";
-    public static final String DISCORD_SRV = CHANNEL + "discord-srv";
-    public static final String PLOT_STATUS = CHANNEL + "plot-status";
-    public static final String PLOT_NOTIFY = CHANNEL + "plot-notify";
+    // Notifications
+    private static final String NOTIFICATION = "notification.";
+    public static final String NOTIFICATION_CHANNEL = NOTIFICATION + "channel-id";
 
     // Webhook
     private static final String WEBHOOK = "webhook.";
@@ -31,6 +29,7 @@ public abstract class ConfigPaths {
     public static final String TAG_APPROVED = TAG + "approved";
     public static final String TAG_ARCHIVED = TAG + "archived";
     public static final String TAG_ON_GOING = TAG + "on-going";
+    public static final String TAG_ABANDONED = TAG + "abandoned";
 
 
     // Status Tags
@@ -40,4 +39,5 @@ public abstract class ConfigPaths {
     public static final String EMBED_COLOR_APPROVED = EMBED + "approved";
     public static final String EMBED_COLOR_ARCHIVED = EMBED + "archived";
     public static final String EMBED_COLOR_ON_GOING = EMBED + "on-going";
+    public static final String EMBED_COLOR_ABANDONED = EMBED + "abandoned";
 }

@@ -11,14 +11,15 @@ public enum ThreadStatus {
     finished,
     rejected,
     approved,
-    archived;
+    archived,
+    abandoned;
 
 
-    public static @Nullable ThreadStatus toPlotStatus(@NotNull PlotStatus status) {
+    public static @NotNull ThreadStatus toPlotStatus(@NotNull PlotStatus status) {
         return switch (status) {
             case completed, unreviewed -> ThreadStatus.finished;
             case unfinished -> ThreadStatus.on_going;
-            case unclaimed -> null;
+            case unclaimed -> ThreadStatus.abandoned;
         };
     }
 

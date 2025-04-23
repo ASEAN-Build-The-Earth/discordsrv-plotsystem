@@ -7,7 +7,7 @@
   <parent>
     <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.0.6</version>
+    <version>1.0.7</version>
   </parent>
 
   <name>discordsrv-plotsystem:discordps-api</name>
@@ -100,7 +100,7 @@
     <dependency>
       <groupId>org.spigotmc</groupId>
       <artifactId>spigot-api</artifactId>
-      <version>1.21-R0.1-SNAPSHOT</version>
+      <version>1.21.3-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>

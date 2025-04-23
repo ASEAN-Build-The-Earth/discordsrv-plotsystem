@@ -24,14 +24,15 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Plot-System forum management tags
- * configured with {@link ConfigPaths}
+ * configured with {@link ConfigPaths}, Value must be one-to-one to {@link ThreadStatus}.
  */
 public enum AvailableTags {
     ON_GOING(ConfigPaths.TAG_ON_GOING, ConfigPaths.EMBED_COLOR_ON_GOING, Color.GRAY),
     FINISHED(ConfigPaths.TAG_FINISHED, ConfigPaths.EMBED_COLOR_FINISHED, Color.YELLOW),
     REJECTED(ConfigPaths.TAG_REJECTED, ConfigPaths.EMBED_COLOR_REJECTED, Color.RED),
     APPROVED(ConfigPaths.TAG_APPROVED, ConfigPaths.EMBED_COLOR_APPROVED, Color.GREEN),
-    ARCHIVED(ConfigPaths.TAG_ARCHIVED, ConfigPaths.EMBED_COLOR_ARCHIVED, Color.CYAN);
+    ARCHIVED(ConfigPaths.TAG_ARCHIVED, ConfigPaths.EMBED_COLOR_ARCHIVED, Color.CYAN),
+    ABANDONED(ConfigPaths.TAG_ABANDONED, ConfigPaths.EMBED_COLOR_ABANDONED, Color.GRAY);
 
     private static final ExpiringDualHashBidiMap<String, String> tagCache = new ExpiringDualHashBidiMap<>(TimeUnit.SECONDS.toMillis(10));
     private static final ColorSpace colorSpace = ColorSpace.getInstance(ColorSpace.CS_sRGB);
@@ -69,7 +70,7 @@ public enum AvailableTags {
     /**
      * Get the forum tag data including snowflake ID and a name.
      * @return {@link TagReference} object of this enum,
-     * Null if the enum has not been applied yet (handled by {@link github.tintinkung.discordps.core.WebhookManager})
+     * Null if the enum has not been applied yet (handled by {@link github.tintinkung.discordps.core.system.ForumWebhook})
      */
     public TagReference getTag() {
         return this.tagRef;
@@ -97,7 +98,7 @@ public enum AvailableTags {
 
     /**
      * Resolve all the tag identity by this plugin's file config.
-     * (handled by {@link github.tintinkung.discordps.core.WebhookManager})
+     * (handled by {@link github.tintinkung.discordps.core.system.ForumWebhook})
      * @param config The config file reference.
      * @throws NoSuchElementException If the config file entry does not exist for some tag.
      */
@@ -107,7 +108,7 @@ public enum AvailableTags {
 
     /**
      * Apply all stored tag cache to {@link TagReference}
-     * (handled by {@link github.tintinkung.discordps.core.WebhookManager})
+     * (handled by {@link github.tintinkung.discordps.core.system.ForumWebhook})
      * @throws RuntimeException If the cache is not initialized properly.
      */
     public static void applyAllTag() throws RuntimeException {
@@ -204,6 +205,10 @@ public enum AvailableTags {
 
         public String getID() {
             return tagID;
+        }
+
+        public long getIDLong() {
+            return Long.parseUnsignedLong(tagID);
         }
     }
 }

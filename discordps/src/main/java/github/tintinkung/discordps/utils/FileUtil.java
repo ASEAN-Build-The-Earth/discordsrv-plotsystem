@@ -39,8 +39,8 @@ public abstract class FileUtil {
         return "data:" + contentType + ";base64," + base64;
     }
 
-    public static File findImageFileByPrefix(String filePrefix) throws IOException {
-        File[] files = DiscordPS.getPlugin().getDataFolder().listFiles();
+    public static File findImageFileByPrefix(String filePrefix, File folder) throws IOException {
+        File[] files = folder.listFiles();
         if (files == null) {
             throw new IOException("Could not list files in the plugin data folder");
         }
@@ -54,6 +54,10 @@ public abstract class FileUtil {
         }
 
         return null; // Not found
+    }
+
+    public static File findImageFileByPrefix(String filePrefix) throws IOException {
+        return findImageFileByPrefix(filePrefix, DiscordPS.getPlugin().getDataFolder());
     }
 
     private static HttpRequest setTimeout(HttpRequest httpRequest) {

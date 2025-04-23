@@ -57,13 +57,12 @@ public final class Debug {
 
         WEBHOOK_NOT_REGISTERED_DETECTED(
                 "Detected un-registered webhook created by this bot."),
+        NOTIFICATION_CHANNEL_NOT_SET("Plot-System notification channel is not set"),
+        RUNTIME_SQL_EXCEPTION("Unknown SQL Exception Occurred. Please check the log files"),
 
-        // WARNING
         PLOT_SYSTEM_NOT_DETECTED("Plot-System plugin is not detected. "
                 + "You can still use this plugin as long as it is connected to the Plot-System database. "
                 + "Plot-System related minecraft events may not be functional."),
-        PLOT_SYSTEM_LOADED_NOT_ENABLED("Plot-System plugin is loaded but not enabled!"
-                + "Any events from Plot-System plugin will not be listened here."),
         PLOT_SYSTEM_SYMBOL_NOT_FOUND("Failed to get Plot-System class reference, "
                 + "coordinates conversion will be disabled");
 
@@ -85,10 +84,7 @@ public final class Debug {
         // SEVERE
         DISCORD_SRV_NOT_DETECTED(
                 ErrorGroup.PLUGIN_VALIDATION,
-                "DiscordSRV plugin is not detected."),
-        DISCORD_SRV_LOADED_NOT_ENABLED(
-                ErrorGroup.PLUGIN_VALIDATION,
-                "DiscordSRV plugin plugin is loaded but not enabled!"),
+                "DiscordSRV plugin is required to run the system but it is not detected."),
         DISCORD_SRV_FAILED_TO_SUBSCRIBE(
                 ErrorGroup.PLUGIN_VALIDATION,
                 "Failed to subscribe to DiscordSRV API. Discord event listener will not work."),
@@ -194,6 +190,12 @@ public final class Debug {
     void putWarning(@NotNull Warning warning, String message) {
         this.warning.put(warning, message);
     }
+
+    /**
+     * Mark a warning resolved, then this warning will not appear in all thrown list.
+     * @param warning The warning to resolve
+     */
+    void resolveWarning(@NotNull Warning warning) { this.warning.remove(warning); }
 
     @Contract(pure = true)
     public @NotNull Set<Map.Entry<Error, String>> allThrownErrors() {

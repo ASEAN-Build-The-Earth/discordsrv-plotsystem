@@ -274,7 +274,8 @@ public class DatabaseConnection {
                 return  "CREATE TABLE IF NOT EXISTS `" + tableName.trim() + "` (" +
                         " `thread_id`        BIGINT UNSIGNED NOT NULL," +
                         " `plot_id`          INT NOT NULL," +
-                        " `status`           ENUM " + statusEnum + " NOT NULL" +
+                        " `status`           ENUM " + statusEnum + " NOT NULL," +
+                        " `owner_uuid`       varchar(36) NULL COLLATE 'utf8mb4_general_ci'," +
                         " PRIMARY KEY        (`thread_id`)," +
                         " INDEX              (`plot_id`)" +
                         ");";
@@ -295,9 +296,10 @@ public class DatabaseConnection {
 
             static {
                 statusEnum = constructEnumString();
-                expected.put("thread_id", "bigint(20)");
+                expected.put("thread_id", "bigint(20) unsigned");
                 expected.put("plot_id", "int(11)");
                 expected.put("status", "enum" + statusEnum);
+                expected.put("owner_uuid", "varchar(36)");
             }
         }
     }

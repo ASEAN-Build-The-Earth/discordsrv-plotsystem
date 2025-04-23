@@ -15,7 +15,6 @@ public abstract class WebhookProvider implements WebhookProviderImpl {
 
     protected final long channelID;
 
-
     protected final long webhookID;
 
     /**
@@ -55,10 +54,12 @@ public abstract class WebhookProvider implements WebhookProviderImpl {
         return getWebhookReference().resolve().complete();
     }
 
+    @Override
     public final long getWebhookID() {
         return webhookID;
     }
 
+    @Override
     public final long getChannelID() {
         return channelID;
     }
