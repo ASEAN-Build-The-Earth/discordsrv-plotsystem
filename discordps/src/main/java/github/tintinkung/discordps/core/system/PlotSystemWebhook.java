@@ -6,11 +6,8 @@ import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
-import github.scarsz.discordsrv.dependencies.jda.internal.entities.ReceivedMessage;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.scarsz.discordsrv.dependencies.kevinsawicki.http.HttpRequest;
-import github.scarsz.discordsrv.dependencies.okhttp3.HttpUrl;
-import github.scarsz.discordsrv.util.HttpUtil;
 import github.scarsz.discordsrv.util.TimeUtil;
 import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
@@ -18,6 +15,8 @@ import github.tintinkung.discordps.core.database.PlotEntry;
 import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.providers.WebhookProviderImpl;
+import github.tintinkung.discordps.core.system.embeds.InfoEmbed;
+import github.tintinkung.discordps.core.system.embeds.StatusEmbed;
 import github.tintinkung.discordps.utils.AvatarUtil;
 import github.tintinkung.discordps.utils.BuilderUser;
 import github.tintinkung.discordps.utils.CoordinatesUtil;
@@ -25,16 +24,14 @@ import github.tintinkung.discordps.utils.FileUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.awt.*;
 import java.io.*;
 import java.net.URL;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.TemporalAccessor;
+import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -57,45 +54,24 @@ public final class PlotSystemWebhook {
         // Prepare plot data
         if(plot == null) return;
         PlotData plotData = new PlotData(plot);
-        EmbedBuilder embed = plotData.prepareEmbed();
-
-        // Set Timestamp
-        try {
-            Date timestamp = DateFormat.getDateTimeInstance().parse(TimeUtil.timeStamp());
-            embed.setTimestamp(timestamp.toInstant());
-        }
-        catch (ParseException ex) {
-            DiscordPS.warning("Failed to parse timestamp (" + ex.getMessage() + ")");
-        }
-
-        // Set embed author
-        plotData.getOwnerDiscord().ifPresentOrElse(
-            (owner) -> embed.setAuthor(owner.getEffectiveName(), null, owner.getEffectiveAvatarUrl()),
-            () -> embed.setAuthor(plotData.getOwner().getName())
-        );
-
-        // Figure out builder avatar
-        String avatarFormat = "png";
-        File avatarFile = prepareAvatarFile(plot.ownerUUID(), avatarFormat);
-        if(downloadAvatarToFile(plot.ownerUUID(), avatarFile, avatarFormat))
-            embed.setThumbnail("attachment://" + avatarFile.getName());
+        PlotData.PlotDataEmbedBuilder embed = plotData.prepareEmbed();
 
         // Create Webhook Data
         String threadName = "Plot #" + plot.plotID();
+        embed.getInfoEmbed().addHistory(plotData.getOwnerMentionOrName() + " created the plot <t:" + Instant.now().getEpochSecond() + ":R>");
 
         WebhookDataBuilder.WebhookData data = new WebhookDataBuilder()
                 .setThreadName(threadName)
-                .setEmbeds(Collections.singletonList(embed.build()))
+                .setEmbeds(embed.build())
                 .suppressNotifications()
                 .suppressMentions()
                 .build();
 
-        if(avatarFile.exists())
-            data.addFile(avatarFile);
+        plotData.getAvatarFile().ifPresent(data::addFile);
 
         final Consumer<Optional<MessageReference>> onSuccess = (optMessage) -> {
             MessageReference sentMessage = optMessage.orElseThrow();
-            onNewThreadCreated(sentMessage, plotData);
+            attachInteractionButtons(sentMessage, plotData);
             insertEntryToDatabase(new WebhookEntry(
                     sentMessage.getMessageIdLong(),
                     plotID,
@@ -140,54 +116,39 @@ public final class PlotSystemWebhook {
         AvailableTags submitTag = AvailableTags.FINISHED;
         long tagID = submitTag.getTag().getIDLong();
 
-        webhook.editThreadChannelTags(threadID, Set.of(tagID), true);
+        webhook.editThreadChannelTags(threadID, Set.of(tagID), true).queue();
 
-        webhook.getWebhookMessage(threadID, threadID, true).queue((optMessage) -> {
-            optMessage.ifPresent((message) -> {
-                List<MessageEmbed> embeds = message.getEmbeds();
-                MessageEmbed initialMessage = embeds.getFirst();
+        webhook.getWebhookMessage(threadID, threadID, true).queue(opt -> opt.ifPresent(message -> {
+            List<MessageEmbed> embeds = message.getEmbeds();
 
-                EmbedBuilder updated = PlotData.fromEmbed(initialMessage);
+            MessageEmbed initialMessage = embeds.getFirst();
+            InfoEmbed infoEmbed = InfoEmbed.from(initialMessage);
+            StatusEmbed statusEmbed = new StatusEmbed(submitTag.toStatus());
 
-                Path mediaPath = DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/" + entry.ownerUUID());
-                if(initialMessage.getThumbnail() != null) {
-                    try {
-                        File avatarFile = FileUtil.findImageFileByPrefix("avatar-image", mediaPath.toFile());
+            infoEmbed.addHistory("<t:" + Instant.now().getEpochSecond() + ":D> • Plot has been submitted.");
+            infoEmbed.setColor(submitTag.getColor());
 
-                        if (avatarFile != null && avatarFile.exists())
-                            updated.setThumbnail("attachment://" + avatarFile.getName());
-                        else updated.setThumbnail(initialMessage.getThumbnail().getUrl());
+            PlotData.PlotDataEmbedBuilder embedData = new PlotData.PlotDataEmbedBuilder(infoEmbed, statusEmbed);
 
-                    } catch (IOException ex) {
-                        DiscordPS.error("Failed to set webhook avatar thumbnail", ex);
-                    }
+            WebhookDataBuilder.WebhookData data = new WebhookDataBuilder()
+                    .setEmbeds(embedData.build())
+                    .build();
+
+            webhook.editInitialThreadMessage(threadID, data, true).queue(success -> success.ifPresent((msg) -> {
+                try {
+                    WebhookEntry.updateEntryStatus(entry.threadID(), submitTag.toStatus());
+                } catch (SQLException e) {
+                    Notification.sendMessageEmbeds(new EmbedBuilder()
+                            .setTitle(":red_circle: Discord Plot-System Error")
+                            .setDescription("Failed update webhook entry in the database, "
+                                    + "The plot ID #`" + entry.plotID() + "` "
+                                    + "may not be tracked correctly by the system.")
+                            .setColor(Color.RED)
+                            .build()
+                    );
                 }
-
-                updated.addField(PlotData.makeStatusField(submitTag.toStatus()));
-                updated.setColor(submitTag.getColor());
-
-                WebhookDataBuilder.WebhookData data = new WebhookDataBuilder()
-                        .setEmbeds(Collections.singletonList(updated.build()))
-                        .build();
-
-                webhook.editInitialThreadMessage(threadID, data, true).queue((success) -> {
-                    success.ifPresent((msg) -> {
-                        try {
-                            WebhookEntry.updateEntryStatus(entry.threadID(), submitTag.toStatus());
-                        } catch (SQLException e) {
-                            Notification.sendMessageEmbeds(new EmbedBuilder()
-                                    .setTitle(":red_circle: Discord Plot-System Error")
-                                    .setDescription("Failed update webhook entry in the database, "
-                                            + "The plot ID #`" + entry.plotID() + "` "
-                                            + "may not be tracked correctly by the system.")
-                                    .setColor(Color.RED)
-                                    .build()
-                            );
-                        }
-                    });
-                });
-            });
-        });
+            }));
+        }));
 
 
     }
@@ -198,7 +159,7 @@ public final class PlotSystemWebhook {
             DiscordPS.debug("Added plot to webhook database (Plot ID: " + entry.plotID() + ")");
         }
         catch (SQLException ex) {
-            DiscordPS.error("Failed to insert new webhook entry to database: " + entry);
+            DiscordPS.error("Failed to insert new webhook entry to database: " + entry, ex);
 
             Notification.sendMessageEmbeds(new EmbedBuilder()
                 .setTitle(":red_circle: Discord Plot-System Error")
@@ -211,7 +172,7 @@ public final class PlotSystemWebhook {
         }
     }
 
-    public void onNewThreadCreated(@NotNull MessageReference sentMessage, @NotNull PlotData plotData) {
+    public void attachInteractionButtons(@NotNull MessageReference sentMessage, @NotNull PlotData plotData) {
         Button plotLinkButton = Button.link(" https://www.google.com/maps/place/" + plotData.getGeoCoordinates(), "Google Map");
 
         ActionRow actionRow = (plotData.isOwnerHasDiscord())? ActionRow.of(
@@ -235,37 +196,12 @@ public final class PlotSystemWebhook {
             .queueAfter(1L, TimeUnit.SECONDS);
 
         DiscordPS.debug("Sent webhook of message id: " + sentMessage.getMessageId());
-    }
 
-    public @NotNull File prepareAvatarFile(String playerUUID, String format) {
-        // DataFolder/media/UUID/avatar-image.jpg
-        Path mediaPath = DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/" + playerUUID);
-
-        // Make player's directory if not exist
-        if(mediaPath.toFile().mkdirs()) DiscordPS.debug("Created player media cache for UUID: " + mediaPath);
-
-
-        return mediaPath.resolve("avatar-image." + format).toFile();
-    }
-
-    public boolean downloadAvatarToFile(String playerUUID, @NotNull File avatarFile, String format) {
-        // Try download player's minecraft avatar
-        try {
-            // Download if not exist
-            if(avatarFile.createNewFile()) {
-                URL avatarURL = AvatarUtil.getAvatarUrl(playerUUID, 128, format);
-                FileUtil.downloadFile(avatarURL, avatarFile);
-            }
-            return true;
-        }
-        catch (HttpRequest.HttpRequestException ex) {
-            DiscordPS.error("Failed to download URL for player avatar image: " + ex.getMessage(), ex);
-        }
-        catch (IOException ex) {
-            DiscordPS.error("IO Exception occurred trying to read player media folder at: "
-                    + avatarFile.getAbsolutePath() + ": " + ex.getMessage(), ex);
-        }
-        return false;
+        Notification.sendMessageEmbeds(new EmbedBuilder()
+                .setTitle(":hammer_pick: New Plot Created at <#" + sentMessage.getMessageId() + ">")
+                .setDescription("By " + plotData.getOwnerMentionOrName() + " (Plot ID: " + plotData.getPlot().plotID() + ")")
+                .setColor(Color.GREEN)
+                .build());
     }
 
     @Deprecated
@@ -364,7 +300,7 @@ public final class PlotSystemWebhook {
         try {
             // Download if not exist
             if(avatarFile.createNewFile()) {
-                URL avatarURL = AvatarUtil.getAvatarUrl(plot.ownerUUID(), 128, avatarFormat);
+                URL avatarURL = AvatarUtil.getAvatarUrl(plot.ownerUUID(), 16, avatarFormat);
                 FileUtil.downloadFile(avatarURL, avatarFile);
             }
         }

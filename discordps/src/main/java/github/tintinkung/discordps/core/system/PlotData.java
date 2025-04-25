@@ -4,39 +4,57 @@ import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
+import github.scarsz.discordsrv.dependencies.kevinsawicki.http.HttpRequest;
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.database.PlotEntry;
 import github.tintinkung.discordps.core.database.ThreadStatus;
+import github.tintinkung.discordps.core.system.embeds.ImageEmbed;
+import github.tintinkung.discordps.core.system.embeds.InfoEmbed;
+import github.tintinkung.discordps.core.system.embeds.PlotDataEmbed;
+import github.tintinkung.discordps.core.system.embeds.StatusEmbed;
+import github.tintinkung.discordps.utils.AvatarUtil;
 import github.tintinkung.discordps.utils.BuilderUser;
 import github.tintinkung.discordps.utils.CoordinatesUtil;
+import github.tintinkung.discordps.utils.FileUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.*;
 
 public class PlotData {
+
+    private static final String AVATAR_FORMAT = "png";
+    private static final int AVATAR_SIZE = 16;
 
     private final OfflinePlayer owner;
 
     private final @Nullable Member ownerDiscord;
+    private final @Nullable File avatarFile;
 
     private final PlotEntry plot;
     private final ThreadStatus status;
     private final String geoCoordinates;
     private final String displayCords;
     private final Set<Long> statusTags;
+    private final URL avatarURL;
 
-    private @Nullable EmbedBuilder embed = null;
 
     public PlotData(@NotNull PlotEntry plot) {
         this.plot = plot;
+
+        // Plot owner
         this.owner = Bukkit.getOfflinePlayer(UUID.fromString(plot.ownerUUID()));
         this.ownerDiscord = BuilderUser.getAsDiscordMember(owner);
 
+        // Plot location
         String[] mcLocation = plot.mcCoordinates().split(",");
 
         double xCords = Double.parseDouble(mcLocation[0].trim());
@@ -46,95 +64,26 @@ public class PlotData {
         this.geoCoordinates = CoordinatesUtil.formatGeoCoordinatesNumeric(geoCords);
         this.displayCords = CoordinatesUtil.formatGeoCoordinatesNSEW(geoCords);
 
-        status = ThreadStatus.toPlotStatus(plot.status());
+        // Builder avatar image (storing at /media/UUID/avatar-image.png)
+        this.avatarURL = AvatarUtil.getAvatarUrl(plot.ownerUUID(), AVATAR_SIZE, AVATAR_FORMAT);
+        File avatarFileLocation = prepareAvatarFile(plot.ownerUUID(), AVATAR_FORMAT);
+
+        if(downloadAvatarToFile(avatarURL, avatarFileLocation))
+            this.avatarFile = avatarFileLocation;
+        else this.avatarFile = null;
+
+        // Plot Status
+        this.status = ThreadStatus.toPlotStatus(plot.status());
         String tagID = status.toTag().getTag().getID();
+
         Checks.isSnowflake(tagID, "Forum Tag ID");
-        statusTags = Set.of(Long.parseUnsignedLong(tagID));
+
+        this.statusTags = Set.of(Long.parseUnsignedLong(tagID));
     }
 
-    public EmbedBuilder prepareEmbed() {
-        String owner = isOwnerHasDiscord()? getOwnerDiscord().orElseThrow().getAsMention() : this.owner.getName();
-
-        return embed = new EmbedBuilder()
-                .setTitle("Plot by " + owner)
-                .addField(makeDescriptionField(plot.plotID(), plot.cityName(), plot.countryName(), getDisplayCords()))
-                .addField(makeStatusField(status))
-                .setColor(getStatus().toTag().getColor());
-    }
-
-    /**
-     * Clone an embed from a previously sent plot data.
-     * @param fromEmbed The previous embed, must be formatted the same as {@link #prepareEmbed()}
-     * @return A new embed builder without status field, thumbnail data and embed color.
-     */
-    public static @NotNull EmbedBuilder fromEmbed(@NotNull MessageEmbed fromEmbed) {
-        MessageEmbed.AuthorInfo author = fromEmbed.getAuthor();
-        MessageEmbed.Field descField = fromEmbed.getFields().getFirst();
-
-        if(author == null) throw new IllegalArgumentException("Trying to restore webhook embed with null author");
-
-        return new EmbedBuilder()
-                .setTitle(fromEmbed.getTitle())
-                .setAuthor(author.getName(), null, author.getIconUrl())
-                .addField(descField);
-    }
-
-    /**
-     * Format a plot status field for message embed, will display as:
-     * @param status The thread status of this plot
-     * @return {@link MessageEmbed.Field new field}
-     */
-    @Contract("_ -> new")
-    public static @NotNull MessageEmbed.Field makeStatusField(ThreadStatus status) {
-        return new MessageEmbed.Field(getDisplayStatus(status), getDisplayDetail(status), true);
-    }
-
-    /**
-     *
-     * Format a plot description field for message embed.
-     * <p>Example display:</p>
-     * <blockquote>
-     *    <p>🏠 Plot #1 at Bangkok, Thailand</p>
-     *    <p>{@code
-     *    3°2'52.82"N 101°27'17.452"E
-     *    }</p>
-     * </blockquote>
-     * @return {@link MessageEmbed.Field new field}
-     */
-    @Contract("_, _, _, _ -> new")
-    public static @NotNull MessageEmbed.Field makeDescriptionField(
-            int plotID,
-            @NotNull String city,
-            @NotNull String country,
-            @NotNull String geoCoordinates) {
-        return new MessageEmbed.Field(
-                ":house: Plot #" + plotID + " at "
-                    + String.join(", ", country, city),
-                "```" + geoCoordinates + "```",
-                true
-        );
-    }
-
-    public static String getDisplayStatus(ThreadStatus status) {
-        return switch (status) {
-            case on_going -> ":white_circle: On Going";
-            case finished -> ":yellow_circle: Submitted";
-            case rejected -> ":red_circle: Rejected";
-            case approved -> ":green_circle: Approved";
-            case archived -> ":blue_circle: Archived";
-            case abandoned -> ":white_circle: Abandoned";
-        };
-    }
-
-    public static String getDisplayDetail(ThreadStatus status) {
-        return switch (status) {
-            case on_going -> null;
-            case finished -> "Please wait for staff to review this plot.";
-            case rejected -> "This plot is rejected, please make changes given my our staff team and re-submit this plot.";
-            case approved -> "Plot is completed and staff has approved this plot.";
-            case archived -> "The plot has been marked as archived.";
-            case abandoned -> "The user has abandoned their plot, anyone can re-claim this plot.";
-        };
+    @Contract("-> new")
+    public PlotDataEmbedBuilder prepareEmbed() {
+        return new PlotDataEmbedBuilder(new InfoEmbed(this), new StatusEmbed((this.status)));
     }
 
     public OfflinePlayer getOwner() {
@@ -149,6 +98,22 @@ public class PlotData {
         return Optional.ofNullable(this.ownerDiscord);
     }
 
+    public String getOwnerMentionOrName() {
+        StringBuilder mention = new StringBuilder();
+        getOwnerDiscord().ifPresentOrElse(
+                (discord) -> mention.append("<@").append(discord.getId()).append(">"),
+                () -> mention.append(getOwner().getName()));
+        return mention.toString();
+    }
+
+    public String formatOwnerName() {
+        return ownerDiscord != null? formatOwnerName(ownerDiscord) : getOwner().getName();
+    }
+
+    public String formatOwnerName(@NotNull Member owner) {
+        return "@" + owner.getEffectiveName() + " (" + getOwner().getName() + ")";
+    }
+
     public ThreadStatus getStatus() {
         return this.status;
     }
@@ -157,9 +122,7 @@ public class PlotData {
         return this.statusTags;
     }
 
-    public Optional<EmbedBuilder> getEmbed() {
-        return Optional.ofNullable(this.embed);
-    }
+    public Optional<File> getAvatarFile() { return Optional.ofNullable(this.avatarFile); }
 
     public String getDisplayCords() {
         return displayCords;
@@ -171,5 +134,75 @@ public class PlotData {
 
     public PlotEntry getPlot() {
         return plot;
+    }
+
+    public @NotNull URL getAvatarURL() {
+        return avatarURL;
+    }
+
+    public @NotNull File prepareAvatarFile(String playerUUID, String format) {
+        // DataFolder/media/UUID/avatar-image.jpg
+        Path mediaPath = DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/" + playerUUID);
+
+        // Make player's directory if not exist
+        if(mediaPath.toFile().mkdirs()) DiscordPS.debug("Created player media cache for UUID: " + mediaPath);
+
+
+        return mediaPath.resolve("avatar-image." + format).toFile();
+    }
+
+    public boolean downloadAvatarToFile(URL avatarURL, @NotNull File avatarFile) {
+        // Try download player's minecraft avatar
+        try {
+            // Download if not exist
+            if(avatarFile.createNewFile())
+                FileUtil.downloadFile(avatarURL, avatarFile);
+
+            return true;
+        }
+        catch (HttpRequest.HttpRequestException ex) {
+            DiscordPS.error("Failed to download URL for player avatar image: " + ex.getMessage(), ex);
+        }
+        catch (IOException ex) {
+            DiscordPS.error("IO Exception occurred trying to read player media folder at: "
+                    + avatarFile.getAbsolutePath() + ": " + ex.getMessage(), ex);
+        }
+        return false;
+    }
+
+    public static class PlotDataEmbedBuilder {
+        private final InfoEmbed infoEmbed;
+        private final StatusEmbed statusEmbed;
+        private final List<PlotDataEmbed> embeds;
+
+        private final List<ImageEmbed> imageEmbeds = new ArrayList<>(4);
+
+        public PlotDataEmbedBuilder(@NotNull InfoEmbed info, @NotNull StatusEmbed status, ImageEmbed... images) {
+            this.embeds = new ArrayList<>();
+            this.embeds.add(this.infoEmbed = info);
+            this.embeds.add(this.statusEmbed = status);
+
+            for(ImageEmbed image : images) {
+                imageEmbeds.add(image);
+                this.embeds.add(image);
+            }
+        }
+
+        public InfoEmbed getInfoEmbed() {
+            return infoEmbed;
+        }
+
+        public StatusEmbed getStatusEmbed() {
+            return statusEmbed;
+        }
+
+        public List<ImageEmbed> getImageEmbeds() {
+            return imageEmbeds;
+        }
+
+        public List<MessageEmbed> build() {
+            return embeds.stream().map(PlotDataEmbed::build).toList();
+        }
+
     }
 }

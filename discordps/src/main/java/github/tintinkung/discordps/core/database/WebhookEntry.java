@@ -26,7 +26,7 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status, Strin
     @Nullable
     private static WebhookEntry getByID(String key, Object value) throws SQLException {
 
-        String query = "SELECT webhook.thread_id, webhook.plot_id, webhook.status "
+        String query = "SELECT webhook.thread_id, webhook.plot_id, webhook.status, webhook.owner_uuid "
                 + "FROM " + DatabaseConnection.getWebhookTableName()
                 + " AS webhook WHERE webhook." + key + " = ?";
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
@@ -51,7 +51,6 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status, Strin
                 + " SET thread_id = ?, plot_id = ?, status = ?, owner_uuid = ?";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
-            statement.setValue(DatabaseConnection.getWebhookTableName());
             statement.setValue(entry.threadID);
             statement.setValue(entry.plotID);
             statement.setValue(entry.status.name());
@@ -70,7 +69,7 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status, Strin
                 + " SET status = ? WHERE thread_id = ?";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
-            statement.setValue(DatabaseConnection.getWebhookTableName())
+            statement
                     .setValue(entry.name())
                     .setValue(threadID)
                     .executeUpdate();
@@ -83,12 +82,11 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status, Strin
 
     public static @NotNull List<WebhookEntry> getAllEntries() throws SQLException {
 
-        String query = "SELECT webhook.thread_id, webhook.plot_id, webhook.status "
+        String query = "SELECT webhook.thread_id, webhook.plot_id, webhook.status, webhook.owner_uuid "
                      + "FROM " + DatabaseConnection.getWebhookTableName()
                      + " AS webhook ORDER BY webhook.plot_id";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
-            statement.setValue(DatabaseConnection.getWebhookTableName());
             ResultSet rs = statement.executeQuery();
             List<WebhookEntry> result = new ArrayList<>();
             while(rs.next()) {
@@ -112,6 +110,7 @@ public record WebhookEntry(Long threadID, int plotID, ThreadStatus status, Strin
                 "threadID=" + threadID +
                 ", plotID=" + plotID +
                 ", status=" + status +
+                ", ownerUUID=" + ownerUUID +
                 '}';
     }
 }

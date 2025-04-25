@@ -40,7 +40,7 @@ public abstract class NotificationProvider {
             DiscordPS.warning(
                     NOTIFICATION_CHANNEL_NOT_SET,
                     "Notification channel is set but "
-                            + "failed to parse webhook configuration for "
+                            + "failed to parse in configuration for "
                             + channelID + " (" + ex.getMessage() + ")"
             );
         }

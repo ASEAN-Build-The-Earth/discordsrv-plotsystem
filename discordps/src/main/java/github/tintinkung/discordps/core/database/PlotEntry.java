@@ -41,7 +41,7 @@ public record PlotEntry(
 
     public static @Nullable PlotEntry getByID(int plotID) {
         String query = PLOT_ENTRIES_QUERY
-                + "WHERE plots.id = ?"
+                + "WHERE plots.id = ? "
                 + "ORDER BY plots.id";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
