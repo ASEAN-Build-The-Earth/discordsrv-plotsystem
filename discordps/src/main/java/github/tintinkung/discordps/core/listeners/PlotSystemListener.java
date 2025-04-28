@@ -36,6 +36,9 @@ public class PlotSystemListener {
 
     @ApiSubscribe
     public void onPlotFeedback(@NotNull PlotFeedbackEvent event) {
+        // Ignore no feedback
+        if(event.getFeedback().equals("No Feedback")) return;
+
         Runnable task = () -> webhook.onFeedbackSet(event);
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);

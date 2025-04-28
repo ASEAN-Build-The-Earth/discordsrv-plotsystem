@@ -1,7 +1,9 @@
 package github.tintinkung.discordps.core.system;
 
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.IMentionable;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
@@ -106,7 +108,7 @@ public final class PlotSystemWebhook {
         final Consumer<Optional<MessageReference>> onSuccess = opt -> {
             MessageReference initialMsg = opt.orElseThrow();
 
-            Button helpButton = Button.success(
+            Button helpButton = Button.primary(
                     Constants.NEW_PLOT_HELP_BUTTON.apply(
                             initialMsg.getMessageIdLong(),
                             plotData.getOwnerDiscord().orElseThrow().getIdLong(),
@@ -179,6 +181,8 @@ public final class PlotSystemWebhook {
         String threadID = Long.toUnsignedString(entry.threadID());
         String messageID = Long.toUnsignedString(entry.messageID());
 
+        DiscordPS.debug("Feedback Event: " + event.getFeedback());
+
         // Update feedback data entry
         try {
             WebhookEntry.updateEntryFeedback(entry.messageID(), event.getFeedback());
@@ -205,6 +209,11 @@ public final class PlotSystemWebhook {
             List<Button> buttons = new ArrayList<>();
 
             componentRow.getButtons().forEach((button) -> {
+                // Add all sent button back
+                if(button == null) return;
+                else buttons.add(button);
+
+                // Parse for data in help button
                 try {
                     ComponentUtil.PluginButton component = new ComponentUtil.PluginButton(button);
 
@@ -218,17 +227,19 @@ public final class PlotSystemWebhook {
                             "View Feedback")
                         );
 
+                        // Reply and ping user that their plot got reviewed
                         message.replyEmbeds(new EmbedBuilder()
                                 .setTitle(":yellow_circle: Your plot has been reviewed!")
-                                .setDescription(
-                                        "<@" + component.getUserID() + ">, "
-                                        + "click the **View Feedback** button above to view the your feedback.")
+                                .setDescription("click the **View Feedback** button above to view the your feedback.")
                                 .setColor(AvailableTags.FINISHED.getColor())
+                                .setFooter("Updated")
+                                .setTimestamp(Instant.now())
                                 .build()
-                        ).queue();
+                        )
+                        .content("<@" + component.getUserID() + ">")
+                        .allowedMentions(Collections.singletonList(Message.MentionType.USER))
+                        .queue();
                     }
-
-                    buttons.add(button);
                 }
                 catch (IllegalArgumentException ignored) { }
             });
@@ -271,7 +282,7 @@ public final class PlotSystemWebhook {
         if(event instanceof PlotSubmitEvent) {
             Notification.sendMessageEmbeds("<@501366655624937472> <@480350715735441409> <@728196906395631637> <@939467710247604224> <@481786697860775937>",
                 new EmbedBuilder()
-                    .setTitle(":bell: Plot #" + entry.plotID() + " Has just submitted")
+                    .setTitle(":bell: Plot #" + entry.plotID() + " Has just submitted <t:" + Instant.now().getEpochSecond() + ":R>")
                     .setDescription("Tracker: <#" + threadID + ">")
                     .setColor(Color.CYAN)
                     .build()

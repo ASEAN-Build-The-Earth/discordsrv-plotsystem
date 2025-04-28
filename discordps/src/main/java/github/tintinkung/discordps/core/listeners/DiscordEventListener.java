@@ -2,9 +2,7 @@ package github.tintinkung.discordps.core.listeners;
 
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
-import github.scarsz.discordsrv.dependencies.jda.api.events.application.ApplicationCommandCreateEvent;
-import github.scarsz.discordsrv.dependencies.jda.api.events.application.ApplicationCommandDeleteEvent;
-import github.scarsz.discordsrv.dependencies.jda.api.events.application.ApplicationCommandUpdateEvent;
+
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonClickEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.events.DisconnectEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.events.ShutdownEvent;
@@ -19,12 +17,15 @@ import github.tintinkung.discordps.commands.events.CommandEvent;
 import github.tintinkung.discordps.commands.interactions.InteractionEvent;
 import github.tintinkung.discordps.commands.interactions.OnSetupWebhook;
 import github.tintinkung.discordps.commands.SetupCommand;
+import github.tintinkung.discordps.core.database.WebhookEntry;
+import github.tintinkung.discordps.core.system.AvailableTags;
+import github.tintinkung.discordps.core.system.Notification;
 import github.tintinkung.discordps.utils.ComponentUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.Nonnull;
-import java.awt.*;
+import java.awt.Color;
+import java.sql.SQLException;
 import java.util.EnumMap;
 
 /**
@@ -174,42 +175,72 @@ final public class DiscordEventListener extends ListenerAdapter {
 
                 MessageEmbed helpEmbed = new EmbedBuilder()
                         .setTitle("Help")
-                        .setDescription("Message asean support for further support")
-                        .addField("/plot links", "bla bla bla bla", false)
+                        .setDescription("Please message our support bot <@1361310076308033616> " +
+                                "for questions if you need help about this plot. (or just ping a staff here)")
+                        .addField("Building",
+                                "Click the documentation link above to take a look " +
+                                "at a detailed guide on how to build your plot!", false)
+                        .setColor(AvailableTags.APPROVED.getColor())
                         .build();
-                event.replyEmbeds(helpEmbed).queue();
+                event.deferReply(true).addEmbeds(helpEmbed).queue();
+            }
+            case Constants.FEEDBACK_BUTTON -> {
+                if(!user.equals(event.getUser().getId())) {
+
+                    MessageEmbed notOwnerEmbed = new EmbedBuilder()
+                            .setTitle("You don't own this plot")
+                            .setDescription("Go build a plot!")
+                            .setColor(Color.RED)
+                            .build();
+                    event.deferReply(true).addEmbeds(notOwnerEmbed).queue();
+                    break;
+                }
+
+                try {
+                    WebhookEntry entry = WebhookEntry.getByMessageID(Long.parseUnsignedLong(id));
+
+                    if(entry == null || entry.feedback() == null)
+                        throw new SQLException("Trying to get feedback that does not exist in the database!");
+
+                    MessageEmbed feedbackEmbed = new EmbedBuilder()
+                            .setTitle("Your Feedback")
+                            .setDescription(entry.feedback())
+                            .addField("Help",
+                                "Please message our support bot <@1361310076308033616> " +
+                                "for questions if you need help about this plot. (or just ping a staff here)",
+                                false)
+                            .setColor(entry.status().toTag().getColor())
+                            .build();
+
+                    event.deferReply(true).addEmbeds(feedbackEmbed).queue();
+
+
+                } catch (SQLException ex) {
+                    MessageEmbed errorEmbed = new EmbedBuilder()
+                            .setTitle("Error :(")
+                            .setDescription("Sorry an error occurred trying to get your feedback data. " +
+                                    "Please message our support bot <@1361310076308033616> to ask for it.")
+                            .setColor(Color.RED)
+                            .build();
+                    event.deferReply(true).addEmbeds(errorEmbed).queue();
+
+                    String plot = component.get(ComponentUtil.IDPattern.PAYLOAD);
+
+                    Notification.sendMessageEmbeds(new EmbedBuilder()
+                            .setTitle(":red_circle: Discord Plot-System Error")
+                            .setDescription("Runtime exception **fetching** plot feedback, "
+                                    + "The owner of plot ID #`" + plot + "` "
+                                    + "cannot view their feedback message!")
+                            .addField("Error", "```" + ex.toString() + "```", false)
+                            .setColor(Color.RED)
+                            .build()
+                    );
+                }
             }
             default -> {
                 throw new RuntimeException("[Internal Error] Button click even is not handled for " + type);
             }
         }
-    }
-
-
-    @Override
-    public void onApplicationCommandUpdate(@Nonnull ApplicationCommandUpdateEvent event) {
-        DiscordPS.debug("Updated command: " + event.getCommand().getName());
-
-        // Safety first
-//        List<CommandPrivilege> topRoles = DiscordSRV.getPlugin().getMainGuild().getRoles().stream()
-//                .filter(role -> !role.isPublicRole()) // Exclude @everyone
-//                .sorted(Comparator.comparingInt(Role::getPositionRaw).reversed()) // Highest position first
-//                .limit(10) // Top 10 roles which should include moderators
-//                .map(CommandPrivilege::enable).toList();
-//        event.getCommand().updatePrivileges(DiscordSRV.getPlugin().getMainGuild(), topRoles).queue((command) -> {
-//
-//        });
-    }
-
-    @Override
-    public void onApplicationCommandDelete(@Nonnull ApplicationCommandDeleteEvent event) {
-        DiscordPS.debug("Deleted command: " + event.getCommand().getName());
-
-    }
-
-    @Override
-    public void onApplicationCommandCreate(@Nonnull ApplicationCommandCreateEvent event) {
-        DiscordPS.debug("Created command: " + event.getCommand().getName());
     }
 
     private static @Nullable MessageReference getInteractionLastMessage(TextChannel channel) {

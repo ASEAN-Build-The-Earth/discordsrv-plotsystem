@@ -25,7 +25,7 @@ public enum AvailableComponent {
     public interface SubComponent {
         @Contract(pure = true)
         static @Nullable SubComponent fromOrdinal(int ordinal, SubComponent[] component) {
-            return (ordinal < component.length && ordinal > 0)? component[ordinal] : null;
+            return (ordinal < component.length && ordinal >= 0)? component[ordinal] : null;
         }
     }
 
@@ -106,6 +106,9 @@ public enum AvailableComponent {
 
     /**
      * Extracts the position from a packed ID.
+     * <blockquote>{@snippet :
+     *       return packedID & 0xFFFF;
+     * }</blockquote>
      *
      * @param packedID The packed ID from which to extract the position.
      * @return The position stored in the lower 16 bits of the packed ID.
@@ -116,6 +119,9 @@ public enum AvailableComponent {
 
     /**
      * Extracts the top-level component ID from a packed ID.
+     * <blockquote>{@snippet :
+     *       return (packedID >> 16) & 0xFF;
+     * }</blockquote>
      *
      * @param packedID The packed ID from which to extract the top-level component ID.
      * @return The top-level component ID, shifted 16 bits to the right.
@@ -126,6 +132,10 @@ public enum AvailableComponent {
 
     /**
      * Extracts the subcomponent ID from a packed ID.
+     * <blockquote>{@snippet :
+     *       int subID = (packedID >> 24) & 0xFF;
+     *       return subID - 1;
+     * }</blockquote>
      *
      * @param packedID The packed ID from which to extract the subcomponent ID.
      * @return The subcomponent ID, shifted 24 bits to the right and adjusted by subtracting 1.

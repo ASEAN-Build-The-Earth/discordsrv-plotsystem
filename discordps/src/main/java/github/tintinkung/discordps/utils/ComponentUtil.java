@@ -56,6 +56,8 @@ public abstract class ComponentUtil {
         private final EnumMap<ComponentUtil.IDPattern, String> component;
 
         public PluginButton(@NotNull Button button) {
+            Checks.notNull(button.getId(), "Button ID");
+
             this.component = ComponentUtil.parseCustomID(button.getId());
 
             // Invalid button ID (possibly from other bots)
