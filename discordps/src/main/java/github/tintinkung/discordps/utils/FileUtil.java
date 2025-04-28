@@ -1,21 +1,16 @@
 package github.tintinkung.discordps.utils;
 
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.commons.codec.binary.Base64;
-import github.scarsz.discordsrv.dependencies.jda.api.exceptions.HttpException;
-import github.scarsz.discordsrv.dependencies.jda.internal.requests.FunctionalCallback;
-import github.scarsz.discordsrv.dependencies.jda.internal.utils.IOUtil;
 import github.scarsz.discordsrv.dependencies.kevinsawicki.http.HttpRequest;
-import github.scarsz.discordsrv.dependencies.okhttp3.OkHttpClient;
-import github.scarsz.discordsrv.dependencies.okhttp3.Request;
-import github.scarsz.discordsrv.util.LangUtil;
 import github.tintinkung.discordps.DiscordPS;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.Nonnull;
 import java.io.*;
 import java.net.URL;
 import java.nio.file.Files;
-import java.util.concurrent.CompletableFuture;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public abstract class FileUtil {
@@ -39,25 +34,30 @@ public abstract class FileUtil {
         return "data:" + contentType + ";base64," + base64;
     }
 
-    public static File findImageFileByPrefix(String filePrefix, File folder) throws IOException {
+    public static List<File> findImagesFileByPrefix(String filePrefix, File folder) throws IOException {
         File[] files = folder.listFiles();
-        if (files == null) {
-            throw new IOException("Could not list files in the plugin data folder");
-        }
+        if (files == null) throw new IOException("Could not list files in the plugin data folder");
+
+        List<File> result = new ArrayList<>();
         for (File file : files) {
             if (file.getName().startsWith(filePrefix) && file.isFile()) {
                 String mimeType = Files.probeContentType(file.toPath());
                 if (mimeType != null && mimeType.startsWith("image/")) {
-                    return file;
+                    result.add(file);
                 }
             }
         }
-
-        return null; // Not found
+        return result;
     }
 
-    public static File findImageFileByPrefix(String filePrefix) throws IOException {
-        return findImageFileByPrefix(filePrefix, DiscordPS.getPlugin().getDataFolder());
+    public static @Nullable File findImageFileByPrefix(String filePrefix) throws IOException {
+        List<File> files = findImagesFileByPrefix(filePrefix, DiscordPS.getPlugin().getDataFolder());
+        if(files.isEmpty()) return null;
+        else return files.getFirst();
+    }
+
+    public static @NotNull List<File> findImagesFileByPrefix(String filePrefix) throws IOException {
+        return findImagesFileByPrefix(filePrefix, DiscordPS.getPlugin().getDataFolder());
     }
 
     private static HttpRequest setTimeout(HttpRequest httpRequest) {

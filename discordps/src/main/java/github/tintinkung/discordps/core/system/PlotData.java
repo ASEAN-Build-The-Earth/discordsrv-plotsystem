@@ -5,6 +5,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.scarsz.discordsrv.dependencies.kevinsawicki.http.HttpRequest;
+import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.database.PlotEntry;
 import github.tintinkung.discordps.core.database.ThreadStatus;
@@ -26,8 +27,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.*;
+
+import static github.tintinkung.discordps.Constants.PLOT_IMAGE_FILE;
 
 public class PlotData {
 
@@ -38,6 +40,8 @@ public class PlotData {
 
     private final @Nullable Member ownerDiscord;
     private final @Nullable File avatarFile;
+    private final List<File> imageFiles;
+    private final File imagesFolder;
 
     private final PlotEntry plot;
     private final ThreadStatus status;
@@ -71,6 +75,10 @@ public class PlotData {
         if(downloadAvatarToFile(avatarURL, avatarFileLocation))
             this.avatarFile = avatarFileLocation;
         else this.avatarFile = null;
+
+        // Fetch plot specific image files
+        this.imagesFolder = prepareMediaFolder(plot.plotID());
+        this.imageFiles = checkMediaFolder(this.imagesFolder);
 
         // Plot Status
         this.status = ThreadStatus.toPlotStatus(plot.status());
@@ -124,6 +132,8 @@ public class PlotData {
 
     public Optional<File> getAvatarFile() { return Optional.ofNullable(this.avatarFile); }
 
+    public List<File> getImageFiles() { return this.imageFiles; }
+
     public String getDisplayCords() {
         return displayCords;
     }
@@ -141,17 +151,49 @@ public class PlotData {
     }
 
     public @NotNull File prepareAvatarFile(String playerUUID, String format) {
-        // DataFolder/media/UUID/avatar-image.jpg
-        Path mediaPath = DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/" + playerUUID);
+        // DataFolder/media/cache/UUID/avatar-image.jpg
+        Path mediaPath = DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/cache/" + playerUUID);
 
         // Make player's directory if not exist
         if(mediaPath.toFile().mkdirs()) DiscordPS.debug("Created player media cache for UUID: " + mediaPath);
 
 
-        return mediaPath.resolve("avatar-image." + format).toFile();
+        return mediaPath.resolve( Constants.BUILDER_AVATAR_FILE + "." + format).toFile();
     }
 
-    public boolean downloadAvatarToFile(URL avatarURL, @NotNull File avatarFile) {
+    /**
+     * Fetch this plot's media folder into {@link #getImageFiles()}
+     *
+     * @return True if the list is modified after fetching.
+     */
+    public boolean fetchMediaFolder() {
+        return this.imageFiles.addAll(checkMediaFolder(this.imagesFolder));
+    }
+
+    public static @NotNull File prepareMediaFolder(int plotID) {
+        Path imagesPath = DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/plot-" + plotID);
+
+        if(imagesPath.toFile().mkdirs()) DiscordPS.debug("Created plot media folder for id: " + plotID);
+
+        return imagesPath.toFile();
+    }
+
+    public static @NotNull List<File> checkMediaFolder(int plotID) {
+        return checkMediaFolder(prepareMediaFolder(plotID));
+    }
+
+    public static @NotNull List<File> checkMediaFolder(File folder) {
+        List<File> imageFiles = new ArrayList<>();
+        try {
+            imageFiles.addAll(FileUtil.findImagesFileByPrefix(PLOT_IMAGE_FILE, folder));
+        }
+        catch (IOException ex) {
+            DiscordPS.error("Failed to find plot's image files");
+        }
+        return imageFiles;
+    }
+
+    private boolean downloadAvatarToFile(URL avatarURL, @NotNull File avatarFile) {
         // Try download player's minecraft avatar
         try {
             // Download if not exist
@@ -170,6 +212,7 @@ public class PlotData {
         return false;
     }
 
+    @Deprecated
     public static class PlotDataEmbedBuilder {
         private final InfoEmbed infoEmbed;
         private final StatusEmbed statusEmbed;

@@ -8,42 +8,29 @@ import github.scarsz.discordsrv.dependencies.jda.api.Permission;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.AccountTypeException;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ComponentLayout;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
-import github.scarsz.discordsrv.dependencies.jda.api.requests.restaction.MessageAction;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
-import github.scarsz.discordsrv.dependencies.jda.internal.utils.BufferedRequestBody;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
-import github.scarsz.discordsrv.dependencies.json.JSONArray;
-import github.scarsz.discordsrv.dependencies.json.JSONObject;
 import github.scarsz.discordsrv.dependencies.okhttp3.MediaType;
 import github.scarsz.discordsrv.dependencies.okhttp3.MultipartBody;
 import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
-import github.scarsz.discordsrv.dependencies.okio.Okio;
 import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.Debug;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.providers.WebhookProvider;
 import github.tintinkung.discordps.core.providers.WebhookProviderImpl;
+import github.tintinkung.discordps.core.system.layout.Layout;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public final class ForumWebhook extends WebhookProvider implements ForumWebhookImpl {
     private final JDAImpl jdaImpl;
@@ -297,9 +284,36 @@ public final class ForumWebhook extends WebhookProvider implements ForumWebhookI
     }
 
     @Override
+    public @NotNull RestAction<Optional<MessageReference>> editThreadMessage(
+            @NotNull String threadID,
+            @NotNull String messageID,
+            @NotNull WebhookDataBuilder.WebhookData webhookData,
+            boolean allowSecondAttempt) {
+        return this.editWebhookMessage(threadID, messageID, webhookData, false, allowSecondAttempt);
+    }
+
+    @Override
+    public @NotNull RestAction<Optional<MessageReference>> editInitialThreadMessage(
+            @NotNull String threadID,
+            @NotNull WebhookDataBuilder.WebhookData webhookData,
+            boolean withComponents,
+            boolean allowSecondAttempt) {
+        return this.editWebhookMessage(threadID, threadID, webhookData, withComponents, allowSecondAttempt);
+    }
+
+    @Override
     public @NotNull RestAction<Optional<MessageReference>> newThreadFromWebhook(
             @NotNull WebhookDataBuilder.WebhookData webhookData,
             @Nullable Collection<Long> appliedTags,
+            boolean allowSecondAttempt) {
+        return this.newThreadWithMessage(webhookData, appliedTags, false, allowSecondAttempt);
+    }
+
+    @Override
+    public @NotNull RestAction<Optional<MessageReference>> newThreadFromWebhook(
+            @NotNull WebhookDataBuilder.WebhookData webhookData,
+            @Nullable Collection<Long> appliedTags,
+            boolean withComponents,
             boolean allowSecondAttempt) {
         return this.newThreadWithMessage(webhookData, appliedTags, false, allowSecondAttempt);
     }
@@ -434,6 +448,39 @@ public final class ForumWebhook extends WebhookProvider implements ForumWebhookI
         });
     }
 
+    public @NotNull RestAction<Optional<Layout>> getInitialLayout(
+            @NotNull String threadID,
+            boolean allowSecondAttempt) {
+
+        Checks.isSnowflake(threadID, "Webhook thread ID");
+
+        Route.CompiledRoute route = Route.get(Route.Webhooks.EXECUTE_WEBHOOK_EDIT.getRoute())
+                .compile(webhook.getId(), webhook.getToken(), threadID)
+                .withQueryParams("thread_id", threadID);
+
+        return new RestActionImpl<>(this.jdaImpl, route, (response, request) -> {
+            try {
+                if(!response.isOk()) {
+                    if(allowSecondAttempt)
+                        return retryWebhookExecution(() -> getInitialLayout(threadID, false));
+                    return Optional.empty();
+                }
+
+                if (response.optObject().isEmpty()) return Optional.empty();
+
+                DataObject body = response.optObject().get();
+                Optional<DataArray> components = body.optArray("components");
+
+                return components.flatMap((data) -> Optional.of(Layout.fromRawData(data)));
+                // return Optional.of(this.jdaImpl.getEntityBuilder().createMessage(body, channel, false));
+            }
+            catch (Throwable ex) {
+                DiscordPS.debug("Failed to receive API response creating new thread with message: " + ex.getMessage());
+                return Optional.empty();
+            }
+        });
+    }
+
 
     public @NotNull RestAction<Optional<MessageReference>> newThreadWithMessage(
             @NotNull WebhookDataBuilder.WebhookData webhookData,
@@ -466,8 +513,6 @@ public final class ForumWebhook extends WebhookProvider implements ForumWebhookI
 
             MultipartBody requestBody = webhookData.prepareRequestBody();
 
-            // DiscordPS.debug("Pushing Webhook Data: " + webhookData.toPrettyString());
-
             return new RestActionImpl<>(this.jdaImpl, route, requestBody, (response, request) -> {
                 try {
                     if(!response.isOk()) {
@@ -489,6 +534,45 @@ public final class ForumWebhook extends WebhookProvider implements ForumWebhookI
             });
     }
 
+    public @NotNull RestAction<Optional<MessageReference>> sendMessageInThread(
+            @NotNull String threadID,
+            @NotNull WebhookDataBuilder.WebhookData webhookData,
+            boolean withComponents,
+            boolean allowSecondAttempt) {
+
+        Checks.isSnowflake(threadID, "Webhook thread ID");
+
+        Route.CompiledRoute route = Route.Webhooks.EXECUTE_WEBHOOK
+                .compile(webhook.getId(), webhook.getToken())
+                .withQueryParams("wait", "true")
+                .withQueryParams("thread_id", threadID)
+                .withQueryParams("with_components", String.valueOf(withComponents));
+
+        DiscordPS.debug("Querying URL: " + route.getCompiledRoute());
+
+        MultipartBody requestBody = webhookData.prepareRequestBody();
+
+        return new RestActionImpl<>(this.jdaImpl, route, requestBody, (response, request) -> {
+            try {
+                if(!response.isOk()) {
+                    if(allowSecondAttempt)
+                        return retryWebhookExecution(() ->
+                                sendMessageInThread(threadID, webhookData, withComponents, false));
+                    return Optional.empty();
+                }
+
+                if (response.optObject().isEmpty()) return Optional.empty();
+
+                DataObject body = response.optObject().get();
+                return Optional.ofNullable(packageMessageResponse(body));
+            }
+            catch (Throwable ex) {
+                DiscordPS.debug("Failed to receive API response creating new thread with message: " + ex.getMessage());
+                return Optional.empty();
+            }
+        });
+    }
+
     private <T> Optional<T> retryWebhookExecution(@NotNull WebhookExecution<T> execution) {
         DiscordPS.debug("Webhook delivery returned 404, trying again in 5 seconds");
         return execution.resolve().completeAfter(5, TimeUnit.SECONDS);
@@ -502,7 +586,6 @@ public final class ForumWebhook extends WebhookProvider implements ForumWebhookI
                 return null;
             }
         }
-        DiscordPS.debug("Packaging API response of: " + body.toPrettyString());
 
         try {
             // Note that channel_id and id returns the same snowflake for the first message of the thread

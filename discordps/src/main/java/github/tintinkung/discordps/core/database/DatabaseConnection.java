@@ -272,11 +272,14 @@ public class DatabaseConnection {
 
             public static String getCreateStatement(String tableName) {
                 return  "CREATE TABLE IF NOT EXISTS `" + tableName.trim() + "` (" +
+                        " `message_id`       BIGINT UNSIGNED NOT NULL," +
                         " `thread_id`        BIGINT UNSIGNED NOT NULL," +
                         " `plot_id`          INT NOT NULL," +
                         " `status`           ENUM " + statusEnum + " NOT NULL," +
                         " `owner_uuid`       varchar(36) NULL COLLATE 'utf8mb4_general_ci'," +
-                        " PRIMARY KEY        (`thread_id`)," +
+                        " `feedback`         varchar(1024) NULL DEFAULT NULL," +
+                        " `version`          INT NULL DEFAULT NULL," +
+                        " PRIMARY KEY        (`message_id`)," +
                         " INDEX              (`plot_id`)" +
                         ");";
             }
@@ -296,10 +299,13 @@ public class DatabaseConnection {
 
             static {
                 statusEnum = constructEnumString();
+                expected.put("message_id", "bigint(20) unsigned");
                 expected.put("thread_id", "bigint(20) unsigned");
                 expected.put("plot_id", "int(11)");
                 expected.put("status", "enum" + statusEnum);
                 expected.put("owner_uuid", "varchar(36)");
+                expected.put("feedback", "varchar(1024)");
+                expected.put("version", "int(11)");
             }
         }
     }

@@ -22,6 +22,6 @@ Add jitpack repository to your `pom.xml` to access this plugin's API.
 <dependency>
     <groupId>com.github.tintinkung.discordsrv-plotsystem</groupId>
     <artifactId>discordps-api</artifactId>
-    <version>1.0.7</version>
+    <version>1.0.8</version>
 </dependency>
 ```

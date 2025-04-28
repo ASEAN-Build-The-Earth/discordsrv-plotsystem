@@ -8,7 +8,7 @@ public abstract class PlotEvent extends ApiEvent {
         this.plotID = plotID;
     }
 
-        public int getPlotID() {
+    public int getPlotID() {
         return plotID;
     }
 }

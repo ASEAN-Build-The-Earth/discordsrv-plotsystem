@@ -8,6 +8,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
 
+/**
+ * Status embed for tracking plot status.
+ * Sent separately from the initial component container.
+ *
+ * <p>Used as the message ID primary key in the database,
+ * tracking all possible plot entries in a thread.</p>
+ */
 public class StatusEmbed extends EmbedBuilder implements PlotDataEmbed {
     public StatusEmbed(@NotNull ThreadStatus status) {
         super();

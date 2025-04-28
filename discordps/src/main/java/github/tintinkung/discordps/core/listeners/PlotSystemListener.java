@@ -3,9 +3,8 @@ package github.tintinkung.discordps.core.listeners;
 import github.scarsz.discordsrv.util.SchedulerUtil;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.api.ApiSubscribe;
-import github.tintinkung.discordps.api.events.PlotAbandonedEvent;
-import github.tintinkung.discordps.api.events.PlotCreateEvent;
-import github.tintinkung.discordps.api.events.PlotSubmitEvent;
+import github.tintinkung.discordps.api.events.*;
+import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.system.PlotSystemWebhook;
 import org.jetbrains.annotations.NotNull;
@@ -19,49 +18,62 @@ import static github.tintinkung.discordps.Debug.Warning.RUNTIME_SQL_EXCEPTION;
  */
 @SuppressWarnings("unused")
 public class PlotSystemListener {
+
+    /**
+     * A mandatory delay (in ticks) to make sure plot-system plugin
+     * has enough time to resolve and update
+     * plot data before this plugin reacts to the event.
+     * <p>
+     * Delay is set to 30 seconds: 0.5 minutes × 60,000 ms ÷ 50 ms per tick = 600 ticks.
+     */
+    private static final long DELAYED_TASK = 60;
+
     PlotSystemWebhook webhook;
 
     public PlotSystemListener(PlotSystemWebhook webhook) {
         this.webhook = webhook;
     }
 
-    public void onPlotAbandoned(@NotNull PlotAbandonedEvent event) {
+    @ApiSubscribe
+    public void onPlotFeedback(@NotNull PlotFeedbackEvent event) {
+        Runnable task = () -> webhook.onFeedbackSet(event);
+        DiscordPS.info("Got event: " + event.getClass().getSimpleName());
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
+    }
 
+    @ApiSubscribe
+    public void onPlotApproved(@NotNull PlotApprovedEvent event) {
+        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.approved);
+        DiscordPS.info("Got event: " + event.getClass().getSimpleName());
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
+    }
+
+    @ApiSubscribe
+    public void onPlotRejected(@NotNull PlotRejectedEvent event) {
+        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.rejected);
+        DiscordPS.info("Got event: " + event.getClass().getSimpleName());
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
+    }
+
+    @ApiSubscribe
+    public void onPlotAbandoned(@NotNull PlotAbandonedEvent event) {
+        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.abandoned);
+        DiscordPS.info("Got event: " + event.getClass().getSimpleName());
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
     @ApiSubscribe
     public void onPlotSubmitted(@NotNull PlotSubmitEvent event) {
-        DiscordPS.info("New plot has just submitted (Plot ID: " + event.getPlotID() + ")");
-
-        Runnable task = () -> webhook.submitPlot(event.getPlotID());
-
-        // 30 seconds (0.5min * 60000ms / 50tick = 1200)
-        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, 600);
+        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.finished);
+        DiscordPS.info("Got event: " + event.getClass().getSimpleName());
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
 
     @ApiSubscribe
     public void onPlotCreated(@NotNull PlotCreateEvent event) {
-        DiscordPS.info("New plot has just created (Plot ID: " + event.getPlotID() + ")");
+        Runnable task = () -> this.webhook.addNewPlot(event.getPlotID());
 
-        Runnable task = () -> {
-            // Check if plot already been created by the system
-            try {
-                if(WebhookEntry.getByPlotID(event.getPlotID()) != null) {
-                    DiscordPS.info("Trying to create new plot entry "
-                            + "but the plot has already been added to the webhook database "
-                            + "(Plot ID: " + event.getPlotID() + ")");
-                    return;
-                }
-            }
-            catch (SQLException ex) {
-                DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
-            }
-
-            this.webhook.addNewPlot(event.getPlotID());
-        };
-
-        // 1 minutes (1min * 60000ms / 50tick = 1200)
-        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, 1200);
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 }

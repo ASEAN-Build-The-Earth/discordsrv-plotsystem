@@ -17,6 +17,7 @@ import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
 import github.scarsz.discordsrv.dependencies.okio.Okio;
 import github.scarsz.discordsrv.dependencies.okio.Source;
 import github.tintinkung.discordps.DiscordPS;
+import github.tintinkung.discordps.core.system.components.ComponentV2;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,12 +34,12 @@ import java.util.*;
  * </p>
  *
  * <p>usage:</p>
- * <pre>{@code
+ * <blockquote>{@snippet :
  * WebhookData data = new WebhookDataBuilder()
  *     .setContent("Hello, Discord!")
- *     .setFlags(true) // Suppresses notifications
+ *     .suppressNotifications(true) // Suppresses notifications
  *     .build();
- * }</pre>
+ * }</blockquote>
  *
  * <p><b>Note:</b> File attachments <i>cannot</i> be set through this builder. To include files,
  * use {@link WebhookData#addFile(File)} on the built {@link WebhookData} instance before preparing the request body.</p>
@@ -51,8 +52,10 @@ public class WebhookDataBuilder extends AllowedMentionsImpl {
     private @Nullable String content = null;
     private @Nullable Collection<? extends MessageEmbed> embeds = null;
     private @Nullable Collection<? extends ActionRow> components = null;
+    private @Nullable Collection<? extends DataObject> componentsV2 = null;
     private @Nullable Integer flags = null;
     private boolean suppressMentions = false;
+    private boolean forceComponentV2 = false;
 
     /**
      * Constructs a new {@link WebhookDataBuilder} instance with default (null/empty) values.
@@ -134,6 +137,11 @@ public class WebhookDataBuilder extends AllowedMentionsImpl {
         return this;
     }
 
+    public WebhookDataBuilder setComponentsV2(@Nullable Collection<? extends ComponentV2> componentsV2) {
+        this.componentsV2 = componentsV2;
+        return this;
+    }
+
     /**
      * Sets the flags for the message to be {@code SUPPRESS_NOTIFICATIONS},
      * This flag disables push and desktop notifications for the message.
@@ -141,7 +149,17 @@ public class WebhookDataBuilder extends AllowedMentionsImpl {
      * @return This builder instance for chaining.
      */
     public WebhookDataBuilder suppressNotifications() {
-        this.flags = (1 << 12);
+        if(this.flags != null)
+            this.flags = flags | (1 << 12);
+        else this.flags = (1 << 12);
+        return this;
+    }
+
+    public WebhookDataBuilder forceComponentV2() {
+        this.forceComponentV2 = true;
+        if(this.flags != null)
+            this.flags = flags | (1 << 15);
+        else this.flags = (1 << 15);
         return this;
     }
 
@@ -185,7 +203,7 @@ public class WebhookDataBuilder extends AllowedMentionsImpl {
         }
 
         // Embeds
-        if (embeds != null) {
+        if (embeds != null && !forceComponentV2) {
             DataArray embedArray = DataArray.empty();
             for (MessageEmbed embed : embeds) {
                 if (embed != null) {
@@ -197,12 +215,18 @@ public class WebhookDataBuilder extends AllowedMentionsImpl {
         }
 
         // Components
-        if (components != null) {
+        if (components != null || componentsV2 != null) {
             DataArray componentsArray = DataArray.empty();
 
-            for (ActionRow actionRow : components) {
-                componentsArray.add(actionRow.toData());
+            if(forceComponentV2 && componentsV2 != null) {
+                for (DataObject component : componentsV2)
+                    componentsArray.add(component.toData());
             }
+            else if(components != null) {
+                for (ActionRow actionRow : components)
+                    componentsArray.add(actionRow.toData());
+            }
+
             webhookData.put("components", componentsArray);
         }
 
@@ -234,14 +258,16 @@ public class WebhookDataBuilder extends AllowedMentionsImpl {
     /**
      * Represents the data used to send a message via a Discord webhook.
      *
-     * <p>usage:</p>
+     * <p>Usage:</p><blockquote>{@snippet :
+     *     // Creating Data
+     *     WebhookData data = new WebhookDataBuilder().build();
+     *     data.addFile(new File("path/to/image.png"));
+     *     // Requesting Data
+     *     MultipartBody body = data.prepareRequestBody();
+     * }</blockquote>
+     * <p>Requesting API:</p>
      * <pre>{@code
-     * // Creating Data
-     * WebhookData data = new WebhookDataBuilder().build()
-     * data.addFile(new File("path/to/image.png"));
-     * // Requesting Data
-     * MultipartBody body = data.prepareRequestBody();
-     * RestAction restAction = new RestActionImpl<>(jda, route, body, (res, req) -> {});
+     *     RestAction restAction = new RestActionImpl<>(jda, route, body, (res, req) -> {});
      * }</pre>
      */
     public static class WebhookData extends DataObject implements SerializableData {

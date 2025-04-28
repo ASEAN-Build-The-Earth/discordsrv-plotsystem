@@ -41,7 +41,7 @@ import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Compone
 import github.scarsz.discordsrv.dependencies.kyori.adventure.audience.Audience;
 
 public final class DiscordPS extends DiscordPlotSystemAPI {
-    private static final String VERSION = "1.0.6";
+    private static final String VERSION = "1.0.8";
     private static final String DISCORD_SRV_VERSION = "1.29.0";
 
     /**
@@ -54,9 +54,6 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
 
     public static final String PLOT_SYSTEM_SYMBOL = "Plot-System"; // PlotSystem main class symbol
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
-
-    public static final int LOADING_TIMEOUT = 5000;
-
 
     private static final Debug debugger = new Debug();
 
@@ -211,8 +208,9 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         if(plotSystem != null) {
             DiscordPS.info("Plot-System is loaded");
 
-            if(plotSystem.isEnabled()) subscribeToPlotSystemUtil(plotSystem);
-            else {
+            subscribeToPlotSystemUtil(plotSystem);
+
+            if(!plotSystem.isEnabled()) {
                 Bukkit.getPluginManager().registerEvents(new PluginLoadedListener(this), this);
                 DiscordPS.info("Registered listener to wait for Plot-System to load");
             }

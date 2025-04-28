@@ -2,7 +2,6 @@ package github.tintinkung.discordps.core.system;
 
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
@@ -11,20 +10,20 @@ import github.scarsz.discordsrv.dependencies.kevinsawicki.http.HttpRequest;
 import github.scarsz.discordsrv.util.TimeUtil;
 import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
+import github.tintinkung.discordps.api.events.PlotEvent;
+import github.tintinkung.discordps.api.events.PlotFeedbackEvent;
+import github.tintinkung.discordps.api.events.PlotSubmitEvent;
 import github.tintinkung.discordps.core.database.PlotEntry;
 import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.providers.WebhookProviderImpl;
-import github.tintinkung.discordps.core.system.embeds.InfoEmbed;
+import github.tintinkung.discordps.core.system.layout.InfoComponent;
+import github.tintinkung.discordps.core.system.layout.StatusComponent;
 import github.tintinkung.discordps.core.system.embeds.StatusEmbed;
-import github.tintinkung.discordps.utils.AvatarUtil;
-import github.tintinkung.discordps.utils.BuilderUser;
-import github.tintinkung.discordps.utils.CoordinatesUtil;
-import github.tintinkung.discordps.utils.FileUtil;
+import github.tintinkung.discordps.utils.*;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.awt.*;
 import java.io.*;
@@ -36,6 +35,8 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+
+import static github.tintinkung.discordps.Debug.Warning.RUNTIME_SQL_EXCEPTION;
 
 public final class PlotSystemWebhook {
     private final ForumWebhookImpl webhook;
@@ -49,43 +50,104 @@ public final class PlotSystemWebhook {
     }
 
     public void addNewPlot(int plotID) {
+        // Check if plot already been created by the system
+        try {
+            if(!WebhookEntry.getByPlotID(plotID).isEmpty()) {
+                DiscordPS.info("Trying to create new plot entry "
+                        + "but the plot has already been added to the webhook database "
+                        + "(Plot ID: " + plotID + ")");
+                return;
+            }
+        }
+        catch (SQLException ex) {
+            DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
+            DiscordPS.warning("Cannot verify plot create event because a runtime SQL exception occurred!");
+        }
+
         PlotEntry plot = PlotEntry.getByID(plotID);
 
+        if(plot == null) {
+            DiscordPS.warning("Failed to fetch plot data from plot-system database!");
+            Notification.sendMessageEmbeds(new EmbedBuilder()
+                .setTitle(":red_circle: Discord Plot-System Error")
+                .setDescription("Runtime exception creating new plot thread, "
+                        + "The plot ID #`" + plotID + "` will not be tracked by the system.")
+                .setColor(Color.RED)
+                .build()
+            );
+            return;
+        }
+
         // Prepare plot data
-        if(plot == null) return;
         PlotData plotData = new PlotData(plot);
-        PlotData.PlotDataEmbedBuilder embed = plotData.prepareEmbed();
+        InfoComponent infoComponent = new InfoComponent(0, plotData);
+        StatusComponent statusComponent = new StatusComponent(1, plotData);
+
+        // Initial history, more will be added dynamically via event type
+        infoComponent.addHistory(plotData.getOwnerMentionOrName() + " created the plot <t:" + Instant.now().getEpochSecond() + ":R>");
 
         // Create Webhook Data
         String threadName = "Plot #" + plot.plotID();
-        embed.getInfoEmbed().addHistory(plotData.getOwnerMentionOrName() + " created the plot <t:" + Instant.now().getEpochSecond() + ":R>");
 
         WebhookDataBuilder.WebhookData data = new WebhookDataBuilder()
                 .setThreadName(threadName)
-                .setEmbeds(embed.build())
-                .suppressNotifications()
-                .suppressMentions()
+                .setComponentsV2(List.of(infoComponent.build(), statusComponent.build()))
+                .forceComponentV2()
                 .build();
 
+        // Attach files
         plotData.getAvatarFile().ifPresent(data::addFile);
-
-        final Consumer<Optional<MessageReference>> onSuccess = (optMessage) -> {
-            MessageReference sentMessage = optMessage.orElseThrow();
-            attachInteractionButtons(sentMessage, plotData);
-            insertEntryToDatabase(new WebhookEntry(
-                    sentMessage.getMessageIdLong(),
-                    plotID,
-                    plotData.getStatus(),
-                    plot.ownerUUID()
-            ));
-        };
+        if(!plotData.getImageFiles().isEmpty()) plotData.getImageFiles().forEach(data::addFile);
 
         final Consumer<? super Throwable> onFailure = (failed) -> {
             throw new RuntimeException(failed);
         };
 
+        final Consumer<Optional<MessageReference>> onSuccess = opt -> {
+            MessageReference initialMsg = opt.orElseThrow();
+
+            Button helpButton = Button.success(
+                    Constants.NEW_PLOT_HELP_BUTTON.apply(
+                            initialMsg.getMessageIdLong(),
+                            plotData.getOwnerDiscord().orElseThrow().getIdLong(),
+                            plotData.getPlot().plotID()),
+                    "Help"
+            );
+            Button docsButton = Button.link(
+                    "https://asean.buildtheearth.asia/intro/getting-started/building-first-build/plot-system",
+                    "Documentation"
+            );
+
+            // Add interactive help & docs button (only docs if the system failed to resolve user's discord account)
+            ActionRow interactions = (plotData.isOwnerHasDiscord())? ActionRow.of(helpButton, docsButton) : ActionRow.of(docsButton);
+
+            WebhookDataBuilder.WebhookData status = new WebhookDataBuilder()
+                .setEmbeds(Collections.singletonList(new StatusEmbed(plotData.getStatus()).build()))
+                .setComponents(Collections.singletonList(interactions))
+                .build();
+
+            // Send status interaction embed
+            // This is where the user can interact with etc. "Help" button
+            webhook.sendMessageInThread(initialMsg.getMessageId(), status, false, true)
+                .queue(optMsg -> {
+                    MessageReference message = optMsg.orElseThrow();
+                    WebhookEntry.insertNewEntry(message.getMessageIdLong(),
+                            initialMsg.getMessageIdLong(),
+                            plotID,
+                            plotData.getStatus(),
+                            plot.ownerUUID()
+                    );
+                });
+
+            Notification.sendMessageEmbeds(new EmbedBuilder()
+                    .setTitle(":hammer_pick: New Plot Created at <#" + initialMsg.getMessageId() + ">")
+                    .setDescription("By " + plotData.getOwnerMentionOrName() + " (Plot ID: " + plotData.getPlot().plotID() + ")")
+                    .setColor(Color.GREEN)
+                    .build());
+        };
+
         try {
-            webhook.newThreadFromWebhook(data, plotData.getStatusTags(), true).queue(onSuccess, onFailure);
+            webhook.newThreadFromWebhook(data, plotData.getStatusTags(), true, true).queue(onSuccess, onFailure);
         } catch (RuntimeException ex) {
             DiscordPS.error("Failed to send webhook: " + ex);
 
@@ -94,55 +156,153 @@ public final class PlotSystemWebhook {
                 .setDescription("Runtime exception creating new plot thread, "
                         + "The plot ID #`" + plotID + "` "
                         + "will may or may not be tracked by the system depending on the error.")
-                .addField("Error", ex.toString(), false)
+                .addField("Error", "```" + ex.toString() + "```", false)
                 .setColor(Color.RED)
                 .build()
             );
         };
     }
 
-    public void submitPlot(int plotID) {
+    public void onFeedbackSet(@NotNull PlotFeedbackEvent event) {
         WebhookEntry entry;
         try {
-            entry = WebhookEntry.getByPlotID(plotID);
-            if(entry == null) throw new SQLException("Entry for plot ID: " + plotID + " Does not exist.");
+            List<WebhookEntry> entries = WebhookEntry.getByPlotID(event.getPlotID());
+            if(entries.isEmpty()) throw new SQLException("Entry for plot ID: " + event.getPlotID() + " Does not exist.");
+            // TODO: a thread may have multiple plot entry
+            entry = entries.getFirst();
         }
         catch (SQLException ex) {
-            DiscordPS.error("Failed to fetch webhook entry for plot ID: " + plotID, ex);
+            DiscordPS.error("Failed to fetch webhook entry for plot ID: " + event.getPlotID(), ex);
+            DiscordPS.warning("Skipping plot update event " + event.getClass().getSimpleName());
+            return;
+        }
+        String threadID = Long.toUnsignedString(entry.threadID());
+        String messageID = Long.toUnsignedString(entry.messageID());
+
+        // Update feedback data entry
+        try {
+            WebhookEntry.updateEntryFeedback(entry.messageID(), event.getFeedback());
+        }
+        catch (SQLException ex) {
+            Notification.sendMessageEmbeds(new EmbedBuilder()
+                    .setTitle(":red_circle: Discord Plot-System Error")
+                    .setDescription("Failed update webhook feedback in the database, "
+                            + "The plot ID #`" + entry.plotID() + "` "
+                            + "feedback button will not be functional, the user will not be able to view it.")
+                    .addField("Error", "```" + ex.toString() + "```", false)
+                    .setColor(Color.RED)
+                    .build()
+            );
+        }
+
+        // Attach feedback button to the plot's message
+        webhook.getWebhookMessage(threadID, messageID, true).queue(opt -> opt.ifPresent(message -> {
+
+            if(message.getActionRows().isEmpty()) return;
+
+            // Clone our component button and add a new, feedback button
+            ActionRow componentRow = message.getActionRows().getFirst();
+            List<Button> buttons = new ArrayList<>();
+
+            componentRow.getButtons().forEach((button) -> {
+                try {
+                    ComponentUtil.PluginButton component = new ComponentUtil.PluginButton(button);
+
+                    // Clone setting from a previously attached help button
+                    // since this button's existence also confirms user owner in its ID
+                    if(component.getType().equals(Constants.HELP_BUTTON)) {
+                        buttons.add(Button.success(Constants.NEW_FEEDBACK_BUTTON.apply(
+                            message.getIdLong(),
+                            component.getUserIDLong(),
+                            event.getPlotID()),
+                            "View Feedback")
+                        );
+
+                        message.replyEmbeds(new EmbedBuilder()
+                                .setTitle(":yellow_circle: Your plot has been reviewed!")
+                                .setDescription(
+                                        "<@" + component.getUserID() + ">, "
+                                        + "click the **View Feedback** button above to view the your feedback.")
+                                .setColor(AvailableTags.FINISHED.getColor())
+                                .build()
+                        ).queue();
+                    }
+
+                    buttons.add(button);
+                }
+                catch (IllegalArgumentException ignored) { }
+            });
+
+            ActionRow updatedRow = ActionRow.of(buttons);
+
+            WebhookDataBuilder.WebhookData data = new WebhookDataBuilder()
+                    .setComponents(Collections.singletonList(updatedRow))
+                    .build();
+
+            webhook.editThreadMessage(threadID, messageID, data, true).queue();
+        }));
+    }
+
+    public <T extends PlotEvent> void updatePlot(@NotNull T event, @NotNull ThreadStatus status) {
+        WebhookEntry entry;
+        try {
+            List<WebhookEntry> entries = WebhookEntry.getByPlotID(event.getPlotID());
+            if(entries.isEmpty()) throw new SQLException("Entry for plot ID: " + event.getPlotID() + " Does not exist.");
+            entry = entries.getFirst();
+        }
+        catch (SQLException ex) {
+            DiscordPS.error("Failed to fetch webhook entry for plot ID: " + event.getPlotID());
+            DiscordPS.warning("Skipping plot update event " + event.getClass().getSimpleName());
+            Notification.sendMessageEmbeds(new EmbedBuilder()
+                    .setTitle(":red_circle: Discord Plot-System Error")
+                    .setDescription("Runtime exception **updating** new plot thread, "
+                            + "The plot ID #`" + event.getPlotID() + "` "
+                            + "will may or may not be tracked by the system depending on the error.")
+                    .addField("Error", "```" + ex.toString() + "```", false)
+                    .setColor(Color.RED)
+                    .build()
+            );
             return;
         }
 
         String threadID = Long.toUnsignedString(entry.threadID());
-        AvailableTags submitTag = AvailableTags.FINISHED;
-        long tagID = submitTag.getTag().getIDLong();
+        String messageID = Long.toUnsignedString(entry.messageID());
 
+        if(event instanceof PlotSubmitEvent) {
+            Notification.sendMessageEmbeds("<@501366655624937472> <@480350715735441409> <@728196906395631637> <@939467710247604224> <@481786697860775937>",
+                new EmbedBuilder()
+                    .setTitle(":bell: Plot #" + entry.plotID() + " Has just submitted")
+                    .setDescription("Tracker: <#" + threadID + ">")
+                    .setColor(Color.CYAN)
+                    .build()
+            );
+        }
+
+        AvailableTags tag = status.toTag();
+        long tagID = tag.getTag().getIDLong();
+
+        // Edit channel tags
         webhook.editThreadChannelTags(threadID, Set.of(tagID), true).queue();
 
-        webhook.getWebhookMessage(threadID, threadID, true).queue(opt -> opt.ifPresent(message -> {
-            List<MessageEmbed> embeds = message.getEmbeds();
-
-            MessageEmbed initialMessage = embeds.getFirst();
-            InfoEmbed infoEmbed = InfoEmbed.from(initialMessage);
-            StatusEmbed statusEmbed = new StatusEmbed(submitTag.toStatus());
-
-            infoEmbed.addHistory("<t:" + Instant.now().getEpochSecond() + ":D> • Plot has been submitted.");
-            infoEmbed.setColor(submitTag.getColor());
-
-            PlotData.PlotDataEmbedBuilder embedData = new PlotData.PlotDataEmbedBuilder(infoEmbed, statusEmbed);
+        // Edit status embed
+        webhook.getWebhookMessage(threadID, messageID, true).queue(opt -> opt.ifPresent(message -> {
+            // Status embed must be replaced on update
+            StatusEmbed statusEmbed = new StatusEmbed(tag.toStatus());
 
             WebhookDataBuilder.WebhookData data = new WebhookDataBuilder()
-                    .setEmbeds(embedData.build())
+                    .setEmbeds(Collections.singletonList(statusEmbed.build()))
                     .build();
 
-            webhook.editInitialThreadMessage(threadID, data, true).queue(success -> success.ifPresent((msg) -> {
+            webhook.editThreadMessage(threadID, messageID, data, true).queue(success -> success.ifPresent((msg) -> {
                 try {
-                    WebhookEntry.updateEntryStatus(entry.threadID(), submitTag.toStatus());
-                } catch (SQLException e) {
+                    WebhookEntry.updateThreadStatus(entry.threadID(), tag.toStatus());
+                } catch (SQLException ex) {
                     Notification.sendMessageEmbeds(new EmbedBuilder()
                             .setTitle(":red_circle: Discord Plot-System Error")
                             .setDescription("Failed update webhook entry in the database, "
                                     + "The plot ID #`" + entry.plotID() + "` "
                                     + "may not be tracked correctly by the system.")
+                            .addField("Error", "```" + ex.toString() + "```", false)
                             .setColor(Color.RED)
                             .build()
                     );
@@ -150,28 +310,33 @@ public final class PlotSystemWebhook {
             }));
         }));
 
+        // Edit components
+        webhook.getInitialLayout(threadID, true).queue(opt -> opt.ifPresent(component -> {
 
+            WebhookDataBuilder.WebhookData updatedData = new WebhookDataBuilder()
+                .forceComponentV2()
+                .setComponentsV2(component.getLayout().stream().map(layout -> {
+                    switch (layout) {
+                        case InfoComponent infoComponent:
+                            infoComponent.addHistory(event);
+                            infoComponent.setAccentColor(tag.getColor());
+                            break;
+                        case StatusComponent statusComponent:
+                            statusComponent.setAccentColor(tag.getColor());
+                            break;
+                        default:
+                            throw new IllegalStateException("Unexpected value: " + layout);
+                    }
+
+                    return layout.build();
+                }).toList())
+                .build();
+
+            webhook.editInitialThreadMessage(threadID, updatedData, true).queue();
+        }));
     }
 
-    public void insertEntryToDatabase(WebhookEntry entry) {
-        try {
-            WebhookEntry.insertNewEntry(entry);
-            DiscordPS.debug("Added plot to webhook database (Plot ID: " + entry.plotID() + ")");
-        }
-        catch (SQLException ex) {
-            DiscordPS.error("Failed to insert new webhook entry to database: " + entry, ex);
-
-            Notification.sendMessageEmbeds(new EmbedBuilder()
-                .setTitle(":red_circle: Discord Plot-System Error")
-                .setDescription("Failed to insert new webhook entry to database, "
-                        + "The plot ID #`" + entry.plotID() + "` "
-                        + "will appear on thread but cannot be edited by the system.")
-                .setColor(Color.RED)
-                .build()
-            );
-        }
-    }
-
+    @Deprecated
     public void attachInteractionButtons(@NotNull MessageReference sentMessage, @NotNull PlotData plotData) {
         Button plotLinkButton = Button.link(" https://www.google.com/maps/place/" + plotData.getGeoCoordinates(), "Google Map");
 
@@ -358,6 +523,4 @@ public final class PlotSystemWebhook {
             DiscordPS.error("Failed to send webhook: " + ex);
         };
     }
-
-
 }

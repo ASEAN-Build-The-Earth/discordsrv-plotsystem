@@ -17,6 +17,15 @@ public abstract class Notification extends NotificationProvider {
     }
 
     /**
+     * Send message content and embed(s) to the notification channel.
+     * @param content Message string content.
+     * @param embeds The {@link MessageEmbed}
+     */
+    public static void sendMessageEmbeds(String content, @NotNull MessageEmbed... embeds) {
+        getOpt().ifPresent((channel -> channel.sendMessage(content).setEmbeds(embeds).queue()));
+    }
+
+    /**
      * Send message to the notification channel.
      * @param message The message as String of content
      */

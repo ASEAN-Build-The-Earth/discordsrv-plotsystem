@@ -1,16 +1,23 @@
 package github.tintinkung.discordps.core.system.embeds;
 
 import github.scarsz.discordsrv.dependencies.commons.io.FilenameUtils;
+import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.tintinkung.discordps.DiscordPS;
+import github.tintinkung.discordps.api.events.*;
+import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.system.PlotData;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.awt.Color;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Create a plot information message embed.
@@ -23,6 +30,7 @@ import java.util.List;
  * <b>☰ Plot History</b>
  * <p>◆︎ @user created yesterday</p>
  */
+@Deprecated
 public class InfoEmbed implements PlotDataEmbed {
     public static final String HISTORY_FIELD_NAME = ":bookmark: Plot History";
 
@@ -99,9 +107,42 @@ public class InfoEmbed implements PlotDataEmbed {
         this.embed.setColor(color);
     }
 
-    public void addHistory(@NotNull String history) {
+    private void appendHistories(@Nullable String history) {
+        if(history == null || StringUtils.isBlank(history)) return;
         if(!histories.isEmpty()) histories.append("\n");
         histories.append(":small_blue_diamond: ").append(history);
+    }
+
+    /**
+     * Add new history message into the embed's history field.
+     * @param message The history message to add to
+     */
+    public void addHistory(@NotNull String message) {
+        appendHistories(message);
+    }
+
+    /**
+     * Format a message and add to history field by event.
+     * @param event The occurred event.
+     */
+    public <T extends PlotEvent> void addHistory(@NotNull T event) {
+        switch (event) {
+            case PlotCreateEvent    ignored -> addHistoryFormatted("Plot is claimed and under construction.");
+            case PlotSubmitEvent    ignored -> addHistoryFormatted("Plot submitted and awaiting review.");
+            case PlotApprovedEvent  ignored -> addHistoryFormatted("Plot has been approved");
+            case PlotRejectedEvent  ignored -> addHistoryFormatted("Plot has been rejected");
+            case PlotAbandonedEvent ignored -> addHistoryFormatted("Plot has been abandoned by the builder.");
+            default -> appendHistories(null);
+        }
+    }
+
+    /**
+     * Add history message to this info embed with this format:
+     * <p><b>20/04/2021</b> • {message}</p>
+     * @param message The history message to be added.
+     */
+    private void addHistoryFormatted(String message) {
+        appendHistories("<t:" + Instant.now().getEpochSecond() + ":d> • " + message);
     }
 
     private static String makeTitle(int plotID, @NotNull String city, @NotNull String country) {

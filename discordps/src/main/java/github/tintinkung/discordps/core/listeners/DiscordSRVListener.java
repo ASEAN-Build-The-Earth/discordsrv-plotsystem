@@ -117,7 +117,10 @@ final public class DiscordSRVListener extends PluginListenerProvider {
     }
 
 
-
+    /**
+     * Send huge debugging message when the plugin is not ready.
+     * @return Formatted message with colors.
+     */
     private static @NotNull Component createDebuggingMessage() {
         TextComponent LINE = text("!!! ", NamedTextColor.RED);
 

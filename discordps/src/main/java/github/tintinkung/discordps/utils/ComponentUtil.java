@@ -1,5 +1,7 @@
 package github.tintinkung.discordps.utils;
 
+import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
+import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.tintinkung.discordps.DiscordPS;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -44,6 +46,59 @@ public abstract class ComponentUtil {
             IDPattern.PAYLOAD.group
         )
     );
+
+    /**
+     * A class to parse plugin registered button.
+     * Will throw {@link IllegalArgumentException} on creation
+     * if the given button is not registered by this plugin.
+     */
+    public static class PluginButton {
+        private final EnumMap<ComponentUtil.IDPattern, String> component;
+
+        public PluginButton(@NotNull Button button) {
+            this.component = ComponentUtil.parseCustomID(button.getId());
+
+            // Invalid button ID (possibly from other bots)
+            if(component == null)
+                throw new IllegalArgumentException("Button is not created from this plugin");
+
+            // If for whatever reason the button is not from this plugin
+            if(!component.get(ComponentUtil.IDPattern.PLUGIN).equals(DiscordPS.getPlugin().getName()))
+                throw new IllegalArgumentException("Button ID is invalid");
+
+            Checks.isSnowflake(component.get(ComponentUtil.IDPattern.ID), "Internal Error: Button ID");
+            Checks.isSnowflake(component.get(ComponentUtil.IDPattern.USER), "Internal Error: Button's USER ID");
+        }
+
+        public @NotNull String getID() {
+            return component.get(ComponentUtil.IDPattern.ID);
+        }
+
+        public long getIDLong() {
+            return Long.parseUnsignedLong(component.get(ComponentUtil.IDPattern.ID));
+        }
+
+        public @Nullable String getPayload() {
+            return component.get(ComponentUtil.IDPattern.PAYLOAD);
+        }
+
+        public @Nullable Integer getIntPayload() {
+            if(getPayload() == null) return null;
+            else return Integer.valueOf(getPayload());
+        }
+
+        public @NotNull String getType() {
+            return component.get(ComponentUtil.IDPattern.TYPE);
+        }
+
+        public @NotNull String getUserID() {
+            return component.get(ComponentUtil.IDPattern.USER);
+        }
+
+        public long getUserIDLong() {
+            return Long.parseUnsignedLong(component.get(ComponentUtil.IDPattern.USER));
+        }
+    }
 
     /**
      * Parses a {@code custom_id} string to extract the components based on the {@link IDPattern} convention.
