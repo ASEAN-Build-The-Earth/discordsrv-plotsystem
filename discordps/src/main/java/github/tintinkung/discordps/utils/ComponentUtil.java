@@ -54,11 +54,13 @@ public abstract class ComponentUtil {
      */
     public static class PluginButton {
         private final EnumMap<ComponentUtil.IDPattern, String> component;
+        private final String rawID;
 
         public PluginButton(@NotNull Button button) {
             Checks.notNull(button.getId(), "Button ID");
 
-            this.component = ComponentUtil.parseCustomID(button.getId());
+            this.rawID = button.getId();
+            this.component = ComponentUtil.parseCustomID(this.rawID );
 
             // Invalid button ID (possibly from other bots)
             if(component == null)
@@ -99,6 +101,10 @@ public abstract class ComponentUtil {
 
         public long getUserIDLong() {
             return Long.parseUnsignedLong(component.get(ComponentUtil.IDPattern.USER));
+        }
+
+        public String getRawID() {
+            return rawID;
         }
     }
 

@@ -13,6 +13,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.requests.CloseCode;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
+import github.tintinkung.discordps.commands.ArchiveCommand;
 import github.tintinkung.discordps.commands.events.CommandEvent;
 import github.tintinkung.discordps.commands.interactions.InteractionEvent;
 import github.tintinkung.discordps.commands.interactions.OnSetupWebhook;
@@ -160,6 +161,48 @@ final public class DiscordEventListener extends ListenerAdapter {
                         .asDisabled()
                     )).queue();
                 DiscordPS.getPlugin().exitSlashCommand(eventID);
+            }
+            case Constants.PROVIDED_PLOT_IMAGES_BUTTON -> {
+                if(!user.equals(event.getUser().getId())) break;
+                event.editComponents(ActionRow.of(button.asDisabled())).queue();
+
+                commands.fromClass(ArchiveCommand.class)
+                    .onConfirmImagesProvided(
+                            event.getHook(),
+                            Integer.parseInt(component.get(ComponentUtil.IDPattern.PAYLOAD))
+                    );
+            }
+            case Constants.ATTACHED_PLOT_IMAGES_BUTTON -> {
+                if(!user.equals(event.getUser().getId())) break;
+
+                TextChannel channel = event.getInteraction().getTextChannel();
+                MessageReference lastMsg = getInteractionLastMessage(channel);
+
+                MessageEmbed errorEmbed = new EmbedBuilder()
+                        .setTitle("Please send a message with attachment")
+                        .setDescription("And make sure it is the latest message before confirming.")
+                        .setColor(Color.RED)
+                        .build();
+
+                // Last message is not sent (it is the button message)
+                if(lastMsg == null || lastMsg.getMessageIdLong() == event.getMessage().getIdLong()) {
+                    channel.sendMessageEmbeds(errorEmbed).queue();
+                    event.editButton(button.asEnabled()).queue();
+                    break;
+                }
+
+                lastMsg.resolve().queue((message -> {
+
+                    if(message.getAttachments().isEmpty()) {
+                        channel.sendMessageEmbeds(errorEmbed).queue();
+                        event.editButton(button.asEnabled()).queue();
+                        return;
+                    }
+
+                    event.editComponents(ActionRow.of(button.asDisabled())).queue();
+                    commands.fromClass(ArchiveCommand.class)
+                            .onConfirmImageAttached(event.getHook(), message, Integer.parseInt(component.get(ComponentUtil.IDPattern.PAYLOAD)));
+                }));
             }
             case Constants.HELP_BUTTON -> {
                 if(!user.equals(event.getUser().getId())) {

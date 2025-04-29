@@ -138,7 +138,7 @@ public final class InfoComponent
      * @param message The history message to be added.
      */
     private void addHistoryFormatted(String message) {
-        appendHistories("<t:" + Instant.now().getEpochSecond() + ":d> • " + message);
+        appendHistories("<t:" + Instant.now().getEpochSecond() + ":D> • " + message);
     }
 
     public Container build() {

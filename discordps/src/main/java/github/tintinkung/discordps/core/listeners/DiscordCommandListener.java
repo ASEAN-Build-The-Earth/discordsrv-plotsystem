@@ -11,6 +11,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.But
 import github.scarsz.discordsrv.dependencies.jda.internal.interactions.CommandInteractionImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.interactions.InteractionImpl;
 import github.tintinkung.discordps.DiscordPS;
+import github.tintinkung.discordps.commands.ArchiveCommand;
 import github.tintinkung.discordps.commands.events.SetupHelpEvent;
 import github.tintinkung.discordps.commands.events.SetupWebhookEvent;
 import github.tintinkung.discordps.core.providers.DiscordCommandProvider;
@@ -21,8 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import java.awt.*;
 import java.util.*;
 
-import static github.tintinkung.discordps.Constants.NEW_CONFIRM_AVATAR_BUTTON;
-import static github.tintinkung.discordps.Constants.NEW_PROVIDED_IMAGE_BUTTON;
+import static github.tintinkung.discordps.Constants.*;
 
 /**
  * Discord slash command listener
@@ -32,6 +32,7 @@ import static github.tintinkung.discordps.Constants.NEW_PROVIDED_IMAGE_BUTTON;
 final public class DiscordCommandListener extends DiscordCommandProvider implements EventListener {
     private static final String SLASH_SETUP_WEBHOOK =  SetupCommand.SETUP + "/" + SetupCommand.WEBHOOK;
     private static final String SLASH_SETUP_CHECKLIST =  SetupCommand.SETUP + "/" + SetupCommand.HELP;
+    private static final String SLASH_ARCHIVE_PLOT =  ArchiveCommand.ARCHIVE;
 
     public DiscordCommandListener(DiscordPS plugin) {
         super(plugin);
@@ -108,6 +109,40 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
             .fromClass(SetupCommand.class)
             .getHelpCommand()
             .onSetupHelp(event.getHook());
+    }
+
+    /**
+     * Entry point for archive plot command
+     *
+     * @see github.tintinkung.discordps.commands.events.ArchiveEvent#onArchivePlot(InteractionHook, ActionRow, long, boolean) Event Handler
+     * @param event Slash command event activated by JDA
+     */
+    @SlashCommand(path = SLASH_ARCHIVE_PLOT)
+    public void onArchivePlot(@NotNull SlashCommandEvent event) {
+        DiscordPS.info("Got slash command: " + event.getType());
+
+        sendDeferReply(event, true);
+        long plotID = Objects.requireNonNull(event.getOption(ArchiveCommand.PLOT)).getAsLong();
+        boolean doCreate = Objects.requireNonNull(event.getOption(ArchiveCommand.CREATE)).getAsBoolean();
+
+        ActionRow actionRow = ActionRow.of(
+            Button.primary(
+                NEW_ATTACHED_PLOT_IMAGES_BUTTON.apply(
+                    event.getIdLong(),
+                    event.getUser().getIdLong(),
+                    (int) plotID),
+                "Attach Image"),
+            Button.secondary(
+                NEW_PROVIDED_PLOT_IMAGES_BUTTON.apply(
+                    event.getIdLong(),
+                    event.getUser().getIdLong(),
+                    (int) plotID),
+                "Already Provided")
+        );
+
+        this.getCommands()
+            .fromClass(ArchiveCommand.class)
+            .onArchivePlot(event.getHook(), actionRow, plotID, doCreate);
     }
 
     private void sendDeferReply(CommandInteraction event, boolean ephemeral) {

@@ -36,4 +36,4 @@ embed-color:
   rejected: "#dd2e44" # Red
   approved: "#78b159" # Green
   archived: "#55acee" # Blue
-  abandoned: "#808080" # Gray
+  abandoned: "#aa8ed6" # Purple

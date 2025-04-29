@@ -13,6 +13,7 @@ import github.tintinkung.discordps.Debug;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
+import github.tintinkung.discordps.commands.ArchiveCommand;
 import github.tintinkung.discordps.core.providers.PluginListenerProvider;
 import github.tintinkung.discordps.commands.SetupCommand;
 import github.tintinkung.discordps.core.system.ForumWebhook;
@@ -66,6 +67,9 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         );
 
         Checks.notNull(this.getPluginSlashCommand(), "Plugin Slash Command Provider");
+
+        // Register utility commands
+        this.getPluginSlashCommand().register(new ArchiveCommand());
 
         // Register slash command provider
         DiscordSRV.api.addSlashCommandProvider(this.getPluginSlashCommand());

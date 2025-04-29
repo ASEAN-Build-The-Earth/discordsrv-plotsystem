@@ -88,7 +88,7 @@ public record WebhookEntry(
      */
     private static @NotNull List<WebhookEntry> getByID(@NotNull String key, @NotNull Object value) throws SQLException {
         String query = WEBHOOK_ENTRIES_QUERY.apply(DatabaseConnection.getWebhookTableName())
-                + "WHERE webhook." + key + " = ?";
+                + "WHERE webhook." + key + " = ? ORDER BY webhook.message_id DESC";
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
             statement.setValue(value);
             ResultSet rs = statement.executeQuery();

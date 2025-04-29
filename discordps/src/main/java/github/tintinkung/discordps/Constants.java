@@ -52,6 +52,16 @@ public abstract class Constants {
     public static final String PROVIDED_IMAGE_BUTTON = "ProvidedWebhookImage";
 
     /**
+     * Button ID when archiving plot images
+     */
+    public static final String ATTACHED_PLOT_IMAGES_BUTTON = "AttachedPlotImages";
+
+    /**
+     * Button ID when user provided plot images for archiving
+     */
+    public static final String PROVIDED_PLOT_IMAGES_BUTTON = "ProvidedPlotImages";
+
+    /**
      * Button ID when setup command is confirmed
      */
     public static final String CONFIRM_CONFIG_BUTTON = "ConfirmWebhookConfig";
@@ -77,6 +87,10 @@ public abstract class Constants {
     public static final ComponentID NEW_PROVIDED_IMAGE_BUTTON = (t, u) -> newComponentID(PROVIDED_IMAGE_BUTTON, t, u);
     public static final ComponentID NEW_CONFIRM_CONFIG_BUTTON = (t, u) -> newComponentID(CONFIRM_CONFIG_BUTTON, t, u);
     public static final ComponentID NEW_CANCEL_CONFIG_BUTTON = (t, u) -> newComponentID(CANCEL_CONFIG_BUTTON, t, u);
+
+    // Plot archiving command
+    public static final ComponentIDWithPayload<Integer> NEW_ATTACHED_PLOT_IMAGES_BUTTON = (a, b, c) -> newComponentID(ATTACHED_PLOT_IMAGES_BUTTON, a, b, c);
+    public static final ComponentIDWithPayload<Integer> NEW_PROVIDED_PLOT_IMAGES_BUTTON = (a, b, c) -> newComponentID(PROVIDED_PLOT_IMAGES_BUTTON, a, b, c);
 
     // Plot-System button events
     public static final ComponentIDWithPayload<Integer> NEW_PLOT_HELP_BUTTON = (a, b, c) -> newComponentID(HELP_BUTTON, a, b, c);

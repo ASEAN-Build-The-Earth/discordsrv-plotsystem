@@ -22,6 +22,12 @@ public final class StatusComponent
 
     private final int packedID;
     private Color accentColor;
+    private String statusMessage = """
+            ## Claimed by {owner}\
+
+            Use this thread to track this claim's progressions,\
+
+            Our friend Bob The Land Lord will help notify about this below.""";
 
     public StatusComponent(int id, int layout, Color color) {
         super(layout, STATUS, AvailableComponent.StatusComponent.VALUES);
@@ -50,10 +56,7 @@ public final class StatusComponent
 
     public TextThumbnailSection createComponent(int id, String thumbnailURL, String thumbnailName, String ownerName) {
         return (TextThumbnailSection) new TextThumbnailSection(id, new Thumbnail(thumbnailURL, thumbnailName))
-            .addTextDisplay(new TextDisplay(this.pack(STATUS_INFO),
-                "## Claimed by " + ownerName
-                + "\nUse this thread to track this claim's progressions,"
-                + "\nOur friend Bob The Land Lord will help notify about this below.")
+            .addTextDisplay(new TextDisplay(this.pack(STATUS_INFO), this.statusMessage.replace("{owner}", ownerName))
         );
     }
 
@@ -73,6 +76,10 @@ public final class StatusComponent
 
     public void setAccentColor(Color accentColor) {
         this.accentColor = accentColor;
+    }
+
+    public void setStatusMessage(String statusMessage) {
+        this.statusMessage = statusMessage;
     }
 
     public Container build() {

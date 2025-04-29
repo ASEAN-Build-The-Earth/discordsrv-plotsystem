@@ -5,13 +5,8 @@ import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.api.ApiSubscribe;
 import github.tintinkung.discordps.api.events.*;
 import github.tintinkung.discordps.core.database.ThreadStatus;
-import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.system.PlotSystemWebhook;
 import org.jetbrains.annotations.NotNull;
-
-import java.sql.SQLException;
-
-import static github.tintinkung.discordps.Debug.Warning.RUNTIME_SQL_EXCEPTION;
 
 /**
  * Main Listener for plot system
@@ -39,35 +34,35 @@ public class PlotSystemListener {
         // Ignore no feedback
         if(event.getFeedback().equals("No Feedback")) return;
 
-        Runnable task = () -> webhook.onFeedbackSet(event);
+        Runnable task = () -> webhook.onPlotReview(event);
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
     @ApiSubscribe
     public void onPlotApproved(@NotNull PlotApprovedEvent event) {
-        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.approved);
+        Runnable task = () -> webhook.onPlotReview(event);
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
     @ApiSubscribe
     public void onPlotRejected(@NotNull PlotRejectedEvent event) {
-        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.rejected);
+        Runnable task = () -> webhook.onPlotReview(event);
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
     @ApiSubscribe
     public void onPlotAbandoned(@NotNull PlotAbandonedEvent event) {
-        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.abandoned);
+        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.abandoned, (t, u) -> {});
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
     @ApiSubscribe
     public void onPlotSubmitted(@NotNull PlotSubmitEvent event) {
-        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.finished);
+        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.finished, (t, u) -> {});
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
