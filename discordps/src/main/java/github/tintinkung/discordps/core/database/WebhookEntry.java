@@ -1,24 +1,38 @@
 package github.tintinkung.discordps.core.database;
 
-import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.system.Notification;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.awt.Color;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
+import static github.tintinkung.discordps.Debug.Warning.RUNTIME_SQL_EXCEPTION;
+
+/**
+ * Plot's Webhook database entry.
+ *
+ * @param messageID bigint(20) unsigned
+ * @param threadID bigint(20) unsigned
+ * @param plotID  int(11)
+ * @param status enum({@link ThreadStatus})
+ * @param ownerUUID varchar(36)
+ * @param ownerID varchar(20)
+ * @param feedback varchar(1024)
+ * @param version  int(11)
+ */
 public record WebhookEntry(
         long messageID,
         long threadID,
         int plotID,
         @NotNull ThreadStatus status,
-        @Nullable String ownerUUID,
+        @NotNull String ownerUUID,
+        @Nullable String ownerID,
         @Nullable String feedback,
         int version) {
 
@@ -29,7 +43,7 @@ public record WebhookEntry(
     private static final int VERSION = 1;
     private static final Function<String, String> WEBHOOK_ENTRIES_QUERY = (table) -> "SELECT "
             + "webhook.message_id, webhook.thread_id, webhook.plot_id, "
-            + "webhook.status, webhook.owner_uuid, webhook.feedback, webhook.version "
+            + "webhook.status, webhook.owner_uuid, webhook.owner_id, webhook.feedback, webhook.version "
             + "FROM " + table + " AS webhook ";
 
     /**
@@ -100,12 +114,37 @@ public record WebhookEntry(
                     rs.getInt("plot_id"),
                     ThreadStatus.valueOf(rs.getString("status")),
                     rs.getString("owner_uuid"),
+                    rs.getString("owner_id"),
                     rs.getString("feedback"),
                     rs.getInt("version")
                 ));
             }
             DatabaseConnection.closeResultSet(rs);
             return result;
+        }
+    }
+
+    /**
+     * Check if the plot (ID) already existed in the database.
+     *
+     * @param plotID The plot ID to check
+     */
+    public static Optional<WebhookEntry> ifPlotExisted(int plotID) {
+        // Check if plot already been created by the system
+        try {
+            List<WebhookEntry> entries = WebhookEntry.getByPlotID(plotID);
+            if(!entries.isEmpty()) {
+                // using the first data as the main entry as it is the latest one
+                return Optional.of(entries.getFirst());
+            }
+            else return Optional.empty();
+        }
+        catch (SQLException ex) {
+            DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
+            Notification.sendErrorEmbed(
+                "SQL exception occurred trying to check for plot entry (plot ID: "
+                + plotID + ")", ex.toString());
+            return Optional.empty();
         }
     }
 
@@ -118,7 +157,11 @@ public record WebhookEntry(
      * @param status The current status inserting this entry
      * @param ownerUUID The
      */
-    public static void insertNewEntry(long messageID, long threadID, int plotID, @NotNull ThreadStatus status, String ownerUUID) {
+    public static void insertNewEntry(long messageID,
+                                      long threadID,
+                                      int plotID,
+                                      @NotNull ThreadStatus status,
+                                      @NotNull String ownerUUID) {
         String query = "INSERT INTO " + DatabaseConnection.getWebhookTableName()
                 + " SET message_id = ?, thread_id = ?, plot_id = ?, status = ?, owner_uuid = ?, version = ?";
 
@@ -134,15 +177,58 @@ public record WebhookEntry(
             DiscordPS.debug("Added plot to webhook database (Plot ID: " + plotID + ")");
 
         } catch (SQLException ex) {
+            DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
             DiscordPS.error("Failed to insert new webhook entry. please check the database user permission.");
             DiscordPS.error("The plot ID: " + plotID + " will NOT be process because it failed to be stored in the database.");
-            Notification.sendMessageEmbeds(new EmbedBuilder()
-                    .setTitle(":red_circle: Discord Plot-System Error")
-                    .setDescription("Failed to insert new webhook entry to database, "
+            Notification.sendErrorEmbed(
+                "Failed to insert new webhook entry to database, "
+                + "The plot ID #`" + plotID + "` "
+                + "will appear on thread but cannot be edited by the system.",
+                ex.toString()
+            );
+        }
+    }
+
+    /**
+     * Insert a new webhook entry to database table.
+     *
+     * @param messageID The message ID (primary key)
+     * @param threadID The forum thread ID of this entry
+     * @param plotID The plot ID of this thread
+     * @param status The current status inserting this entry
+     * @param ownerUUID The
+     * @param ownerID The
+     */
+    public static void insertNewEntry(long messageID,
+                                      long threadID,
+                                      int plotID,
+                                      @NotNull ThreadStatus status,
+                                      @NotNull String ownerUUID,
+                                      @NotNull String ownerID) {
+        String query = "INSERT INTO " + DatabaseConnection.getWebhookTableName()
+                + " SET message_id = ?, thread_id = ?, plot_id = ?, status = ?, owner_uuid = ?, owner_id = ?, version = ?";
+
+        try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
+            statement.setValue(messageID);
+            statement.setValue(threadID);
+            statement.setValue(plotID);
+            statement.setValue(status.name());
+            statement.setValue(ownerUUID);
+            statement.setValue(ownerID);
+            statement.setValue(VERSION);
+            statement.executeUpdate();
+
+            DiscordPS.debug("Added plot to webhook database (Plot ID: " + plotID + ")");
+
+        } catch (SQLException ex) {
+            DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
+            DiscordPS.error("Failed to insert new webhook entry. please check the database user permission.");
+            DiscordPS.error("The plot ID: " + plotID + " will NOT be process because it failed to be stored in the database.");
+            Notification.sendErrorEmbed(
+                    "Failed to insert new webhook entry to database, "
                             + "The plot ID #`" + plotID + "` "
-                            + "will appear on thread but cannot be edited by the system.")
-                    .setColor(Color.RED)
-                    .build()
+                            + "will appear on thread but cannot be edited by the system.",
+                    ex.toString()
             );
         }
     }
@@ -165,6 +251,7 @@ public record WebhookEntry(
                     .executeUpdate();
         }
         catch (SQLException ex) {
+            DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
             DiscordPS.error("Failed to update webhook entry by threadID");
             throw ex;
         }
@@ -188,31 +275,67 @@ public record WebhookEntry(
                     .executeUpdate();
         }
         catch (SQLException ex) {
+            DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
             DiscordPS.error("Failed to update webhook entry by threadID");
             throw ex;
         }
     }
 
     /**
-     * Update all entries in the given thread status into the given status.
-     * Note that in one thread, there may be multiple plot entry because of abandoning and reclaim system.
+     * Update status entry from the giving message ID
      *
-     * @param threadID The thread ID to update
+     * @param messageID The entry as message ID to update
      * @param entry The status to update into
      * @throws SQLException If something happens
      */
-    public static void updateThreadStatus(long threadID, @NotNull ThreadStatus entry) throws SQLException {
+    public static void updateThreadStatus(long messageID, @NotNull ThreadStatus entry) throws SQLException {
         String query = "UPDATE " + DatabaseConnection.getWebhookTableName()
-                + " SET status = ? WHERE thread_id = ?";
+                + " SET status = ? WHERE message_id = ?";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
             statement
-                    .setValue(entry.name())
-                    .setValue(threadID)
+                .setValue(entry.name())
+                .setValue(messageID)
+                .executeUpdate();
+        }
+        catch (SQLException ex) {
+            DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
+            DiscordPS.error("Failed to update webhook entry by threadID");
+            throw ex;
+        }
+    }
+
+    public static void updateEntryOwnerID(long messageID, @NotNull String ownerID) throws SQLException {
+        String query = "UPDATE " + DatabaseConnection.getWebhookTableName()
+                + " SET owner_id = ? WHERE message_id = ?";
+
+        try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
+            statement
+                    .setValue(ownerID)
+                    .setValue(messageID)
                     .executeUpdate();
         }
         catch (SQLException ex) {
+            DiscordPS.warning(RUNTIME_SQL_EXCEPTION, ex.getMessage());
             DiscordPS.error("Failed to update webhook entry by threadID");
+            throw ex;
+        }
+    }
+
+    /**
+     * Deleted entry from being tracked
+     *
+     * @param messageID The message ID of entry to be deleted
+     * @throws SQLException If the SQL delete query result in a failure
+     */
+    public static void deleteEntry(long messageID) throws SQLException {
+        String query = "DELETE FROM " + DatabaseConnection.getWebhookTableName() + " WHERE message_id = ?";
+
+        try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
+            statement.setValue(messageID).executeUpdate();
+        }
+        catch (SQLException ex) {
+            DiscordPS.error("Failed to delete webhook entry by messageID");
             throw ex;
         }
     }
@@ -238,6 +361,7 @@ public record WebhookEntry(
                         rs.getInt("plot_id"),
                         ThreadStatus.valueOf(rs.getString("status")),
                         rs.getString("owner_uuid"),
+                        rs.getString("owner_id"),
                         rs.getString("feedback"),
                         rs.getInt("version")
                 ));

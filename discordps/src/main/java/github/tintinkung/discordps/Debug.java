@@ -57,6 +57,7 @@ public final class Debug {
 
         WEBHOOK_NOT_REGISTERED_DETECTED(
                 "Detected un-registered webhook created by this bot."),
+        SHOWCASE_WEBHOOK_NOT_CONFIGURED("Showcase webhook is not configured! use the command `/setup showcase` to set it up."),
         NOTIFICATION_CHANNEL_NOT_SET("Plot-System notification channel is not set"),
         RUNTIME_SQL_EXCEPTION("Unknown SQL Exception Occurred. Please check the log files"),
 

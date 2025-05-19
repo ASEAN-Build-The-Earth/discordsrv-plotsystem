@@ -3,10 +3,9 @@ package github.tintinkung.discordps.core.system.embeds;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.tintinkung.discordps.core.database.ThreadStatus;
+import github.tintinkung.discordps.core.system.MemberOwnable;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-
-import java.time.Instant;
 
 /**
  * Status embed for tracking plot status.
@@ -16,14 +15,17 @@ import java.time.Instant;
  * tracking all possible plot entries in a thread.</p>
  */
 public class StatusEmbed extends EmbedBuilder implements PlotDataEmbed {
-    public StatusEmbed(@NotNull ThreadStatus status) {
+    public StatusEmbed(@NotNull MemberOwnable owner, @NotNull ThreadStatus status) {
         super();
+
+        owner.getOwnerDiscord().ifPresentOrElse(
+            (member) -> this.setAuthor(member.getUser().getName(), null, member.getEffectiveAvatarUrl()),
+            () -> this.setAuthor(owner.getOwner().getName())
+        );
 
         this.setTitle(getDisplayStatus(status));
         this.setDescription(getDisplayDetail(status));
         this.setColor(status.toTag().getColor());
-        this.setFooter("Updated");
-        this.setTimestamp(Instant.now());
     }
 
     public StatusEmbed(@NotNull MessageEmbed from) {
@@ -40,7 +42,7 @@ public class StatusEmbed extends EmbedBuilder implements PlotDataEmbed {
             case rejected -> ":red_circle: Rejected";
             case approved -> ":green_circle: Approved";
             case archived -> ":blue_circle: Archived";
-            case abandoned -> ":white_circle: Abandoned";
+            case abandoned -> ":purple_circle: Abandoned";
         };
     }
 

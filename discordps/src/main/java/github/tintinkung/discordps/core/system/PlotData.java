@@ -1,10 +1,6 @@
 package github.tintinkung.discordps.core.system;
 
-import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
-import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
-import github.scarsz.discordsrv.dependencies.kevinsawicki.http.HttpRequest;
 import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.database.PlotEntry;
@@ -13,50 +9,34 @@ import github.tintinkung.discordps.core.system.embeds.ImageEmbed;
 import github.tintinkung.discordps.core.system.embeds.InfoEmbed;
 import github.tintinkung.discordps.core.system.embeds.PlotDataEmbed;
 import github.tintinkung.discordps.core.system.embeds.StatusEmbed;
-import github.tintinkung.discordps.utils.AvatarUtil;
-import github.tintinkung.discordps.utils.BuilderUser;
 import github.tintinkung.discordps.utils.CoordinatesUtil;
 import github.tintinkung.discordps.utils.FileUtil;
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Function;
 
 import static github.tintinkung.discordps.Constants.PLOT_IMAGE_FILE;
 
-public class PlotData {
+public class PlotData extends MemberOwnable {
 
-    private static final String AVATAR_FORMAT = "png";
-    private static final int AVATAR_SIZE = 16;
-
-    private final OfflinePlayer owner;
-
-    private final @Nullable Member ownerDiscord;
-    private final @Nullable File avatarFile;
-    private final List<File> imageFiles;
+    private final Map<String, File> imageFiles;
     private final File imagesFolder;
 
     private final PlotEntry plot;
-    private final ThreadStatus status;
     private final String geoCoordinates;
     private final String displayCords;
-    private final Set<Long> statusTags;
-    private final URL avatarURL;
 
+    private @NotNull ThreadStatus primaryStatus;
+    private final @NotNull Set<Long> statusTags;
 
     public PlotData(@NotNull PlotEntry plot) {
+        super(plot.ownerUUID());
         this.plot = plot;
-
-        // Plot owner
-        this.owner = Bukkit.getOfflinePlayer(UUID.fromString(plot.ownerUUID()));
-        this.ownerDiscord = BuilderUser.getAsDiscordMember(owner);
 
         // Plot location
         String[] mcLocation = plot.mcCoordinates().split(",");
@@ -68,71 +48,41 @@ public class PlotData {
         this.geoCoordinates = CoordinatesUtil.formatGeoCoordinatesNumeric(geoCords);
         this.displayCords = CoordinatesUtil.formatGeoCoordinatesNSEW(geoCords);
 
-        // Builder avatar image (storing at /media/UUID/avatar-image.png)
-        this.avatarURL = AvatarUtil.getAvatarUrl(plot.ownerUUID(), AVATAR_SIZE, AVATAR_FORMAT);
-        File avatarFileLocation = prepareAvatarFile(plot.ownerUUID(), AVATAR_FORMAT);
-
-        if(downloadAvatarToFile(avatarURL, avatarFileLocation))
-            this.avatarFile = avatarFileLocation;
-        else this.avatarFile = null;
-
         // Fetch plot specific image files
         this.imagesFolder = prepareMediaFolder(plot.plotID());
-        this.imageFiles = checkMediaFolder(this.imagesFolder);
+        this.imageFiles = new HashMap<>();
+        this.fetchMediaFolder();
 
         // Plot Status
-        this.status = ThreadStatus.toPlotStatus(plot.status());
-        String tagID = status.toTag().getTag().getID();
-
-        Checks.isSnowflake(tagID, "Forum Tag ID");
-
-        this.statusTags = Set.of(Long.parseUnsignedLong(tagID));
+        this.primaryStatus = ThreadStatus.fromPlotStatus(plot.status());
+        this.statusTags = new HashSet<>(Collections.singletonList(primaryStatus.toTag().getTag().getIDLong()));
     }
 
-    @Contract("-> new")
-    public PlotDataEmbedBuilder prepareEmbed() {
-        return new PlotDataEmbedBuilder(new InfoEmbed(this), new StatusEmbed((this.status)));
+//    @Contract("-> new")
+//    public PlotDataEmbedBuilder prepareEmbed() {
+//        return new PlotDataEmbedBuilder(new InfoEmbed(this), new StatusEmbed((this.primaryStatus)));
+//    }
+
+    public @NotNull ThreadStatus getPrimaryStatus() {
+        return this.primaryStatus;
     }
 
-    public OfflinePlayer getOwner() {
-        return this.owner;
+    public void setPrimaryStatus(@NotNull ThreadStatus status, boolean override) {
+        if(override)
+            this.statusTags.remove(this.primaryStatus.toTag().getTag().getIDLong());
+        this.statusTags.add(status.toTag().getTag().getIDLong());
+        this.primaryStatus = status;
     }
 
-    public boolean isOwnerHasDiscord() {
-        return this.ownerDiscord != null;
+    public void addStatusTag(@NotNull ThreadStatus status) {
+        this.statusTags.add(status.toTag().getTag().getIDLong());
     }
 
-    public Optional<Member> getOwnerDiscord() {
-        return Optional.ofNullable(this.ownerDiscord);
-    }
-
-    public String getOwnerMentionOrName() {
-        StringBuilder mention = new StringBuilder();
-        getOwnerDiscord().ifPresentOrElse(
-                (discord) -> mention.append("<@").append(discord.getId()).append(">"),
-                () -> mention.append(getOwner().getName()));
-        return mention.toString();
-    }
-
-    public String formatOwnerName() {
-        return ownerDiscord != null? formatOwnerName(ownerDiscord) : getOwner().getName();
-    }
-
-    public String formatOwnerName(@NotNull Member owner) {
-        return "@" + owner.getEffectiveName() + " (" + getOwner().getName() + ")";
-    }
-
-    public ThreadStatus getStatus() {
-        return this.status;
-    }
-
-    public Set<Long> getStatusTags() {
+    public @NotNull Set<Long> getStatusTags() {
         return this.statusTags;
     }
 
-    public Optional<File> getAvatarFile() { return Optional.ofNullable(this.avatarFile); }
-
-    public List<File> getImageFiles() { return this.imageFiles; }
+    public Collection<File> getImageFiles() { return this.imageFiles.values(); }
 
     public String getDisplayCords() {
         return displayCords;
@@ -146,44 +96,64 @@ public class PlotData {
         return plot;
     }
 
-    public @NotNull URL getAvatarURL() {
-        return avatarURL;
-    }
-
-    public @NotNull File prepareAvatarFile(String playerUUID, String format) {
-        // DataFolder/media/cache/UUID/avatar-image.jpg
-        Path mediaPath = DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/cache/" + playerUUID);
-
-        // Make player's directory if not exist
-        if(mediaPath.toFile().mkdirs()) DiscordPS.debug("Created player media cache for UUID: " + mediaPath);
-
-
-        return mediaPath.resolve( Constants.BUILDER_AVATAR_FILE + "." + format).toFile();
-    }
-
     /**
      * Fetch this plot's media folder into {@link #getImageFiles()}
      *
      * @return True if the list is modified after fetching.
      */
     public boolean fetchMediaFolder() {
-        return this.imageFiles.addAll(checkMediaFolder(this.imagesFolder));
+        return fetchMediaFolder(
+            checkMediaFolder(this.imagesFolder),
+            file -> this.imageFiles.putIfAbsent(file.getName(), file) == null
+        );
     }
 
-    public static @NotNull File prepareMediaFolder(int plotID) {
-        Path imagesPath = DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/plot-" + plotID);
-
-        if(imagesPath.toFile().mkdirs()) DiscordPS.debug("Created plot media folder for id: " + plotID);
-
-        return imagesPath.toFile();
-    }
-
+    /**
+     * Check the media folder of a plot ID
+     *
+     * @param plotID The plot ID to look for
+     * @param mkdir Whether to create media directory if folder has not been initialized yet
+     * @return All image files in this plot's media folder
+     */
     public static @NotNull List<File> checkMediaFolder(int plotID) {
         return checkMediaFolder(prepareMediaFolder(plotID));
     }
 
-    public static @NotNull List<File> checkMediaFolder(File folder) {
+    /**
+     * Fetch a media list with a fetcher and return true if the media is modified.
+     *
+     * @param media The media data to fetch as a list of {@link File}
+     * @param fetcher The fetcher which will be invoked on each of the media file that must return {@link Boolean modified}
+     * @return True if the fetcher returns True to any of the media files
+     */
+    public static boolean fetchMediaFolder(@NotNull List<File> media, Function<File, Boolean> fetcher) {
+        boolean modified = false;
+        for (File file : media)
+            if (fetcher.apply(file))
+                modified = true;
+        return modified;
+    }
+
+    /**
+     * Return plot media folder by ID and create if not exist.
+     *
+     * @param plotID The plot ID to look for
+     * @param mkdir whether to make directory for the plot media folder or not
+     * @return The media folder as {@link File} instance
+     */
+    public static @NotNull File prepareMediaFolder(int plotID) {
+        return DiscordPS.getPlugin().getDataFolder().toPath().resolve("media/plot-" + plotID).toFile();
+    }
+
+    /**
+     * Check for all image files in the given media folder
+     *
+     * @param folder The plot's media folder that follows {@code /media/plot-xx/}
+     * @return All image files with the prefix {@link Constants#PLOT_IMAGE_FILE} within the media folder
+     */
+    public static @NotNull List<File> checkMediaFolder(@NotNull File folder) {
         List<File> imageFiles = new ArrayList<>();
+        if(!folder.exists()) return imageFiles;
         try {
             imageFiles.addAll(FileUtil.findImagesFileByPrefix(PLOT_IMAGE_FILE, folder));
         }
@@ -191,25 +161,6 @@ public class PlotData {
             DiscordPS.error("Failed to find plot's image files");
         }
         return imageFiles;
-    }
-
-    private boolean downloadAvatarToFile(URL avatarURL, @NotNull File avatarFile) {
-        // Try download player's minecraft avatar
-        try {
-            // Download if not exist
-            if(avatarFile.createNewFile())
-                FileUtil.downloadFile(avatarURL, avatarFile);
-
-            return true;
-        }
-        catch (HttpRequest.HttpRequestException ex) {
-            DiscordPS.error("Failed to download URL for player avatar image: " + ex.getMessage(), ex);
-        }
-        catch (IOException ex) {
-            DiscordPS.error("IO Exception occurred trying to read player media folder at: "
-                    + avatarFile.getAbsolutePath() + ": " + ex.getMessage(), ex);
-        }
-        return false;
     }
 
     @Deprecated

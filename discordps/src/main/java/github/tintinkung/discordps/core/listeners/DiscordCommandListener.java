@@ -2,27 +2,22 @@ package github.tintinkung.discordps.core.listeners;
 
 import github.scarsz.discordsrv.api.commands.SlashCommand;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.ChannelType;
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.SlashCommandEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.CommandInteraction;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
-import github.scarsz.discordsrv.dependencies.jda.internal.interactions.CommandInteractionImpl;
-import github.scarsz.discordsrv.dependencies.jda.internal.interactions.InteractionImpl;
+import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.OptionMapping;
 import github.tintinkung.discordps.DiscordPS;
-import github.tintinkung.discordps.commands.ArchiveCommand;
-import github.tintinkung.discordps.commands.events.SetupHelpEvent;
+import github.tintinkung.discordps.commands.PlotCommand;
+import github.tintinkung.discordps.commands.events.PlotFetchEvent;
 import github.tintinkung.discordps.commands.events.SetupWebhookEvent;
+import github.tintinkung.discordps.commands.interactions.*;
+import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.providers.DiscordCommandProvider;
 import github.tintinkung.discordps.commands.SetupCommand;
-import github.tintinkung.discordps.commands.interactions.OnSetupWebhook;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
-import java.util.*;
-
-import static github.tintinkung.discordps.Constants.*;
+import java.util.EventListener;
+import java.util.Objects;
 
 /**
  * Discord slash command listener
@@ -31,8 +26,13 @@ import static github.tintinkung.discordps.Constants.*;
 @SuppressWarnings("unused")
 final public class DiscordCommandListener extends DiscordCommandProvider implements EventListener {
     private static final String SLASH_SETUP_WEBHOOK =  SetupCommand.SETUP + "/" + SetupCommand.WEBHOOK;
+    private static final String SLASH_SETUP_SHOWCASE =  SetupCommand.SETUP + "/" + SetupCommand.SHOWCASE;
     private static final String SLASH_SETUP_CHECKLIST =  SetupCommand.SETUP + "/" + SetupCommand.HELP;
-    private static final String SLASH_ARCHIVE_PLOT =  ArchiveCommand.ARCHIVE;
+
+    private static final String SLASH_PLOT_ARCHIVE =  PlotCommand.PLOT + "/" + PlotCommand.ARCHIVE;
+    private static final String SLASH_PLOT_FETCH =  PlotCommand.PLOT + "/" + PlotCommand.FETCH;
+    private static final String SLASH_PLOT_DELETE =  PlotCommand.PLOT + "/" + PlotCommand.DELETE;
+    private static final String SLASH_PLOT_SHOWCASE =  PlotCommand.PLOT + "/" + PlotCommand.SHOWCASE;
 
     public DiscordCommandListener(DiscordPS plugin) {
         super(plugin);
@@ -50,116 +50,167 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
     }
 
     /**
-     * Entry point for /setup webhook command
+     * Entry point for {@code /setup webhook} command
+     *
      * @param event Slash command event activated by JDA
-     * @see SetupWebhookEvent#onSetupWebhook(ActionRow, InteractionHook, OnSetupWebhook) Event handler
+     * @see SetupWebhookEvent#onSetupWebhook(InteractionHook, OnSetupWebhook) Event handler
      */
     @SlashCommand(path = SLASH_SETUP_WEBHOOK)
     public void onSetupWebhook(@NotNull SlashCommandEvent event) {
-        DiscordPS.debug("Got slash command: " + event.getType());
-
-        // Send instant response
-        sendDeferReply(event, false);
-
-        OnSetupWebhook interaction = new OnSetupWebhook(
-            event.getUser().getIdLong(),
-            event.getIdLong(),
-            Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_NAME)).getAsString(),
-            Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_CHANNEL)).getAsLong()
+        this.onSlashCommand(event, false, SetupCommand.class, SetupCommand::getWebhookCommand,
+            () -> new OnSetupWebhook(
+                event.getUser().getIdLong(),
+                event.getIdLong(),
+                Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_NAME)).getAsString(),
+                Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_CHANNEL)).getAsLong(),
+                "webhook.yml"
+            )
         );
-
-        ActionRow actionRow = ActionRow.of(
-            Button.primary(
-                NEW_CONFIRM_AVATAR_BUTTON.apply(
-                    event.getIdLong(),
-                    event.getUser().getIdLong()),
-        "Attach Image"),
-            Button.secondary(
-                NEW_PROVIDED_IMAGE_BUTTON.apply(
-                    event.getIdLong(),
-                    event.getUser().getIdLong()),
-        "Already Provided")
-        );
-
-        // Send the command event to its instance
-        this.getCommands()
-            .fromClass(SetupCommand.class)
-            .getWebhookCommand()
-            .onSetupWebhook(actionRow, event.getHook(), interaction);
-
-        // Update our interactions
-        this.getInteractions()
-            .putPayload(event.getIdLong(), interaction);
     }
 
-    // 1361283234855391262
+    /**
+     * Entry point for {@code /setup showcase} command
+     *
+     * @param event Slash command event activated by JDA
+     * @see SetupWebhookEvent#onSetupWebhook(InteractionHook, OnSetupWebhook) Event handler
+     */
+    @SlashCommand(path = SLASH_SETUP_SHOWCASE)
+    public void onSetupShowcase(@NotNull SlashCommandEvent event) {
+        this.onSlashCommand(event, false, SetupCommand.class, SetupCommand::getShowcaseCommand,
+            () -> new OnSetupWebhook(
+                event.getUser().getIdLong(),
+                event.getIdLong(),
+                Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_NAME)).getAsString(),
+                Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_CHANNEL)).getAsLong(),
+                "showcase.yml"
+            )
+        );
+    }
 
     /**
      * Entry point for setup checklist command
-     * @see SetupHelpEvent#onSetupHelp(InteractionHook) Event Handler
+     *
      * @param event Slash command event activated by JDA
      */
     @SlashCommand(path = SLASH_SETUP_CHECKLIST)
     public void onSetupHelp(@NotNull SlashCommandEvent event) {
-        DiscordPS.info("Got slash command: " + event.getType());
-
-        sendDeferReply(event, true);
-
-        this.getCommands()
-            .fromClass(SetupCommand.class)
-            .getHelpCommand()
-            .onSetupHelp(event.getHook());
+        this.onSlashCommand(event, true, SetupCommand.class, SetupCommand::getHelpCommand);
     }
 
     /**
-     * Entry point for archive plot command
+     * Entry point for plot archive command
      *
-     * @see github.tintinkung.discordps.commands.events.ArchiveEvent#onArchivePlot(InteractionHook, ActionRow, long, boolean) Event Handler
      * @param event Slash command event activated by JDA
      */
-    @SlashCommand(path = SLASH_ARCHIVE_PLOT)
-    public void onArchivePlot(@NotNull SlashCommandEvent event) {
-        DiscordPS.info("Got slash command: " + event.getType());
+    @SlashCommand(path = SLASH_PLOT_ARCHIVE)
+    public void onPlotArchive(@NotNull SlashCommandEvent event) {
+        if(requiredReady(event)) return;
 
-        sendDeferReply(event, true);
-        long plotID = Objects.requireNonNull(event.getOption(ArchiveCommand.PLOT)).getAsLong();
-        boolean doCreate = Objects.requireNonNull(event.getOption(ArchiveCommand.CREATE)).getAsBoolean();
-
-        ActionRow actionRow = ActionRow.of(
-            Button.primary(
-                NEW_ATTACHED_PLOT_IMAGES_BUTTON.apply(
-                    event.getIdLong(),
-                    event.getUser().getIdLong(),
-                    (int) plotID),
-                "Attach Image"),
-            Button.secondary(
-                NEW_PROVIDED_PLOT_IMAGES_BUTTON.apply(
-                    event.getIdLong(),
-                    event.getUser().getIdLong(),
-                    (int) plotID),
-                "Already Provided")
+        this.onSlashCommand(event, false, PlotCommand.class, PlotCommand::getArchiveCommand,
+            () -> new OnPlotArchive(
+                event.getUser().getIdLong(),
+                event.getIdLong(),
+                Objects.requireNonNull(event.getOption(PlotCommand.PLOT_ID)).getAsLong(),
+                Objects.requireNonNull(event.getOption(PlotCommand.PLOT_OVERRIDE)).getAsBoolean()
+            )
         );
-
-        this.getCommands()
-            .fromClass(ArchiveCommand.class)
-            .onArchivePlot(event.getHook(), actionRow, plotID, doCreate);
     }
 
-    private void sendDeferReply(CommandInteraction event, boolean ephemeral) {
 
-        if(event.getChannelType() == ChannelType.UNKNOWN) {
+    /**
+     * Entry point for plot delete command
+     *
+     * @param event Slash command event activated by JDA
+     */
+    @SlashCommand(path = SLASH_PLOT_DELETE)
+    public void onPlotDelete(@NotNull SlashCommandEvent event) {
+        if(requiredReady(event)) return;
 
+        this.onSlashCommand(event, false, PlotCommand.class, PlotCommand::getDeleteCommand, () ->
+            new OnPlotDelete(
+                event.getUser().getIdLong(),
+                event.getIdLong(),
+                Objects.requireNonNull(event.getOption(PlotCommand.PLOT_ID)).getAsLong()
+            )
+        );
+    }
+
+    /**
+     * Entry point for plot showcase command
+     *
+     * @param event Slash command event activated by JDA
+     */
+    @SlashCommand(path = SLASH_PLOT_SHOWCASE)
+    public void onPlotShowcase(@NotNull SlashCommandEvent event) {
+        if(requiredReady(event)) return;
+
+        this.onSlashCommand(event, true, PlotCommand.class, PlotCommand::getShowcaseCommand, () ->
+            new OnPlotShowcase(
+                event.getUser().getIdLong(),
+                event.getIdLong(),
+                Objects.requireNonNull(event.getOption(PlotCommand.PLOT_ID)).getAsLong()
+            )
+        );
+    }
+
+    /**
+     * Entry point for plot fetch command
+     *
+     * @param event Slash command event activated by JDA
+     */
+    @SlashCommand(path = SLASH_PLOT_FETCH)
+    public void onPlotFetch(@NotNull SlashCommandEvent event) {
+        if(requiredReady(event)) return;
+
+        this.onSlashCommand(event, true, PlotCommand.class, PlotCommand::getFetchCommand, () -> {
+            long plotID = Objects.requireNonNull(event.getOption(PlotCommand.PLOT_ID)).getAsLong();
+            boolean override = Objects.requireNonNull(event.getOption(PlotCommand.PLOT_OVERRIDE)).getAsBoolean();
+
+            ThreadStatus initialStatus = null;
+
+            for(ThreadStatus status : ThreadStatus.VALUES) {
+                OptionMapping option = event.getOption(status.name());
+
+                if(option == null) continue;
+
+                if(initialStatus != null) {
+                    PlotFetchEvent.onManyStatusPicked(event.getHook(), initialStatus.name());
+                    break;
+                }
+                initialStatus = status;
+            }
+
+            return new OnPlotFetch(
+                    event.getUser().getIdLong(),
+                    event.getIdLong(),
+                    plotID,
+                    override,
+                    initialStatus
+            );
+        });
+    }
+
+
+    /**
+     * If guard to exit slash command early
+     * if the command required plugin to be ready first.
+     *
+     * @param event The triggered slash command event
+     * @return True if the plugin is NOT ready
+     * @see DiscordPS#isReady()
+     */
+    public boolean requiredReady(SlashCommandEvent event) {
+        if(!DiscordPS.getPlugin().isReady()) {
             event.deferReply(true).addEmbeds(new EmbedBuilder()
-                .setTitle("Cannot Interact on a Thread Channel")
-                .setDescription("Our discord API (JDA) is outdated. please contact our developer to request this functionality.")
+                .setTitle("Discord Plot-System is **NOT** Ready")
+                .setDescription("Cannot use plugin related command, "
+                        + "please set up the plugin first with `/setup webhook` (`/setup help` for more info)")
                 .setColor(Color.RED)
                 .build())
-                .queue();
+            .queue();
 
-            return;
+            return true;
         }
-
-        event.deferReply(ephemeral).queue();
+        else return false;
     }
-
 }

@@ -1,9 +1,10 @@
 package github.tintinkung.discordps.core.providers;
 
+import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.tintinkung.discordps.core.system.AvailableComponent;
-import github.tintinkung.discordps.core.system.components.ComponentV2;
+import github.tintinkung.discordps.core.system.components.api.ComponentV2;
 import github.tintinkung.discordps.core.system.layout.LayoutComponent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -49,7 +50,7 @@ public abstract class LayoutComponentProvider<T extends ComponentV2, V extends E
      * @param type The component enum identity.
      * @param values The subcomponent values as enum list.
      */
-    protected LayoutComponentProvider(int layout, AvailableComponent type, V[] values) {
+    protected LayoutComponentProvider(int layout, @NotNull AvailableComponent type, V[] values) {
         this.builders = new EnumMap<>(values[0].getDeclaringClass());
         this.values = values;
         this.layout = layout;
@@ -57,7 +58,17 @@ public abstract class LayoutComponentProvider<T extends ComponentV2, V extends E
     }
 
     /**
+     * Get the enum type of this layout component.
+     *
+     * @return The enum
+     */
+    public AvailableComponent getType() {
+        return type;
+    }
+
+    /**
      * Get the layout position of this component.
+     *
      * @return Position in integer starting from 0
      */
     public int getLayoutPosition() {
@@ -89,7 +100,7 @@ public abstract class LayoutComponentProvider<T extends ComponentV2, V extends E
      * @param builder The function that builds the corresponding ComponentV2.
      */
     protected void register(V component, Builder<ComponentV2> builder) {
-        builders.put(component, builder);
+        builders.putIfAbsent(component, builder);
     }
 
     /**
@@ -120,7 +131,7 @@ public abstract class LayoutComponentProvider<T extends ComponentV2, V extends E
      * @param components The subcomponent array to rebuild.
      * @param eachComponent Action to do when rebuilding each subcomponent.
      */
-    protected void rebuild(@NotNull DataArray components, BiConsumer<Integer, DataObject> eachComponent) {
+    protected void rebuild(@NotNull DataArray components, BiConsumer<Integer, DataObject> eachComponent) throws ParsingException, IllegalArgumentException {
         for (int i = 0; i < components.length(); i++) {
             DataObject component = components.getObject(i);
 
@@ -136,6 +147,15 @@ public abstract class LayoutComponentProvider<T extends ComponentV2, V extends E
      */
     public abstract T build();
 
-    protected abstract void rebuildComponent(int packedID, DataObject component);
+    /**
+     * Provide rebuild functionality for this component
+     * when receiving as raw data from the API.
+     *
+     * @param packedID The received ID
+     * @param component The received raw data object
+     * @throws ParsingException If an unexpected data keys is received
+     * @throws IllegalArgumentException If the given raw data is invalid
+     */
+    protected abstract void rebuildComponent(int packedID, DataObject component) throws ParsingException, IllegalArgumentException;
 }
 

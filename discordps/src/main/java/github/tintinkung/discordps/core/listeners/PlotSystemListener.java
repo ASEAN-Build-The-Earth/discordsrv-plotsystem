@@ -55,14 +55,14 @@ public class PlotSystemListener {
 
     @ApiSubscribe
     public void onPlotAbandoned(@NotNull PlotAbandonedEvent event) {
-        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.abandoned, (t, u) -> {});
+        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.abandoned);
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
     @ApiSubscribe
     public void onPlotSubmitted(@NotNull PlotSubmitEvent event) {
-        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.finished, (t, u) -> {});
+        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.finished);
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
@@ -70,7 +70,7 @@ public class PlotSystemListener {
 
     @ApiSubscribe
     public void onPlotCreated(@NotNull PlotCreateEvent event) {
-        Runnable task = () -> this.webhook.addNewPlot(event.getPlotID());
+        Runnable task = () -> this.webhook.createAndRegisterNewPlot(event.getPlotID());
 
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }

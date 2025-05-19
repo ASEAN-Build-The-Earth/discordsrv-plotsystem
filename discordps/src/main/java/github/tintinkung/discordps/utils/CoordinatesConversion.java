@@ -11,6 +11,7 @@ interface CoordinatesConversion  {
 
     double[] convertToGeo(double xCords, double yCords) throws RuntimeException;
 
+    //TODO: This doesn't work yet
     default double[] convertToGeo(HttpUrl httpURL) throws RuntimeException {
         Request.Builder requestBuilder = new Request.Builder()
                 .url(httpURL)

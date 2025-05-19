@@ -3,11 +3,12 @@ package github.tintinkung.discordps.core.database;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.util.SQLUtil;
 import github.tintinkung.discordps.ConfigPaths;
-import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -21,6 +22,9 @@ import static github.tintinkung.discordps.Debug.Error.DATABASE_NOT_INITIALIZED;
 
 public class DatabaseConnection {
 
+    /**
+     * Default database table name which can be configured differently in config.yml
+     */
     private static String webhookTableName = "plotsystem_discord_webhook";
     private final static Properties config = new Properties();
     private static HikariDataSource dataSource;
@@ -35,6 +39,7 @@ public class DatabaseConnection {
 
     private static int connectionClosed, connectionOpened;
 
+    @Contract(pure = true)
     public static String getWebhookTableName() {
         return webhookTableName;
     }
@@ -106,16 +111,16 @@ public class DatabaseConnection {
         // Validate webhook table and create if not exist.
         try {
             if(webhookTable == null) {
-                validateWebhookTable(webhookTableName);
+                validateWebhookTable(getWebhookTableName());
             }
             else if(StringUtils.isBlank(webhookTable)) {
                 DiscordPS.warning("A configured database webhook table name is blank, "
                         + "please specify it or delete the entry entirely. "
-                        + "Using the default value of '" + webhookTableName + "'");
-                validateWebhookTable(webhookTableName);
+                        + "Using the default value of '" + getWebhookTableName() + "'");
+                validateWebhookTable(getWebhookTableName());
             }
             else {
-                webhookTableName = webhookTable;
+                DatabaseConnection.webhookTableName = webhookTable;
                 validateWebhookTable(webhookTable);
             }
         }
@@ -127,11 +132,12 @@ public class DatabaseConnection {
         return true;
     }
 
-    public static StatementBuilder createStatement(String sql) {
+    @Contract("_ -> new")
+    public static @NotNull StatementBuilder createStatement(String sql) {
         return new StatementBuilder(sql);
     }
 
-    public static void closeResultSet(ResultSet resultSet) throws SQLException {
+    public static void closeResultSet(@NotNull ResultSet resultSet) throws SQLException {
         if(resultSet.isClosed()
                 && resultSet.getStatement().isClosed()
                 && resultSet.getStatement().getConnection().isClosed())
@@ -178,7 +184,8 @@ public class DatabaseConnection {
         try {
             String query = "SELECT id + 1 available_id FROM $table t WHERE NOT EXISTS (SELECT * FROM $table WHERE $table.id = t.id + 1) ORDER BY id LIMIT 1"
                     .replace("$table", table);
-            try (ResultSet rs = DatabaseConnection.createStatement(query).executeQuery()) {
+            try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
+                ResultSet rs = statement.executeQuery();
                 if (rs.next()) {
                     int i = rs.getInt(1);
                     DatabaseConnection.closeResultSet(rs);
@@ -263,49 +270,37 @@ public class DatabaseConnection {
         }
 
         private static class WebhookTable {
-            private final static Map<String, String> expected = new HashMap<>();
-            private final static String statusEnum;
+            private final static String statusEnum = ThreadStatus.constructEnumString();
+
+            private final static Map<String, String> expected = Map.of(
+                "message_id", "bigint(20) unsigned",
+                "thread_id", "bigint(20) unsigned",
+                "plot_id", "int(11)",
+                "status", "enum" + statusEnum,
+                "owner_uuid", "varchar(36)",
+                "owner_id", "varchar(20)",
+                "feedback", "varchar(1024)",
+                "version", "int(11)"
+            );
 
             public static Map<String, String> getExpected() {
                 return expected;
             }
 
-            public static String getCreateStatement(String tableName) {
+            @Contract(pure = true)
+            public static @NotNull String getCreateStatement(@NotNull String tableName) {
                 return  "CREATE TABLE IF NOT EXISTS `" + tableName.trim() + "` (" +
                         " `message_id`       BIGINT UNSIGNED NOT NULL," +
                         " `thread_id`        BIGINT UNSIGNED NOT NULL," +
                         " `plot_id`          INT NOT NULL," +
                         " `status`           ENUM " + statusEnum + " NOT NULL," +
-                        " `owner_uuid`       varchar(36) NULL COLLATE 'utf8mb4_general_ci'," +
+                        " `owner_uuid`       varchar(36) NOT NULL COLLATE 'utf8mb4_general_ci'," +
+                        " `owner_id`         varchar(20) NULL DEFAULT NULL," +
                         " `feedback`         varchar(1024) NULL DEFAULT NULL," +
                         " `version`          INT NULL DEFAULT NULL," +
                         " PRIMARY KEY        (`message_id`)," +
                         " INDEX              (`plot_id`)" +
                         ");";
-            }
-
-            private static String  constructEnumString() {
-                StringBuilder enumBuilder = new StringBuilder();
-                enumBuilder.append("(");
-                for(int i = 0; i < ThreadStatus.values().length; i++) {
-                    enumBuilder.append("'");
-                    enumBuilder.append(ThreadStatus.values()[i]);
-                    enumBuilder.append("'");
-                    if(i + 1 < ThreadStatus.values().length) enumBuilder.append(",");
-                }
-                enumBuilder.append(")");
-                return enumBuilder.toString();
-            }
-
-            static {
-                statusEnum = constructEnumString();
-                expected.put("message_id", "bigint(20) unsigned");
-                expected.put("thread_id", "bigint(20) unsigned");
-                expected.put("plot_id", "int(11)");
-                expected.put("status", "enum" + statusEnum);
-                expected.put("owner_uuid", "varchar(36)");
-                expected.put("feedback", "varchar(1024)");
-                expected.put("version", "int(11)");
             }
         }
     }

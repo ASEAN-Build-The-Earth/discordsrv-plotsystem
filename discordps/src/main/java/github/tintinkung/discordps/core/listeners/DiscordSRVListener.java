@@ -13,16 +13,19 @@ import github.tintinkung.discordps.Debug;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
-import github.tintinkung.discordps.commands.ArchiveCommand;
+import github.tintinkung.discordps.commands.PlotCommand;
+import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.providers.PluginListenerProvider;
 import github.tintinkung.discordps.commands.SetupCommand;
-import github.tintinkung.discordps.core.system.ForumWebhook;
-import github.tintinkung.discordps.core.system.Notification;
-import github.tintinkung.discordps.core.system.PlotSystemWebhook;
+import github.tintinkung.discordps.core.system.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
+import java.sql.SQLException;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 
@@ -54,6 +57,13 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         // WebhookDeliver.sendTestEmbed();
     }
 
+    /**
+     * Entry point for all plugin functionality,
+     * connect the plugin to DiscordSRV's JDA instance
+     * then initialize and validate for all required plugin data.
+     *
+     * <p>Note: Must be called after DiscordSRV ready event</p>
+     */
     public void subscribeAndValidateJDA() {
         this.subscribed = true;
 
@@ -61,15 +71,12 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         DiscordSRV.getPlugin().getJda().addEventListener(this.newEventListener(this));
 
         // Initialize and Add our slash command data in
-        newSlashCommandListener().register(new SetupCommand(
-                DiscordPS.getPlugin().isDebuggingEnabled()),
-                DiscordSRV.getPlugin().getMainGuild().getId()
+        newSlashCommandListener().register(DiscordSRV.getPlugin().getMainGuild().getId(),
+            new SetupCommand(DiscordPS.getPlugin().isDebuggingEnabled()),
+            new PlotCommand(DiscordPS.getPlugin().isDebuggingEnabled())
         );
 
         Checks.notNull(this.getPluginSlashCommand(), "Plugin Slash Command Provider");
-
-        // Register utility commands
-        this.getPluginSlashCommand().register(new ArchiveCommand());
 
         // Register slash command provider
         DiscordSRV.api.addSlashCommandProvider(this.getPluginSlashCommand());
@@ -80,54 +87,81 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         DiscordSRV.api.updateSlashCommands();
 
 
-        // Validate for webhook reference
+        // Initialize main webhook
         try {
-            ForumWebhook forumWebhook = new ForumWebhook(
-                    DiscordSRV.getPlugin().getJda(),
-                    this.plugin.getWebhookConfig(),
-                    this.plugin.getConfig()
+            ForumWebhookImpl forumWebhook = new ForumWebhookImpl(
+                DiscordSRV.getPlugin().getJda(),
+                this.plugin.getWebhookConfig(),
+                this.plugin.getConfig()
             );
             this.plugin.initWebhook(new PlotSystemWebhook(forumWebhook));
-
-            // Everything should be ready by now
-            if(this.plugin.getWebhook() != null) {
-                this.plugin.getWebhook().getProvider().validateWebhook();
-            }
         }
         catch (RuntimeException ex) {
             DiscordPS.error(
                 Debug.Error.WEBHOOK_NOT_CONFIGURED,
-                "Failed to initialize webhook reference, maybe it is un-configured?", ex
+                "Failed to initialize and validate webhook reference, maybe it is un-configured?", ex
             );
         }
 
-        if(!this.plugin.isReady()) {
-            try(BukkitAudiences bukkit = BukkitAudiences.create(this.plugin)) {
-                Component debuggingMessage = createDebuggingMessage();
-                bukkit.console().sendMessage(debuggingMessage);
-            }
-        }
-        else {
-            DiscordPS.getInstance().subscribe(this.newPlotSystemListener(this.plugin.getWebhook()));
-
-            DiscordPS.info("Discord-PlotSystem is fully configured! The application is ready.");
-
-            Notification.sendMessageEmbeds(new EmbedBuilder()
-                    .setTitle(":green_circle: Discord-PlotSystem started.")
-                    .setColor(Color.GREEN)
-                    .build()
+        // Initialize showcase webhook
+        try {
+            ForumWebhookImpl showcaseWebhook = new ForumWebhookImpl(
+                DiscordSRV.getPlugin().getJda(),
+                this.plugin.getShowcaseConfig(),
+                this.plugin.getConfig()
             );
+            this.plugin.initShowcase(new ShowcaseWebhook(showcaseWebhook));
+        }
+        catch (RuntimeException ex) {
+            DiscordPS.warning(Debug.Warning.SHOWCASE_WEBHOOK_NOT_CONFIGURED);
+        }
+
+        // Webhook is initialized, validate its functionalities
+        if(this.plugin.getWebhook() != null) {
+            CompletableFuture<Void> validation = this.plugin.getShowcase() != null
+                ? this.plugin
+                    .getWebhook()
+                    .getProvider()
+                    .validateWebhook(this.plugin.getShowcase().getProvider())
+                : this.plugin.getWebhook().getProvider().validateWebhook();
+
+            validation.orTimeout(5, TimeUnit.SECONDS).thenRun(() -> {
+                if(this.plugin.isReady()) {
+                    DiscordPS.getInstance().subscribe(this.newPlotSystemListener(this.plugin.getWebhook()));
+
+                    DiscordPS.info("Discord-PlotSystem is fully configured! The application is ready.");
+
+                    Notification.sendMessageEmbeds(new EmbedBuilder()
+                            .setTitle(":green_circle: Discord-PlotSystem started.")
+                            .setColor(Color.GREEN)
+                            .build()
+                    );
+                }
+                else this.onPluginNotReady();
+            });
+        }
+        else this.onPluginNotReady();
+    }
+
+    /**
+     * @see #createDebuggingMessage()
+     */
+    private void onPluginNotReady() {
+        try(BukkitAudiences bukkit = BukkitAudiences.create(this.plugin)) {
+            Component debuggingMessage = this.createDebuggingMessage();
+            bukkit.console().sendMessage(debuggingMessage);
         }
     }
 
-
     /**
      * Send huge debugging message when the plugin is not ready.
+     *
      * @return Formatted message with colors.
      */
-    private static @NotNull Component createDebuggingMessage() {
+    private @NotNull Component createDebuggingMessage() {
         TextComponent LINE = text("!!! ", NamedTextColor.RED);
 
+        // Brief title
         Component notReadyMessage = text("[DiscordPlotSystem]", NamedTextColor.AQUA).appendSpace()
                 .append(text("is NOT ready!", NamedTextColor.RED, TextDecoration.BOLD)).appendNewline()
                 .append(text("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", NamedTextColor.RED)).appendNewline()
@@ -136,6 +170,7 @@ final public class DiscordSRVListener extends PluginListenerProvider {
                 .append(LINE).append(text("Use the command '/setup help' in your discord server to see the configuration checklists.", NamedTextColor.GREEN)).appendNewline()
                 .append(LINE).append(text("All Occurred Errors:", NamedTextColor.YELLOW)).appendNewline();
 
+        // Important error: this make the application fails
         for(Map.Entry<Debug.Error, String> entry : DiscordPS.getDebugger().allThrownErrors()) {
             notReadyMessage = notReadyMessage.append(LINE)
                 .append(text("[ERROR]", NamedTextColor.RED, TextDecoration.BOLD))
@@ -148,6 +183,7 @@ final public class DiscordSRVListener extends PluginListenerProvider {
                 .appendNewline();
         }
 
+        // Occurred warnings
         for(Map.Entry<Debug.Warning, String> entry : DiscordPS.getDebugger().allThrownWarnings()) {
             notReadyMessage = notReadyMessage.append(LINE)
                 .append(text("[WARNING]", NamedTextColor.YELLOW))
@@ -162,5 +198,4 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         notReadyMessage = notReadyMessage.append(text("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", NamedTextColor.RED));
         return notReadyMessage;
     }
-
 }

@@ -1,17 +1,13 @@
 package github.tintinkung.discordps.commands;
 
 import github.scarsz.discordsrv.DiscordSRV;
-import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.OptionType;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.build.SubcommandData;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
-import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
@@ -19,29 +15,37 @@ import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.tintinkung.discordps.ConfigPaths;
 import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
-import github.tintinkung.discordps.commands.events.SetupWebhookEvent;
 import github.tintinkung.discordps.commands.interactions.OnSetupWebhook;
+import github.tintinkung.discordps.commands.providers.AbstractSetupWebhookCommand;
 import github.tintinkung.discordps.utils.FileUtil;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static github.tintinkung.discordps.Constants.WEBHOOK_AVATAR_FILE;
 
-final class SetupWebhookCommand extends SubcommandData implements SetupWebhookEvent {
+class SetupWebhookCommand extends AbstractSetupWebhookCommand {
 
-    public SetupWebhookCommand(@NotNull String name, @NotNull String webhookChannel, @NotNull String webhookName) {
-        super(name, "Setup Plot-System webhook integration");
+    public SetupWebhookCommand(@NotNull String name, @NotNull String outputFile, @NotNull String webhookChannel, @NotNull String webhookName) {
+        this(name, outputFile, "Setup Plot-System webhook integration", webhookChannel, webhookName);
+    }
+
+    public SetupWebhookCommand(@NotNull String name,
+                               @NotNull String outputFile,
+                               @NotNull String description,
+                               @NotNull String webhookChannel,
+                               @NotNull String webhookName) {
+        super(name, outputFile, description);
 
         this.addOption(
             OptionType.CHANNEL,
@@ -58,23 +62,19 @@ final class SetupWebhookCommand extends SubcommandData implements SetupWebhookEv
     }
 
     @Override
-    public void onSetupWebhook(ActionRow options, @NotNull InteractionHook hook, @NotNull OnSetupWebhook interaction) {
-
+    public void onCommandTriggered(@NotNull InteractionHook hook, @NotNull OnSetupWebhook payload)  {
         // Exit if webhook already has been configured
         if(DiscordPS.getPlugin().getWebhook() != null) {
-            MessageEmbed errorAlreadyConfigured = new EmbedBuilder()
-                    .setTitle("Already configured!")
-                    .setDescription("A webhook is already configured in the plugin's config file.\n"
-                            + "If you want to create a new webhook, please delete (and back up) the file: ```"
-                            + DiscordPS.getPlugin().getDataFolder().getAbsolutePath() + "/webhook.yml```\n"
-                            + "Then, restart the plugin and use this command again.")
-                    .setColor(Color.ORANGE.darker())
-                    .build();
-            hook.sendMessageEmbeds(errorAlreadyConfigured).queue();
-            DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
+            hook.sendMessageEmbeds(ALREADY_CONFIGURED_ERROR.apply(getOutputPath().toString())).queue();
+            DiscordPS.getPlugin().exitSlashCommand(payload.eventID);
             return;
         }
 
+        this.onSetupWebhook(hook, payload);
+    }
+
+    @Override
+    public void onSetupWebhook(@NotNull InteractionHook hook, @NotNull OnSetupWebhook interaction) {
         // Exit early if provided name is invalid
         String username = interaction.webhookName;
         username = username
@@ -84,14 +84,7 @@ final class SetupWebhookCommand extends SubcommandData implements SetupWebhookEv
                 .replaceAll(Constants.DISCORD_SRV_WEBHOOK_PREFIX_LEGACY, "$1*$2");
 
         if (!username.equals(interaction.webhookName)) {
-            MessageEmbed errorUsername = new EmbedBuilder()
-                    .setTitle("Bad user name!")
-                    .setDescription("User cannot contain the substring of discord api "
-                            + "banned/blocked words (eg. Clyde and Discord) "
-                            + "and DiscordSRV owned webhook name (DSRV, DiscordSRV)")
-                    .setColor(Color.RED)
-                    .build();
-            hook.sendMessageEmbeds(errorUsername).queue();
+            hook.sendMessageEmbeds(BAD_USERNAME_ERROR).queue();
             DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
             return;
         }
@@ -99,63 +92,32 @@ final class SetupWebhookCommand extends SubcommandData implements SetupWebhookEv
         // Exit early if provided channel is invalid (Must be form channel)
         try {
             int channelType = getChannelType(interaction.webhookChannel, true).complete().orElseThrow();
-
-            DiscordPS.debug("Got channel: " + channelType);
-
             // GUILD_FORUM	15	Channel that can only contain threads
             if(channelType != 15) {
-                MessageEmbed errorChannel = new EmbedBuilder()
-                        .setTitle("Bad channel!")
-                        .setDescription("Only Forum channel is supported by this plugin.")
-                        .setColor(Color.RED)
-                        .build();
-
-                hook.sendMessageEmbeds(errorChannel).queue();
+                hook.sendMessageEmbeds(BAD_CHANNEL_ERROR).queue();
                 DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
                 return;
             }
         }
         catch (NoSuchElementException ex) { // Skip if we cant verify it, handle it later
-            DiscordPS.warning("Failed to try verify channel type on slash command /setup webhook, skipping this check.");
+            hook.sendMessageEmbeds(CANT_VERIFY_CHANNEL_ERROR).queue();
         }
 
-        MessageEmbed verifyEmbed = new EmbedBuilder()
-                .setTitle("Please verify your webhook settings")
-                .setColor(Color.ORANGE)
-                .addField(
-                        "Webhook Name:",
-                        "```" + interaction.webhookName + "```"
-                                + "\n-# The display name that will be used when creating embed in webhook forum channel.",
-                        false)
-                .addField(
-                        "Webhook Channel:",
-                        "```" + interaction.webhookChannel + "```"
-                                + "\n-# The Forum channel where Discord-PlotSystem will manage.",
-                        false)
-                .build();
-
-        MessageEmbed imageNotifyEmbed = new EmbedBuilder()
-                .setColor(Color.RED)
-                .setTitle("Webhook avatar image is not set!")
-                .setDescription("Please choose a method to apply webhook avatar image.")
-                .addField(
-                        ":blue_heart: Attach an image",
-                        "Please send a message with one image attachment below, and click the confirm button to apply.",
-                        false)
-                .addField(
-                        ":grey_heart: Provide an image",
-                        "Please upload an image named `" + WEBHOOK_AVATAR_FILE + "` in your plugin data folder (`"
-                                + DiscordPS.getPlugin().getDataFolder().getAbsolutePath() + "`)",
-                        false)
-                .build();
-
-        hook.sendMessageEmbeds(verifyEmbed, imageNotifyEmbed)
-                .addActionRows(options)
-                .queue();
+        // Confirmation Message
+        hook.sendMessageEmbeds(
+                CONFIRM_SETTINGS_EMBED.apply(interaction.webhookName, interaction.webhookChannel),
+                AVATAR_IMAGE_SETUP_EMBED.apply(WEBHOOK_AVATAR_FILE, DiscordPS.getPlugin().getDataFolder().getAbsolutePath())
+            ).addActionRows(ActionRow.of(
+                SUBMIT_AVATAR_BUTTON.apply(interaction),
+                PROVIDED_AVATAR_BUTTON.apply(interaction)
+            )).queue();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void onConfirmConfig(Message message, @NotNull OnSetupWebhook interaction) {
+    public void onConfirmConfig(@NotNull Message message, @NotNull OnSetupWebhook interaction) {
 
         String name = interaction.webhookName;
         String channel = Long.toUnsignedString(interaction.webhookChannel);
@@ -170,88 +132,81 @@ final class SetupWebhookCommand extends SubcommandData implements SetupWebhookEv
             Checks.notNull(avatarURI, "Unexpected error of webhook image URI");
 
         } catch (IOException | IllegalArgumentException ex) {
-            DiscordPS.error("Unknown error when trying to find webhook image file from resource.");
-            throw new RuntimeException(ex);
+            DiscordPS.error("Unknown error when trying to find webhook image file from resource: " + ex.getMessage());
+            DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
+            return;
         }
 
-        DiscordPS.initWebhook(channel, name, avatarURI, true)
-                .queue((webhook) -> {
-                    if(webhook.isPresent())
-                        onWebhookCreated(webhook.get(), message, imageFile.getName());
-                    else {
-                        DiscordPS.error("Failed to request for webhook creation.");
-                    }
-                });
+        DiscordPS.createWebhook(channel, name, avatarURI, true)
+            .queue((webhook) -> {
+                if(webhook.isPresent())
+                    onWebhookCreated(webhook.get(), message, interaction.outputFile, imageFile.getName());
+                else DiscordPS.error("Failed to request for webhook creation.");
+            });
+        DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void onConfirmAvatar(@NotNull Message message, OnSetupWebhook interaction) {
+    public void onConfirmAvatar(@NotNull Message message, @NotNull OnSetupWebhook interaction) {
 
         Message.Attachment attachment = message.getAttachments().getFirst();
         MessageChannel channel = message.getChannel();
+        File avatarFile = DiscordPS.getPlugin()
+            .getDataFolder()
+            .toPath()
+            .resolve(WEBHOOK_AVATAR_FILE + "." + attachment.getFileExtension())
+            .toFile();
 
-        try {
-            String filePath = String.join("/",
-                    DiscordPS.getPlugin().getDataFolder().getAbsolutePath(),
-                    WEBHOOK_AVATAR_FILE + "." + attachment.getFileExtension());
-            File file = attachment.downloadToFile(filePath).get();
+        CompletableFuture<Message> queuedMessage = channel.sendMessageEmbeds(UPLOADING_EMBED).submit();
+        CompletableFuture<File> queuedDownload = attachment.downloadToFile(avatarFile);
 
-            channel.sendMessageEmbeds(new EmbedBuilder()
-                            .setTitle("Uploading Attachment . . .")
-                            .setDescription("Please wait . . .")
-                            .setColor(Color.ORANGE)
-                            .build())
-                    .queue((finalMsg) -> onConfirmAvatarImage(finalMsg, interaction, file), this::onMessageSendingFailed);
-
-        } catch (InterruptedException | IllegalArgumentException | ExecutionException ex) {
-            DiscordPS.error("cannot download file to resource", ex);
-            DiscordPS.error("please download the file: " + attachment.getFileName());
-            DiscordPS.error("and upload it into plugin data folder: " + DiscordPS.getPlugin().getDataFolder().getAbsolutePath());
-        }
-
+        queuedDownload.whenComplete((file, error) -> {
+            if(error != null) queuedMessage.thenAccept(defer -> ON_IMAGE_DOWNLOAD_FAILED.accept(defer, error.toString()));
+            else queuedMessage.thenAccept(defer -> onConfirmAvatarImage(defer, interaction, file));
+        });
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void onConfirmAvatarProvided(MessageChannel channel, OnSetupWebhook interaction) {
+    public void onConfirmAvatarProvided(@NotNull MessageChannel channel, @NotNull OnSetupWebhook interaction) {
         try {
             File file = FileUtil.findImageFileByPrefix(WEBHOOK_AVATAR_FILE);
 
             // File not found
             if(file == null) {
-                channel.sendMessageEmbeds(new EmbedBuilder()
-                        .setTitle("File not found!")
-                        .setDescription("Make sure the file is named `"
-                                + WEBHOOK_AVATAR_FILE + "` and provided at the path `"
-                                + DiscordPS.getPlugin().getDataFolder().getAbsolutePath()
-                                + "`")
-                        .setColor(Color.RED)
-                        .build())
-                        .queue();
+                channel.sendMessageEmbeds(AVATAR_FILE_NOT_FOUND).queue();
                 DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
                 return;
             }
 
-            channel.sendMessageEmbeds(new EmbedBuilder()
-                            .setTitle("Uploading Attachment . . .")
-                            .setDescription("Please wait . . .")
-                            .setColor(Color.ORANGE)
-                            .build())
-                    .queue((finalMsg) -> onConfirmAvatarImage(finalMsg, interaction, file), this::onMessageSendingFailed);
+            Consumer<Message> onSuccess = defer -> onConfirmAvatarImage(defer, interaction, file);
+            channel.sendMessageEmbeds(UPLOADING_EMBED).queue(onSuccess);
 
         } catch (IOException | IllegalArgumentException ex) {
             DiscordPS.error("Cannot download file to resource", ex);
 
-            channel.sendMessageEmbeds(new EmbedBuilder()
-                    .setTitle("Internal Exception Occurred! `" + ex.getMessage() + "`")
-                    .setDescription("Please see the server console or send help from the developer.")
-                    .setColor(Color.RED)
-                    .build())
-                    .queue();
+            channel.sendMessageEmbeds(INTERNAL_EXCEPTION.apply(ex.getMessage())).queue();
             DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
         }
     }
 
-    private void onWebhookCreated(@NotNull DataObject webhook, Message message, String image) {
+    /**
+     * Invoked after webhook has been created which returned a raw data object.
+     *
+     * @param webhook The raw data object representing the created webhook
+     * @param defer The message reference to the interaction
+     * @param outputFile The output file name to save as
+     * @param avatarFile The webhook avatar image as its file name
+     */
+    private void onWebhookCreated(@NotNull DataObject webhook,
+                                  Message defer,
+                                  String outputFile,
+                                  String avatarFile) {
         // Webhook response object into config
         YamlConfiguration config = makeWebhookConfig(
                 webhook.getString("name"),
@@ -261,106 +216,77 @@ final class SetupWebhookCommand extends SubcommandData implements SetupWebhookEv
                 webhook.getString("guild_id"),
                 webhook.getString("url"));
 
-        String filePath = String.join("/",
-                DiscordPS.getPlugin().getDataFolder().getAbsolutePath(),
-                "webhook.yml");
+        File filePath = DiscordPS.getPlugin().getDataFolder().toPath().resolve(outputFile).toFile();
 
-        MessageEmbed editedEmbed = new EmbedBuilder()
-                .setTitle("Webhook created", webhook.getString("url"))
-                .setDescription("Consider pinning this message or archive it somewhere.")
-                .addField("webhook.yml","```yml\n" + config.saveToString() + "\n```", false)
-                .setThumbnail("attachment://" + image)
-                .setColor(Color.GREEN)
-                .build();
+        MessageEmbed editedEmbed = this.formatCreatedInformation(
+                outputFile,
+                config.saveToString(),
+                webhook.getString("url"))
+            .setThumbnail("attachment://" + avatarFile)
+            .build();
 
         // Try save payload into file
         try { config.save(filePath); }
-        catch (IOException | IllegalArgumentException ex) {
-
-            MessageEmbed noPermsEmbed = new EmbedBuilder()
-                .setTitle("Webhook Created BUT no permission to write in config file")
-                .setDescription(
-                    "Please replace the field \"webhook\" in the plugin's webhook.yml "
-                    + "with all fields created in the embed above. "
-                    + "Run the `/setup` command to check the checklist.")
-                .addField("Stack Trace", "```" + ex + "```", false)
-                .setColor(Color.RED)
-                .build();
-
-            message.editMessageEmbeds(editedEmbed).queue((msg) -> {
-                msg.replyEmbeds(noPermsEmbed).queue();
-            });
-
+        catch(IOException | IllegalArgumentException ex) {
+            MessageEmbed noPermsEmbed = CREATED_NO_PERMISSION.apply(ex.toString(), this.getOutputFilename());
+            defer.editMessageEmbeds(editedEmbed).queue(msg -> msg.replyEmbeds(noPermsEmbed).queue());
             return;
         }
 
-        MessageEmbed completeEmbed = new EmbedBuilder()
-                .setTitle("Discord-PlotSystem Webhook Created")
-                .setDescription(
-                    "Webhook config has been saved to `webhook.yml`, "
-                    + "Run `/setup help` command to check the checklist")
-                .setColor(Color.GREEN)
-                .build();
-
-        message.editMessageEmbeds(editedEmbed).queue((msg) -> {
-            msg.replyEmbeds(completeEmbed).queue();
+        defer.editMessageEmbeds(editedEmbed).queue((msg) -> {
+            msg.replyEmbeds(WEBHOOK_CREATED_SUCCESSFUL.apply(this.getOutputFilename())).queue();
         });
     }
 
-    private void onConfirmAvatarImage(@NotNull Message message, @NotNull OnSetupWebhook interaction, @NotNull File image) {
+    /**
+     * Invoked after avatar image has been uploaded in a message,
+     * where this interaction will edit sent message to be confirmation embed
+     *
+     * @param message Sent message reference
+     * @param interaction The interaction data
+     * @param image The uploaded avatar image
+     */
+    private void onConfirmAvatarImage(@NotNull Message defer, @NotNull OnSetupWebhook interaction, @NotNull File image) {
         YamlConfiguration draftConfig = makeWebhookConfig(
-                interaction.webhookName,
-                null,
-                null,
-                Long.toUnsignedString(interaction.webhookChannel),
-                message.getGuild().getId(),
-                null);
-
-        MessageEmbed finalConfirm = new EmbedBuilder()
-                .setTitle("Confirm your final config")
-                .setDescription("Make sure the channel is a Forum channel, otherwise the plugin will not be functional.")
-                .addField("webhook.yml","```yml\n" + draftConfig.saveToString() + "\n```", false)
-                .setThumbnail("attachment://" + image.getName())
-                .setColor(Color.ORANGE)
-                .build();
-
-        Button confirmButton = Button.success(
-            Constants.NEW_CONFIRM_CONFIG_BUTTON.apply(
-                interaction.eventID,
-                interaction.userID),
-            "Create Webhook"
+            interaction.webhookName,
+            null,
+            null,
+            Long.toUnsignedString(interaction.webhookChannel),
+            defer.getGuild().getId(),
+            null
         );
 
-        Button cancelButton = Button.danger(
-            Constants.NEW_CANCEL_CONFIG_BUTTON.apply(
-                interaction.eventID,
-                interaction.userID),
-            "Cancel"
+        MessageEmbed finalConfirm = this.formatCreatedConfirmation(interaction.outputFile, draftConfig.saveToString())
+            .setThumbnail("attachment://" + image.getName())
+            .build();
+
+        ActionRow interactions = ActionRow.of(
+            CONFIRM_CONFIG_BUTTON.apply(interaction),
+            CANCEL_CONFIG_BUTTON.apply(interaction)
         );
 
-        message.editMessageEmbeds(finalConfirm).setActionRows(ActionRow.of(confirmButton, cancelButton)).addFile(image).queue();
+        defer.editMessageEmbeds(finalConfirm).setActionRows(interactions).addFile(image).queue();
     }
 
-    private void onMessageSendingFailed(Throwable reason) {
-        DiscordPS.error(reason);
-        DiscordPS.warning("Cannot send message to an activated interaction, maybe it does not have permission to access that channel");
-        DiscordPS.warning("Cannot send message to an interaction: " + reason.getMessage());
-    }
-
-
-    private static RestAction<Optional<Integer>> getChannelType(long channelID, boolean allowSecondAttempt) {
+    /**
+     * Fetch channel ID by raw data
+     *
+     * @param channelID The channel ID snowflake to get its type
+     * @param allowSecondAttempt Re-attempt on 404 error
+     * @return The channel type integer as an optional
+     */
+    private static @NotNull RestAction<Optional<Integer>> getChannelType(long channelID, boolean allowSecondAttempt) {
 
         Route.CompiledRoute route = Route
-                .get(Route.Channels.MODIFY_CHANNEL.getRoute())
-                .compile(Long.toUnsignedString(channelID));
+            .get(Route.Channels.MODIFY_CHANNEL.getRoute())
+            .compile(Long.toUnsignedString(channelID));
 
         return new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, (response, request) -> {
             try {
                 if (response.code == 404) {
                     // 404 = Invalid Webhook (most likely to have been deleted)
                     DiscordPS.error("Channel GET returned 404" + (allowSecondAttempt? " ... retrying in 5 seconds" : ""));
-                    if(allowSecondAttempt)
-                        return getChannelType(channelID, false).completeAfter(5, TimeUnit.SECONDS);
+                    if(allowSecondAttempt) return getChannelType(channelID, false).completeAfter(5, TimeUnit.SECONDS);
                     request.cancel();
 
                     return Optional.empty();
@@ -368,21 +294,29 @@ final class SetupWebhookCommand extends SubcommandData implements SetupWebhookEv
 
                 Optional<DataObject> body = response.optObject();
 
-                if (body.isPresent()) {
-                    if(body.get().hasKey("type"))
-                        return Optional.of(body.get().getInt("type"));
-
-                    return Optional.empty();
-                }
+                if (body.isPresent() && body.get().hasKey("type"))
+                    return Optional.of(body.get().getInt("type"));
+                else return Optional.empty();
             }
             catch (Throwable ex) {
                 DiscordPS.warning("Failed to receive API response: " + ex.toString());
                 request.cancel();
+                return Optional.empty();
             }
-            return Optional.empty();
         });
     }
 
+    /**
+     * Draft a webhook config data with nullable parameters.
+     *
+     * @param name The webhook name
+     * @param id The webhook application ID
+     * @param token The webhook token
+     * @param channelID The channel ID to subscribe webhook
+     * @param guildID The guild ID to subscribe webhook
+     * @param url The api endpoint URL for debugging
+     * @return The drafted configuration file with null data displayed as "N/A"
+     */
     private static @NotNull YamlConfiguration makeWebhookConfig(
             @Nullable String name,
             @Nullable String id,

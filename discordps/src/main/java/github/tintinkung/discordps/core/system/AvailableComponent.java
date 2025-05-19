@@ -20,7 +20,9 @@ public enum AvailableComponent {
     // Plot information
     INFO(InfoComponent.class),
     // Plot status
-    STATUS(StatusComponent.class);
+    STATUS(StatusComponent.class),
+    // Showcase information
+    SHOWCASE(ShowcaseComponent.class);
 
     public interface SubComponent {
         @Contract(pure = true)
@@ -44,6 +46,13 @@ public enum AvailableComponent {
         STATUS_THUMBNAIL;
         public static final StatusComponent[] VALUES = values();
         public static @Nullable StatusComponent get(int ordinal) { return (StatusComponent) SubComponent.fromOrdinal(ordinal, VALUES); }
+    }
+
+    public enum ShowcaseComponent implements SubComponent {
+        SHOWCASE_INFO,
+        SHOWCASE_THUMBNAIL;
+        public static final ShowcaseComponent[] VALUES = values();
+        public static @Nullable ShowcaseComponent get(int ordinal) { return (ShowcaseComponent) SubComponent.fromOrdinal(ordinal, VALUES); }
     }
 
     private final Class<? extends Enum<? extends SubComponent>> components;
@@ -107,6 +116,7 @@ public enum AvailableComponent {
     /**
      * Extracts the position from a packed ID.
      * <blockquote>{@snippet :
+     *       int packedID = 1;
      *       return packedID & 0xFFFF;
      * }</blockquote>
      *
@@ -120,6 +130,7 @@ public enum AvailableComponent {
     /**
      * Extracts the top-level component ID from a packed ID.
      * <blockquote>{@snippet :
+     *       int packedID = 1;
      *       return (packedID >> 16) & 0xFF;
      * }</blockquote>
      *

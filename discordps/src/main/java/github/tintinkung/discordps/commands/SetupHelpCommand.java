@@ -3,24 +3,23 @@ package github.tintinkung.discordps.commands;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.build.SubcommandData;
 import github.tintinkung.discordps.Debug;
 import github.tintinkung.discordps.DiscordPS;
-import github.tintinkung.discordps.commands.events.SetupHelpEvent;
+import github.tintinkung.discordps.commands.interactions.Interaction;
+import github.tintinkung.discordps.commands.providers.SubcommandProvider;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.Color;
 import java.util.*;
 
-final class SetupHelpCommand extends SubcommandData implements SetupHelpEvent {
+class SetupHelpCommand extends SubcommandProvider<Interaction> {
 
     public SetupHelpCommand(@NotNull String name) {
         super(name, "See the Discord-PlotSystem integration checklist");
     }
 
     @Override
-    public void onSetupHelp(InteractionHook hook) {
-        // ChatGPT cooked all this, crazy right?
+    public void onCommandTriggered(InteractionHook hook) {
         Debug debugger = DiscordPS.getDebugger();
 
         EmbedBuilder titleEmbed = new EmbedBuilder();
@@ -49,9 +48,9 @@ final class SetupHelpCommand extends SubcommandData implements SetupHelpEvent {
             }
         } else {
             titleEmbed
-                    .setTitle(":x: Discord-PlotSystem is NOT Ready!")
-                    .setDescription("There are unresolved configuration or runtime errors preventing startup.")
-                    .setColor(Color.RED);
+                .setTitle(":x: Discord-PlotSystem is NOT Ready!")
+                .setDescription("There are unresolved configuration or runtime errors preventing startup.")
+                .setColor(Color.RED);
         }
 
         // 🧾 Setup Checklist
@@ -60,8 +59,6 @@ final class SetupHelpCommand extends SubcommandData implements SetupHelpEvent {
                 .setDescription("All checks must pass for full functionality.")
                 .setColor(Color.CYAN)
                 .build();
-
-        boolean anyFailed = false;
 
         List<MessageEmbed> checklistEmbeds = new ArrayList<>();
 
@@ -156,5 +153,4 @@ final class SetupHelpCommand extends SubcommandData implements SetupHelpEvent {
                     : "Webhook channel successfully validated.";
         };
     }
-
 }

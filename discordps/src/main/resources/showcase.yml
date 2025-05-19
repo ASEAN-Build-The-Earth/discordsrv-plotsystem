@@ -1,0 +1,7 @@
+# Showcase webhook config
+webhook:
+  name:       ""
+  id:         ""
+  token:      ""
+  channel-id: ""
+  guild-id:   ""

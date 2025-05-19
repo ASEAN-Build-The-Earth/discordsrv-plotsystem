@@ -1,33 +1,23 @@
 package github.tintinkung.discordps.core.listeners;
 
-import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
-
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonClickEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.events.DisconnectEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.events.ShutdownEvent;
+import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.SelectionMenuEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.hooks.ListenerAdapter;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.CloseCode;
-import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
-import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
-import github.tintinkung.discordps.commands.ArchiveCommand;
 import github.tintinkung.discordps.commands.events.CommandEvent;
-import github.tintinkung.discordps.commands.interactions.InteractionEvent;
-import github.tintinkung.discordps.commands.interactions.OnSetupWebhook;
-import github.tintinkung.discordps.commands.SetupCommand;
-import github.tintinkung.discordps.core.database.WebhookEntry;
-import github.tintinkung.discordps.core.system.AvailableTags;
-import github.tintinkung.discordps.core.system.Notification;
-import github.tintinkung.discordps.utils.ComponentUtil;
+import github.tintinkung.discordps.commands.interactions.*;
+import github.tintinkung.discordps.core.system.AvailableButton;
+import github.tintinkung.discordps.core.system.components.PluginComponent;
+import github.tintinkung.discordps.core.system.components.buttons.PluginButton;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import java.awt.Color;
-import java.sql.SQLException;
-import java.util.EnumMap;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
 
 /**
  * JDA instance listener
@@ -68,241 +58,55 @@ final public class DiscordEventListener extends ListenerAdapter {
 
     @Override
     public void onButtonClick(@NotNull ButtonClickEvent event) {
-
         if(listener.getPluginSlashCommand() == null) return;
         if(event.getButton() == null) return;
-        if(event.getButton().getId() == null) return;
 
-        Button button = event.getButton();
-        EnumMap<ComponentUtil.IDPattern, String> component = ComponentUtil.parseCustomID(button.getId());
-
-        // Invalid button ID (possibly from other bots)
-        if(component == null) return;
-
-        // If for whatever reason the button is not from this plugin
-        if(!component.get(ComponentUtil.IDPattern.PLUGIN).equals(DiscordPS.getPlugin().getName())) return;
-
-        // Extract our button ID
-        String type = component.get(ComponentUtil.IDPattern.TYPE);
-        String id   = component.get(ComponentUtil.IDPattern.ID);
-        String user = component.get(ComponentUtil.IDPattern.USER);
-
-        Checks.isSnowflake(id, "Internal Error: Button ID");
-        Checks.isSnowflake(user, "Internal Error: Button's USER ID");
-
-        long eventID = Long.parseUnsignedLong(id);
-
-        // Setup command and interactions references
-        InteractionEvent interactions = listener.getPluginSlashCommand().getInteractions();
-        CommandEvent commands = listener.getPluginSlashCommand().getCommands();
-
-        // TODO: maybe handle each case as a handler method.
-        switch (type) {
-            case Constants.CONFIRM_AVATAR_BUTTON -> {
-                if(!user.equals(event.getUser().getId())) break;
-
-                TextChannel channel = event.getInteraction().getTextChannel();
-                MessageReference lastMsg = getInteractionLastMessage(channel);
-
-                MessageEmbed errorEmbed = new EmbedBuilder()
-                    .setTitle("Please send a message with attachment")
-                    .setDescription("And make sure it is the latest message before confirming.")
-                    .setColor(Color.RED)
-                    .build();
-
-                // Last message is not sent (it is the button message)
-                if(lastMsg == null || lastMsg.getMessageIdLong() == event.getMessage().getIdLong()) {
-                    channel.sendMessageEmbeds(errorEmbed).queue();
-                    event.editButton(button.asEnabled()).queue();
-                    break;
-                }
-
-                lastMsg.resolve().queue((message -> {
-
-                    if(message.getAttachments().isEmpty()) {
-                        channel.sendMessageEmbeds(errorEmbed).queue();
-                        event.editButton(button.asEnabled()).queue();
-                        return;
-                    }
-
-                    event.editComponents(ActionRow.of(button.asDisabled())).queue();
-                    commands.fromClass(SetupCommand.class)
-                            .getWebhookCommand()
-                            .onConfirmAvatar(message, interactions.getAs(OnSetupWebhook.class, eventID));
-                }));
-            }
-            case Constants.PROVIDED_IMAGE_BUTTON -> {
-                if(!user.equals(event.getUser().getId())) break;
-                event.editComponents(ActionRow.of(button.asDisabled())).queue();
-
-                commands.fromClass(SetupCommand.class)
-                        .getWebhookCommand()
-                        .onConfirmAvatarProvided(
-                    event.getChannel(),
-                    interactions.getAs(OnSetupWebhook.class, eventID)
-                );
-            }
-            case Constants.CONFIRM_CONFIG_BUTTON -> {
-                if(!user.equals(event.getUser().getId())) break;
-                event.editComponents(ActionRow.of(button.asDisabled())).queue();
-
-                commands.fromClass(SetupCommand.class)
-                        .getWebhookCommand()
-                        .onConfirmConfig(event.getMessage(), interactions.getAs(OnSetupWebhook.class, eventID));
-                DiscordPS.getPlugin().exitSlashCommand(eventID);
-            }
-            case Constants.CANCEL_CONFIG_BUTTON -> {
-                if(!user.equals(event.getUser().getId())) break;
-                // Make button disabled and turn gray
-                event.editComponents(ActionRow.of(
-                    Button.secondary(
-                        button.getId() + "/" + "Clicked",
-                        "Cancelled")
-                        .asDisabled()
-                    )).queue();
-                DiscordPS.getPlugin().exitSlashCommand(eventID);
-            }
-            case Constants.PROVIDED_PLOT_IMAGES_BUTTON -> {
-                if(!user.equals(event.getUser().getId())) break;
-                event.editComponents(ActionRow.of(button.asDisabled())).queue();
-
-                commands.fromClass(ArchiveCommand.class)
-                    .onConfirmImagesProvided(
-                            event.getHook(),
-                            Integer.parseInt(component.get(ComponentUtil.IDPattern.PAYLOAD))
-                    );
-            }
-            case Constants.ATTACHED_PLOT_IMAGES_BUTTON -> {
-                if(!user.equals(event.getUser().getId())) break;
-
-                TextChannel channel = event.getInteraction().getTextChannel();
-                MessageReference lastMsg = getInteractionLastMessage(channel);
-
-                MessageEmbed errorEmbed = new EmbedBuilder()
-                        .setTitle("Please send a message with attachment")
-                        .setDescription("And make sure it is the latest message before confirming.")
-                        .setColor(Color.RED)
-                        .build();
-
-                // Last message is not sent (it is the button message)
-                if(lastMsg == null || lastMsg.getMessageIdLong() == event.getMessage().getIdLong()) {
-                    channel.sendMessageEmbeds(errorEmbed).queue();
-                    event.editButton(button.asEnabled()).queue();
-                    break;
-                }
-
-                lastMsg.resolve().queue((message -> {
-
-                    if(message.getAttachments().isEmpty()) {
-                        channel.sendMessageEmbeds(errorEmbed).queue();
-                        event.editButton(button.asEnabled()).queue();
-                        return;
-                    }
-
-                    event.editComponents(ActionRow.of(button.asDisabled())).queue();
-                    commands.fromClass(ArchiveCommand.class)
-                            .onConfirmImageAttached(event.getHook(), message, Integer.parseInt(component.get(ComponentUtil.IDPattern.PAYLOAD)));
-                }));
-            }
-            case Constants.HELP_BUTTON -> {
-                if(!user.equals(event.getUser().getId())) {
-
-                    MessageEmbed notOwnerEmbed = new EmbedBuilder()
-                            .setTitle("You don't own this plot")
-                            .setDescription("Go build a plot!")
-                            .setColor(Color.RED)
-                            .build();
-                    event.deferReply(true).addEmbeds(notOwnerEmbed).queue();
-                    break;
-                }
-
-                MessageEmbed helpEmbed = new EmbedBuilder()
-                        .setTitle("Help")
-                        .setDescription("Please message our support bot <@1361310076308033616> " +
-                                "for questions if you need help about this plot. (or just ping a staff here)")
-                        .addField("Building",
-                                "Click the documentation link above to take a look " +
-                                "at a detailed guide on how to build your plot!", false)
-                        .setColor(AvailableTags.APPROVED.getColor())
-                        .build();
-                event.deferReply(true).addEmbeds(helpEmbed).queue();
-            }
-            case Constants.FEEDBACK_BUTTON -> {
-                if(!user.equals(event.getUser().getId())) {
-
-                    MessageEmbed notOwnerEmbed = new EmbedBuilder()
-                            .setTitle("You don't own this plot")
-                            .setDescription("Go build a plot!")
-                            .setColor(Color.RED)
-                            .build();
-                    event.deferReply(true).addEmbeds(notOwnerEmbed).queue();
-                    break;
-                }
-
-                try {
-                    WebhookEntry entry = WebhookEntry.getByMessageID(Long.parseUnsignedLong(id));
-
-                    if(entry == null || entry.feedback() == null)
-                        throw new SQLException("Trying to get feedback that does not exist in the database!");
-
-                    MessageEmbed feedbackEmbed = new EmbedBuilder()
-                            .setTitle("Your Feedback")
-                            .setDescription(entry.feedback())
-                            .addField("Help",
-                                "Please message our support bot <@1361310076308033616> " +
-                                "for questions if you need help about this plot. (or just ping a staff here)",
-                                false)
-                            .setColor(entry.status().toTag().getColor())
-                            .build();
-
-                    event.deferReply(true).addEmbeds(feedbackEmbed).queue();
-
-
-                } catch (SQLException ex) {
-                    MessageEmbed errorEmbed = new EmbedBuilder()
-                            .setTitle("Error :(")
-                            .setDescription("Sorry an error occurred trying to get your feedback data. " +
-                                    "Please message our support bot <@1361310076308033616> to ask for it.")
-                            .setColor(Color.RED)
-                            .build();
-                    event.deferReply(true).addEmbeds(errorEmbed).queue();
-
-                    String plot = component.get(ComponentUtil.IDPattern.PAYLOAD);
-
-                    Notification.sendMessageEmbeds(new EmbedBuilder()
-                            .setTitle(":red_circle: Discord Plot-System Error")
-                            .setDescription("Runtime exception **fetching** plot feedback, "
-                                    + "The owner of plot ID #`" + plot + "` "
-                                    + "cannot view their feedback message!")
-                            .addField("Error", "```" + ex.toString() + "```", false)
-                            .setColor(Color.RED)
-                            .build()
-                    );
-                }
-            }
-            default -> {
-                throw new RuntimeException("[Internal Error] Button click even is not handled for " + type);
-            }
-        }
+        PluginButton
+            .getOpt(event.getComponent(), PluginButton::new)
+            .ifPresent(button -> AvailableButton.valueOf(button.getType())
+                .interact(button, event, listener.getPluginSlashCommand())
+            );
     }
 
-    private static @Nullable MessageReference getInteractionLastMessage(TextChannel channel) {
-        try {
+    @Override
+    public void onSelectionMenu(@NotNull SelectionMenuEvent event) {
+        if(listener.getPluginSlashCommand() == null) return;
+        if(event.getComponent() == null) return;
 
-            long lastMsgID = channel.getLatestMessageIdLong();
-            long channelID = channel.getIdLong();
-            long guildID = channel.getGuild().getIdLong();
+        PluginComponent.getOpt(event.getComponent()).ifPresent(menu -> {
+            // Exit immediately for un-authorized owner
+            if(!menu.getUserID().equals(event.getUser().getId())) return;
 
-            return new MessageReference(
-                    lastMsgID,
-                    channelID,
-                    guildID,
-                    null,
-                    channel.getJDA()
-            );
-        } catch (IllegalStateException ex) {
-            DiscordPS.error("Interaction only support in a text channel");
-            return null;
+            // Update the menu to what is selected
+            event.editSelectionMenu(menu.get().createCopy().setDefaultValues(event.getValues()).build()).queue();
+
+            // Fetch our selection menu which is borrowing enum from available button's data
+            InteractionEvent interactions = listener.getPluginSlashCommand();
+            switch(AvailableButton.valueOf(menu.getType())) {
+                case PLOT_FETCH_SELECTION -> onEntryMenuSelect(event, interactions.getAs(OnPlotFetch.class, menu.getIDLong()));
+                case PLOT_DELETE_SELECTION -> onEntryMenuSelect(event, interactions.getAs(OnPlotDelete.class, menu.getIDLong()));
+            }
+        });
+    }
+
+    /**
+     * Special handler for plot entry selection menu because it cannot be handled by {@link AvailableButton}
+     *
+     * <p>This will update the plot's interaction data by the given event using {@link PlotFetchInteraction#setFetchOptions(List)} </p>
+     *
+     * @param event The triggered event
+     * @param interaction The plot interaction of this menu
+     */
+    private void onEntryMenuSelect(SelectionMenuEvent event, PlotFetchInteraction interaction) {
+        if(interaction == null) return;
+
+        if(event.getSelectedOptions() == null || event.getSelectedOptions().isEmpty()) return;
+
+        if(interaction.getFetchOptions() == null)
+            interaction.setFetchOptions(event.getSelectedOptions());
+        else {
+            interaction.getFetchOptions().clear();
+            interaction.getFetchOptions().addAll(event.getSelectedOptions());
         }
     }
 }

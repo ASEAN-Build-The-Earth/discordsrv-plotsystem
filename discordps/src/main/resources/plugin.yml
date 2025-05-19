@@ -1,5 +1,5 @@
 name: DiscordPlotSystem
-version: '1.0.8'
+version: '1.0.9'
 main: github.tintinkung.discordps.DiscordPS
 api-version: '1.21'
 prefix: DiscordPlotSystem

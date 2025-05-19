@@ -1,76 +1,64 @@
 package github.tintinkung.discordps.core.providers;
 
-import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.Webhook;
-import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
-import github.tintinkung.discordps.ConfigPaths;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
+import java.util.concurrent.CompletableFuture;
 
-public abstract class WebhookProvider implements WebhookProviderImpl {
-    protected final YamlConfiguration config;
-
-    protected final long guildID;
-
-    protected final long channelID;
-
-    protected final long webhookID;
+/**
+ * Webhook provider, provide webhook reference and validation method.
+ *
+ * @see #getWebhook()
+ * @see #validateWebhook(WebhookProvider...)
+ */
+public interface WebhookProvider {
 
     /**
-     * Initialize Webhook provider with a given configuration
-     * @param config Yaml Configuration file of this webhook
-     * @throws IllegalArgumentException If the given configuration is invalid for webhook ID and its channel ID
+     * Get the webhook application ID,
+     * this is the user ID of said webhook.
+     *
+     * @return The ID as unsigned long snowflake
      */
-    public WebhookProvider(@NotNull YamlConfiguration config) throws IllegalArgumentException {
-        this.config = config;
+    long getWebhookID();
 
-        this.guildID = getAndValidateConfig(ConfigPaths.WEBHOOK_GUILD_ID);
-        this.channelID = getAndValidateConfig(ConfigPaths.WEBHOOK_CHANNEL_ID);
-        this.webhookID = getAndValidateConfig(ConfigPaths.WEBHOOK_ID);
-    }
+    /**
+     * Get the channel this webhook is hooked to.
+     *
+     * @return Channel ID as unsigned long snowflake
+     */
+    long getChannelID();
 
-    private long getAndValidateConfig(String configPath) throws IllegalArgumentException {
-        String configValue = this.config.getString(configPath);
+    /**
+     * Validate this webhook integrity and output error/information to {@link github.tintinkung.discordps.Debug}.
+     *
+     * <p>The validation process is as follows:</p>
+     * <ul>
+     *     <li>Fetch the webhook guild if the webhook actually exist in the guild</li>
+     *     <li>Check if this webhook is created by the bot itself (required by the system)</li>
+     *     <li>Resolve status tags from config file (eg. name and color)</li>
+     *     <li>Validate status tags if all of it exist by discord API</li>
+     * </ul>
+     *
+     * @param others other webhook to validate with within the same request call
+     * @return Future that complete when all validation action is completed
+     */
+    CompletableFuture<Void> validateWebhook(WebhookProvider... others);
 
-        Checks.notNull(configValue, "Webhook configuration for " + configPath);
+    /**
+     * Get the webhook reference, this is used to resolve for actual webhook entity.
+     *
+     * @return The webhook reference which contain resolve method to retrieve webhook entity.
+     */
+    github.scarsz.discordsrv.dependencies.jda.api.entities.Webhook.WebhookReference getWebhookReference();
 
-        if(StringUtils.isBlank(configValue))
-            throw new IllegalArgumentException("Webhook configuration for " + configPath + " is not set.");
+    /**
+     * Get the webhook instance
+     *
+     * @return The webhook entity
+     */
+    github.scarsz.discordsrv.dependencies.jda.api.entities.Webhook getWebhook();
 
-        Checks.isSnowflake(configValue, "Webhook configuration for " + configPath);
-
-        try { return Long.parseUnsignedLong(configValue); }
-        catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(
-                "Cannot parse webhook configuration for "
-                + configPath + ": " + configValue
-                + " (" + ex.getMessage() + ")"
-            );
-        }
-    }
-
-    protected Webhook retrieveWebhook() {
-        return getWebhookReference().resolve().complete();
-    }
-
-    @Override
-    public final long getWebhookID() {
-        return webhookID;
-    }
-
-    @Override
-    public final long getChannelID() {
-        return channelID;
-    }
-
-    @Contract(" -> new")
-    public abstract @NotNull Webhook.WebhookReference getWebhookReference();
-
-
-    public abstract void validateWebhook();
-
-    public abstract Webhook getWebhook();
-
-    public abstract github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl getJDA();
+    /**
+     * Get JDA instance
+     *
+     * @return The instance as implementation interface
+     */
+    github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl getJDA();
 }

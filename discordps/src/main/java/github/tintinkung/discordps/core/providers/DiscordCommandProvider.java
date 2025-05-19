@@ -2,21 +2,37 @@ package github.tintinkung.discordps.core.providers;
 
 import github.scarsz.discordsrv.api.commands.PluginSlashCommand;
 import github.scarsz.discordsrv.api.commands.SlashCommandProvider;
+import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.ChannelType;
+import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.SlashCommandEvent;
+import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.CommandInteraction;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.build.CommandData;
 import github.scarsz.discordsrv.util.SchedulerUtil;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.commands.events.CommandEvent;
 import github.tintinkung.discordps.commands.interactions.InteractionEvent;
-import github.tintinkung.discordps.commands.interactions.InteractionPayload;
+import github.tintinkung.discordps.commands.interactions.Interaction;
+import github.tintinkung.discordps.commands.providers.SlashCommand;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Color;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
-
+/**
+ * Provider/Manager for discord slash command interactions.
+ * Managed externally by DiscordSRV API {@link SlashCommandProvider}.
+ *
+ * @see #register(String, CommandData...) Register slash commands
+ * @see #fromClass(Class) Get the registered slash command
+ * @see #putPayload(Long, Interaction) Track a slash command event w/ payload
+ * @see #getAs(Class, Long) Get the tracked slash command interaction
+ */
 public abstract class DiscordCommandProvider
     extends PluginProvider
     implements SlashCommandProvider, InteractionEvent, CommandEvent {
@@ -36,10 +52,15 @@ public abstract class DiscordCommandProvider
 
     /**
      * The runtime interactions from user activated slash command events.
-     * Provide {@link InteractionPayload} for each retrospective interaction.
+     * Provide {@link Interaction} for each retrospective interaction.
      */
-    private final Map<Long, InteractionPayload> interactions;
+    private final Map<Long, Interaction> interactions;
 
+    /**
+     * Construct plugin base slash command provider
+     *
+     * @param plugin Plugin to register commands in
+     */
     public DiscordCommandProvider(DiscordPS plugin) {
         super(plugin);
         this.commandSet = new HashSet<>();
@@ -49,14 +70,16 @@ public abstract class DiscordCommandProvider
 
     /**
      * Register a new guild-based slash command
-     * @param command {@link CommandData} to register
+     *
+     * @param commands list {@link CommandData} to register
      * @param guildID The guild to register slash command in
-     * @param <T> extends CommandData
      */
-    public <T extends CommandData> void register(T command, @Nullable String... guildID) {
-        PluginSlashCommand slashCommand = new PluginSlashCommand(this.plugin, command, guildID);
-        commandSet.add(slashCommand);
-        registered.put(command.getClass(), command);
+    public void register(@NotNull String guildID, CommandData... commands) {
+        for(CommandData command : commands) {
+            PluginSlashCommand slashCommand = new PluginSlashCommand(this.plugin, command, guildID);
+            commandSet.add(slashCommand);
+            registered.put(command.getClass(), command);
+        }
     }
 
     /**
@@ -68,66 +91,130 @@ public abstract class DiscordCommandProvider
         registered.clear();
     }
 
-    @Override
+    /**
+     *
+     * {@inheritDoc}
+     */
     public <T extends CommandData> T fromClass(Class<T> command) {
         CommandData slashCommand = registered.get(command);
         if (slashCommand == null)
             throw new IllegalStateException("[Internal Exception] "
-            + "No command instance available for class: "
-            + command.getName());
+                    + "No command instance available for class: "
+                    + command.getName());
         return command.cast(slashCommand);
     }
 
-    @Override
-    public CommandEvent getCommands() {
-        return this;
+    /**
+     * If guard to check on every command because our plugin
+     * will not support thread channel and will output it as {@link ChannelType#UNKNOWN}
+     *
+     * @param event The command that is triggered
+     * @return Whether the triggered channel is valid
+     */
+    private boolean isUnknownChannel(@NotNull CommandInteraction event) {
+        if(event.getChannelType() == ChannelType.UNKNOWN) {
+
+            event.deferReply(true).addEmbeds(new EmbedBuilder()
+                .setTitle("Cannot Interact on a Thread Channel")
+                .setDescription("Our discord API (JDA) is outdated. please contact our developer to request this functionality.")
+                .setColor(Color.RED)
+                .build())
+            .queue();
+
+            return true;
+        }
+        else return false;
     }
 
-    @Override
-    public InteractionEvent getInteractions() {
-        return this;
+    /**
+     * {@inheritDoc}
+     */
+    public <T extends Interaction, V extends CommandData>
+        void onSlashCommand(@NotNull SlashCommandEvent event,
+                            boolean ephemeral,
+                            @NotNull Class<V> type,
+                            @NotNull Function<V, SlashCommand<T>> resolver,
+                            @NotNull Supplier<@Nullable T> payload) {
+
+        if(isUnknownChannel(event)) return;
+        else event.deferReply(ephemeral).queue();
+
+        T interaction = payload.get();
+
+        if(interaction != null) this.putPayload(event.getIdLong(), interaction);
+
+        resolver.apply(this.fromClass(type)).trigger(event.getHook(), interaction);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    public <T extends Interaction, V extends CommandData>
+        void onSlashCommand(@NotNull SlashCommandEvent event,
+                            boolean ephemeral,
+                            @NotNull Class<V> type,
+                            @NotNull Function<V, SlashCommand<T>> resolver) {
+        onSlashCommand(event, ephemeral, type, resolver, () -> null);
+    }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public <T extends Interaction> @Nullable T getAs(@NotNull Class<T> interaction, Long eventID) {
+        Interaction payload = getPayload(eventID);
+
+        if(payload == null) return null;
+
+        if (interaction.isInstance(payload)) return interaction.cast(payload);
+        else throw new ClassCastException("Payload with event id <" + Long.toUnsignedString(eventID) + "> is not of type " + interaction.getSimpleName());
+    }
+
+    /**
+     * Get all registered slash command provider to be process by DiscordSRV API
+     *
+     * @return Set of registered provider
+     */
     @Override
     public Set<PluginSlashCommand> getSlashCommands() {
         return commandSet;
     }
 
-
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void clearInteractions() {
         interactions.clear();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void removeInteraction(Long id) {
-        interactions.remove(id);
+    public void removeInteraction(Long eventID) {
+        interactions.remove(eventID);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public InteractionPayload getPayload(Long id) {
-        return interactions.get(id);
+    public Interaction getPayload(Long eventID) {
+        return interactions.get(eventID);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public <T extends InteractionPayload> void putPayload(Long id, T payload) {
-        interactions.put(id, payload);
+    public <T extends Interaction> void putPayload(Long eventID, T payload) {
+        interactions.put(eventID, payload);
 
         // Payload is guarantee to be expired in 15 minutes (15min * 60000ms / 50tick = 18000)
-        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), () -> this.removeInteraction(id), 18000);
-    }
-
-    @Override
-    public <T extends InteractionPayload> T getAs(@NotNull Class<T> interaction, Long id) {
-        InteractionPayload payload = getPayload(id);
-
-        if (interaction.isInstance(payload))
-            return interaction.cast(payload);
-        else throw new ClassCastException(
-            "Payload with id " + id
-            + " is not of type "
-            + interaction.getSimpleName()
-        );
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), () -> {
+            DiscordPS.warning("Plugin interaction ends on a timeout (event: " + payload.getClass().getSimpleName() + ")");
+            this.removeInteraction(eventID);
+        }, 18000);
     }
 }

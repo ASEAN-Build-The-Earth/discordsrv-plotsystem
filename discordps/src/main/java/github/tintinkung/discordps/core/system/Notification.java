@@ -1,9 +1,12 @@
 package github.tintinkung.discordps.core.system;
 
+import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 
 import github.tintinkung.discordps.core.providers.NotificationProvider;
 import org.jetbrains.annotations.NotNull;
+
+import java.awt.*;
 
 public abstract class Notification extends NotificationProvider {
 
@@ -31,5 +34,24 @@ public abstract class Notification extends NotificationProvider {
      */
     public static void sendMessage(CharSequence message) {
         getOpt().ifPresent((channel -> channel.sendMessage(message).queue()));
+    }
+
+    public static void sendErrorEmbed(String description) {
+        sendMessageEmbeds(new EmbedBuilder()
+            .setTitle(":red_circle: Discord Plot-System Error")
+            .setDescription(description)
+            .setColor(Color.RED)
+            .build()
+        );
+    }
+
+    public static void sendErrorEmbed(String description, String error) {
+        sendMessageEmbeds(new EmbedBuilder()
+            .setTitle(":red_circle: Discord Plot-System Error")
+            .setDescription(description)
+            .addField("Error", "```" + error + "```", false)
+            .setColor(Color.RED)
+            .build()
+        );
     }
 }

@@ -4,20 +4,15 @@ import github.scarsz.discordsrv.dependencies.commons.io.FilenameUtils;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
-import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.api.events.*;
-import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.system.PlotData;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.awt.Color;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 /**
  * Create a plot information message embed.
@@ -58,7 +53,7 @@ public class InfoEmbed implements PlotDataEmbed {
                 () -> embed.setThumbnail(data.getAvatarURL().toString())
         );
 
-        embed.setColor(data.getStatus().toTag().getColor());
+        embed.setColor(data.getPrimaryStatus().toTag().getColor());
     }
 
     public InfoEmbed(String title, String description, StringBuilder histories, EmbedBuilder embed) {
