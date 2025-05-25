@@ -15,6 +15,7 @@ import github.tintinkung.discordps.core.database.PlotEntry;
 import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.system.*;
+import github.tintinkung.discordps.core.system.io.lang.LangPaths;
 import github.tintinkung.discordps.core.system.layout.InfoComponent;
 import github.tintinkung.discordps.core.system.layout.Layout;
 import org.jetbrains.annotations.NotNull;
@@ -29,25 +30,23 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static github.tintinkung.discordps.Constants.PLOT_IMAGE_FILE;
+import static github.tintinkung.discordps.Constants.GREEN;
+import static github.tintinkung.discordps.Constants.ORANGE;
 
 import static github.tintinkung.discordps.core.system.PlotSystemThread.THREAD_NAME;
+import static github.tintinkung.discordps.core.system.io.lang.PlotArchiveCommand.*;
+import static github.tintinkung.discordps.core.system.io.lang.Notification.CommandMessage;
 
 class PlotArchiveCommand extends AbstractPlotArchiveCommand {
 
     public PlotArchiveCommand(@NotNull String name, @NotNull String plotID, @NotNull String override) {
-        super(name, "Archive a plot");
+        super(name);
 
-        this.addOption(
-            OptionType.INTEGER,
-            plotID,
-            "The plot ID in integer to be archived",
-            true);
+        this.setDescription(getLang(DESC));
 
-        this.addOption(
-            OptionType.BOOLEAN,
-            override,
-            "If false will create new thread for this archival plot",
-            true);
+        this.addOption(OptionType.INTEGER, plotID, getLang(DESC_PLOT_ID), true);
+
+        this.addOption(OptionType.BOOLEAN, override, getLang(DESC_OVERRIDE), true);
     }
 
     @Override
@@ -58,11 +57,11 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
         if(existingPlot.isPresent())
             threadID = Long.toUnsignedString(existingPlot.get().threadID());
         else { // Entry does not exist, nothing to deleted
-            this.queueEmbed(hook, NOTHING_TO_ARCHIVE);
+            this.queueEmbed(hook, getEmbed(ORANGE, EMBED_NOTHING_TO_ARCHIVE));
             return;
         }
 
-        this.queueEmbed(hook, ARCHIVE_SETTING_EMBED.apply(threadID, payload.plotID));
+        this.queueEmbed(hook, formatInfoEmbed(threadID, payload.plotID));
 
         // Non-overriding archive will go straight to thread creation
         if(!payload.override) {
@@ -75,7 +74,7 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
 
         fetchLayout.whenComplete((optLayout, error) -> {
             if(error != null) {
-                this.queueEmbed(hook, ON_LAYOUT_FAILED.apply(error.toString()));
+                this.queueEmbed(hook, errorEmbed(MESSAGE_ON_LAYOUT_FAILED, error.toString()));
                 return;
             }
 
@@ -86,8 +85,8 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
                     Optional<List<File>> optFiles = Optional.empty();
 
                     if(!folder.exists()) {
-                        if(folder.mkdirs()) this.queueEmbed(hook, MEDIA_FOLDER_CREATED);
-                        else this.queueEmbed(hook, MEDIA_FOLDER_FAILED.apply(folder.getAbsolutePath()));
+                        if(folder.mkdirs()) this.queueEmbed(hook, getEmbed(GREEN, EMBED_MEDIA_FOLDER_CREATED));
+                        else this.queueEmbed(hook, errorEmbed(getEmbed(EMBED_MEDIA_FOLDER_FAILED), folder.getAbsolutePath()));
                     }
                     else {
                         List<File> files = PlotData.checkMediaFolder(folder);
@@ -112,23 +111,28 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
                             return pending;
                         }).ifPresent(pendingFiles -> {
                             if(!pendingFiles.isEmpty())
-                                this.queueEmbed(hook, CACHED_FILE_PENDING.apply(String.join(", ", pendingFiles)));
+                                this.queueEmbed(hook, formatPendingImageWarning(String.join(", ", pendingFiles)));
                         });
                     }
 
                     // Plot exist with some images
                     ActionRow options = ActionRow.of(
-                        ARCHIVE_NOW_BUTTON.apply(payload),
-                        ATTACH_IMAGES_BUTTON.apply(payload),
-                        PROVIDE_IMAGES_BUTTON.apply(payload),
-                        ARCHIVE_DISMISS_BUTTON.apply(payload)
+                            Button.ARCHIVE_NOW.get(payload),
+                            Button.ATTACH_IMAGES.get(payload),
+                            Button.PROVIDE_IMAGES.get(payload),
+                            Button.ARCHIVE_DISMISS.get(payload)
                     );
 
                     payload.setPreviousAttachment(infoComponent.getAttachments());
                     payload.setArchiveEntry(existingPlot.get());
-                    this.queueImagesOption(hook, options, payload, IMAGES_EXIST_EMBED);
+                    this.queueImagesOption(hook, options,
+                        this.formatImageEmbed(EMBED_IMAGE_ATTACHED, payload.plotID)
+                    );
                 }
-            }), () -> this.queueEmbed(hook, ON_LAYOUT_FAILED.apply("Thread layout returned empty, possibly an internal error occurred.")));
+            }), () -> this.queueEmbed(hook,
+                errorEmbed(MESSAGE_ON_LAYOUT_FAILED,
+                "Thread layout returned empty, possibly an internal error occurred.")
+            ));
         });
     }
 
@@ -136,9 +140,9 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
     public void onImagesProvided(@NotNull InteractionHook hook, @NotNull OnPlotArchive interaction) {
         this.queueEmbed(hook,
             ActionRow.of(
-                ARCHIVE_CONFIRM_BUTTON.apply(interaction),
-                ARCHIVE_CANCEL_BUTTON.apply(interaction)),
-            ARCHIVE_CONFIRMATION_EMBED.apply(interaction.override));
+                Button.ARCHIVE_CONFIRM.get(interaction),
+                Button.ARCHIVE_CANCEL.get(interaction)),
+            formatConfirmEmbed(interaction.override));
     }
 
     @Override
@@ -153,16 +157,18 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
         if(mediaFolder.exists()) {
             Optional.ofNullable(mediaFolder.listFiles())
                     .ifPresent(files -> Arrays.stream(files).filter(File::isFile)
-                    .forEach(CACHED_FILE_DELETER.apply(channel)));
+                    .forEach(getCacheDeleter(channel)));
         } else { // Exit if media folder has not been initialized
-            channel.sendMessageEmbeds(ARCHIVE_FAILED_OPTION).queue();
+            channel.sendMessageEmbeds(
+                errorEmbed(MESSAGE_MEDIA_FOLDER_NOT_EXIST, mediaFolder.getAbsolutePath())
+            ).queue();
             return;
         }
 
         Function<String, File> fileLocation = fileName -> mediaFolder.toPath().resolve(fileName).toFile();
 
         // Queue the message embed instantly as loading
-        CompletableFuture<Message> queueMessage = channel.sendMessageEmbeds(UPLOADING_ATTACHMENT).submit();
+        CompletableFuture<Message> queueMessage = channel.sendMessageEmbeds(getEmbed(ORANGE, EMBED_ON_UPLOAD)).submit();
 
         // Download each attachment to plot's media folder
         int suffixName = attachments.map(Set::size).orElse(0);
@@ -191,8 +197,8 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
                     uploaded.append("Saved ").append(file.getName()).append("\n");
 
                 } catch (InterruptedException | IllegalArgumentException | ExecutionException ex) {
-                    DiscordPS.error("cannot download file to resource", ex);
-                    DiscordPS.error("please upload it into plugin data folder: " + fileLocation.apply(PLOT_IMAGE_FILE));
+                    DiscordPS.error("Failed to download file to resource", ex);
+                    DiscordPS.error("Failed to download file to: " + fileLocation.apply(PLOT_IMAGE_FILE));
 
                     failed = new RuntimeException(ex.toString());
                 }
@@ -200,16 +206,16 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
 
             if(failed != null) {
                 String failedReason = failed.getMessage();
-                queueMessage.thenAccept(sent -> ON_IMAGE_DOWNLOAD_FAILED.accept(sent, failedReason));
+                queueMessage.thenAccept(sent -> onImageDownloadFailed(sent, failedReason));
                 return;
             }
 
             queueMessage.thenAccept(sent -> {
-                sent.editMessageEmbeds(ON_IMAGES_SAVED.apply(download.size(), uploaded.toString())).queue();
-                channel.sendMessageEmbeds(ARCHIVE_CONFIRMATION_EMBED.apply(interaction.override))
+                sent.editMessageEmbeds(onMediaSaved(download.size(), uploaded.toString())).queue();
+                channel.sendMessageEmbeds(formatConfirmEmbed(interaction.override))
                     .setActionRows(ActionRow.of(
-                        ARCHIVE_CONFIRM_BUTTON.apply(interaction),
-                        ARCHIVE_CANCEL_BUTTON.apply(interaction)))
+                        Button.ARCHIVE_CONFIRM.get(interaction),
+                        Button.ARCHIVE_CANCEL.get(interaction)))
                     .queue();
             });
         };
@@ -222,30 +228,42 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
     public void onConfirmArchive(@NotNull InteractionHook hook, @NotNull OnPlotArchive interaction) {
 
         PlotArchiveEvent event = new PlotArchiveEvent(interaction.getPlotID(), "<@" + hook.getInteraction().getUser().getId() + '>');
+
+        // Success handler after everything is completed
         Consumer<Message> onSuccess = defer -> {
-            defer.editMessageEmbeds(SUCCESSFULLY_CREATED).queue();
+            defer.editMessageEmbeds(getEmbed(GREEN, EMBED_ARCHIVE_SUCCESSFUL)).queue();
+
+            // Notify the event is successful
+            interaction.getArchiveEntry().ifPresent(entry -> Notification.notify(
+                CommandMessage.PLOT_ARCHIVE,
+                String.valueOf(entry.plotID()),
+                hook.getInteraction().getUser().getId(),
+                Long.toUnsignedString(entry.threadID())
+            ));
 
             if(DiscordPS.getPlugin().getShowcase() != null) {
                 // If showcase channel exist
                 this.queueEmbed(hook,
-                    ActionRow.of(SHOWCASE_PLOT_BUTTON.apply(interaction), SHOWCASE_DISMISS_BUTTON.apply(interaction)),
-                    SHOWCASE_OPTION_EMBED
+                    ActionRow.of(
+                        Button.SHOWCASE_PLOT.get(interaction),
+                        Button.SHOWCASE_DISMISS.get(interaction)),
+                    getEmbed(GREEN, EMBED_SHOWCASE_THIS_PLOT)
                 );
             }
         };
 
         // Queue the message embed instantly as loading
-        hook.sendMessageEmbeds(ARCHIVING_PLOT).queue(defer -> {
+        hook.sendMessageEmbeds(getEmbed(ORANGE, EMBED_ON_ARCHIVE)).queue(defer -> {
             if(!interaction.override)
                 this.archiveAsNewThread(
                     DiscordPS.getPlugin().getWebhook()::forceRegisterNewPlot,
                     event,
                     ok -> onSuccess.accept(defer),
-                    failed -> defer.editMessageEmbeds(ON_CREATE_ERROR.apply(failed.toString())).queue()
+                    failed -> defer.editMessageEmbeds(errorEmbed(failed.toString())).queue()
                 );
             else {
                 if(interaction.getArchiveEntry().isEmpty()) {
-                    defer.editMessageEmbeds(ARCHIVE_FAILED_OPTION).queue();
+                    defer.editMessageEmbeds(errorEmbed(MESSAGE_INTERACTION_EMPTY)).queue();
                     return;
                 }
 
@@ -257,7 +275,7 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
                 );
 
                 BiConsumer<PlotSystemThread.UpdateAction, ? super Throwable> handler = (ok, error) -> {
-                    if(error != null) defer.editMessageEmbeds(ON_CREATE_ERROR.apply(error.toString())).queue();
+                    if(error != null) defer.editMessageEmbeds(errorEmbed(error.toString())).queue();
                     else onSuccess.accept(defer);
                 };
 
@@ -270,7 +288,7 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
     }
 
     @Override
-    public void onShowcaseConfirmed(InteractionHook hook, OnPlotArchive interaction) {
+    public void onShowcaseConfirmed(@NotNull InteractionHook hook, @NotNull OnPlotArchive interaction) {
         // Manually trigger showcase command by redirecting current interaction
         final Consumer<InteractionEvent> commandRedirect = manager -> {
             OnPlotShowcase payload = new OnPlotShowcase(interaction.userID, interaction.eventID, interaction.plotID);
@@ -283,7 +301,7 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
         DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
         DiscordPS.getPlugin().getOptInteractionProvider().ifPresentOrElse(
             commandRedirect,
-            () -> this.queueEmbed(hook, ON_SHOWCASE_ERROR)
+            () -> this.queueEmbed(hook, errorEmbed(MESSAGE_CANNOT_SHOWCASE))
         );
     }
 
@@ -295,10 +313,10 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
         PlotEntry plot = PlotEntry.getByID(event.getPlotID());
 
         if(plot == null) {
-            onFailure.accept(PLOT_FETCH_RETURNED_NULL);
+            onFailure.accept(Error.PLOT_FETCH_RETURNED_NULL.get());
             return;
         } else if (plot.ownerUUID() == null) {
-            onFailure.accept(PLOT_FETCH_UNKNOWN_OWNER);
+            onFailure.accept(Error.PLOT_FETCH_UNKNOWN_OWNER.get());
             return;
         }
 
@@ -306,14 +324,14 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
 
         CompletableFuture<Void> createAction =  creator.apply(thread);
 
-        if(createAction == null) onFailure.accept(PLOT_CREATE_RETURNED_NULL);
+        if(createAction == null) onFailure.accept(Error.PLOT_CREATE_RETURNED_NULL.get());
         else createAction.whenComplete((ok, error) -> {
             if(error != null) onFailure.accept(error);
             else onSuccess.accept(ok);
         });
     }
 
-    private static @NotNull PlotSystemThread makeArchiveThread(PlotArchiveEvent event, PlotEntry plot) {
+    private @NotNull PlotSystemThread makeArchiveThread(PlotArchiveEvent event, PlotEntry plot) {
         PlotSystemThread thread = new PlotSystemThread(event.getPlotID());
 
         thread.setProvider(data -> {
@@ -322,7 +340,8 @@ class PlotArchiveCommand extends AbstractPlotArchiveCommand {
             return plotData;
         });
 
-        thread.setApplier(owner -> "[Archived] " + THREAD_NAME.apply(event.getPlotID(), owner.formatOwnerName()));
+        thread.setApplier(owner -> getLangManager().get(LangPaths.ARCHIVED_PREFIX)
+            + " " + THREAD_NAME.apply(event.getPlotID(), owner.formatOwnerName()));
 
         thread.setModifier((owner, info) -> info.addHistory(event));
 

@@ -6,12 +6,15 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.But
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.tintinkung.discordps.Constants;
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.api.events.*;
 import github.tintinkung.discordps.core.providers.LayoutComponentProvider;
 import github.tintinkung.discordps.core.system.AvailableComponent;
 import github.tintinkung.discordps.core.system.PlotData;
 import github.tintinkung.discordps.core.system.components.api.*;
 import github.tintinkung.discordps.core.system.components.api.Container;
+import github.tintinkung.discordps.core.system.io.lang.HistoryMessage;
+import github.tintinkung.discordps.core.system.io.lang.PlotInformation;
 import github.tintinkung.discordps.utils.FileUtil;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -25,6 +28,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public final class InfoComponent
     extends LayoutComponentProvider<Container, AvailableComponent.InfoComponent>
@@ -37,11 +41,26 @@ public final class InfoComponent
     private final int packedID;
     private final HashMap<String, String> attachedImage;
 
+    // Metadata
+    private record Metadata(String titleFormat,
+                            String historyTitle,
+                            String historyPrefix,
+                            String googleMapLabel) {};
+
+    // Cache metadata statically
+    private static final Metadata METADATA = new Metadata(
+        DiscordPS.getMessagesLang().get(PlotInformation.INFO_TITLE),
+        DiscordPS.getMessagesLang().get(PlotInformation.HISTORIES_TITLE),
+        DiscordPS.getMessagesLang().get(PlotInformation.HISTORIES_PREFIX),
+        DiscordPS.getMessagesLang().get(PlotInformation.MAP_LABEL)
+    );
+
     public InfoComponent(int id, int layout, Color color) {
         super(layout, INFO, AvailableComponent.InfoComponent.VALUES);
         this.packedID = id;
         this.accentColor = color;
         this.attachedImage = new HashMap<>();
+
 
         // Main container that stores all components
         this.setProvider(() -> new Container(this.packedID, this.accentColor, false));
@@ -52,14 +71,14 @@ public final class InfoComponent
 
         // Track history field as StringBuilder
         this.histories = new StringBuilder();
-        this.histories.append("## Plot Histories");
+        this.histories.append(METADATA.historyTitle());
 
         // Prepare component data
         this.register(INFO_TITLE, id -> new TextDisplay(id,
-                "# " + makeTitle(data.getPlot().plotID(), data.getPlot().cityName(), data.getPlot().countryName())
+            makeTitle(data.getPlot().plotID(), data.getPlot().cityName(), data.getPlot().countryName())
         ));
         this.register(INFO_LOCATION, id -> {
-            Button plotLinkButton = Button.link("https://www.google.com/maps/place/" + data.getGeoCoordinates(), "Google Map");
+            Button plotLinkButton = Button.link("https://www.google.com/maps/place/" + data.getGeoCoordinates(), METADATA.googleMapLabel());
             TextButtonSection field = new TextButtonSection(id, plotLinkButton);
             field.addTextDisplay(new TextDisplay(makeLocation(data.getDisplayCords())));
             return field;
@@ -90,8 +109,11 @@ public final class InfoComponent
         return new InfoComponent(id, layout, color, components);
     }
 
-    public static @NotNull String makeTitle(int plotID, @NotNull String city, @NotNull String country) {
-        return ":house: Plot #" + plotID + " (" + String.join(", ", country, city) + ")";
+    public @NotNull String makeTitle(int plotID, @NotNull String city, @NotNull String country) {
+        return METADATA.titleFormat()
+            .replace("{plotID}", String.valueOf(plotID))
+            .replace("{country}", country)
+            .replace("{city}", city);
     }
 
     @Contract(pure = true)
@@ -101,10 +123,10 @@ public final class InfoComponent
 
     private void appendHistories(@Nullable String history) {
         if(history == null || StringUtils.isBlank(history)) return;
-        if(!histories.isEmpty()) histories.append("\n");
+        if(!histories.isEmpty()) histories.append('\n');
         if(history.charAt(0) == FETCH_SIGNATURE)
-            histories.append("-# :small_blue_diamond:").append('*').append(history.substring(1)).append('*');
-        else histories.append(":small_blue_diamond: ").append(history);
+            histories.append("-# ").append(METADATA.historyPrefix()).append('*').append(history.substring(1)).append('*');
+        else histories.append(METADATA.historyPrefix()).append(' ').append(history);
     }
 
     /**
@@ -143,17 +165,35 @@ public final class InfoComponent
         this.appendHistories(formatHistoryMessage(event));
     }
 
-    public static <T extends PlotEvent> @NotNull String formatHistoryMessage(@Nullable T event) {
+    public <T extends PlotEvent> @NotNull String formatHistoryMessage(@Nullable T event) {
         return switch (event) {
-            case PlotCreateEvent ignored -> formatHistoryMessage("Plot is claimed and under construction.");
-            case PlotSubmitEvent ignored -> formatHistoryMessage("Plot submitted and awaiting review.");
-            case PlotApprovedEvent ignored -> formatHistoryMessage("Plot has been approved");
-            case PlotRejectedEvent ignored -> formatHistoryMessage("Plot has been rejected");
-            case PlotAbandonedEvent ignored -> formatHistoryMessage("Plot has been abandoned by the builder.");
-            case PlotArchiveEvent archiveEvent -> formatHistoryMessage("Plot has been archived by " + archiveEvent.getOwner());
-            case PlotReclaimEvent reclaimEvent -> formatHistoryMessage("Plot is reclaimed by " + reclaimEvent.getOwner());
-            case null, default -> formatHistoryMessage((String) null);
+            case PlotCreateEvent ignored -> formatHistoryMessage(HistoryMessage.ON_CREATED);
+            case PlotSubmitEvent ignored -> formatHistoryMessage(HistoryMessage.ON_SUBMITTED);
+            case PlotApprovedEvent ignored -> formatHistoryMessage(HistoryMessage.ON_APPROVED);
+            case PlotRejectedEvent ignored -> formatHistoryMessage(HistoryMessage.ON_REJECTED);
+            case PlotAbandonedEvent ignored -> formatHistoryMessage(HistoryMessage.ON_ABANDONED);
+            case PlotArchiveEvent archive -> formatHistoryMessage(HistoryMessage.ON_ARCHIVED, archive.getOwner());
+            case PlotReclaimEvent reclaim-> formatHistoryMessage(HistoryMessage.ON_RECLAIMED, reclaim.getOwner());
+            case null, default -> formatHistoryMessage(HistoryMessage.ON_SYSTEM_FETCH);
         };
+    }
+
+    private @NotNull String formatHistoryMessage(@NotNull HistoryMessage type) {
+        return formatHistoryMessage(type, Function.identity());
+    }
+
+    private @NotNull String formatHistoryMessage(@NotNull HistoryMessage type,
+                                                 @NotNull String owner) {
+        return formatHistoryMessage(type, message -> message.replace("{owner}", owner));
+    }
+
+    private @NotNull String formatHistoryMessage(@NotNull HistoryMessage type,
+                                                 @NotNull Function<String, String> message) {
+        String lang = DiscordPS.getMessagesLang().get(type);
+
+        if(type == HistoryMessage.ON_SYSTEM_FETCH)
+            return formatHistoryMessage(message.apply(FETCH_SIGNATURE + lang));
+        else return formatHistoryMessage(message.apply(lang));
     }
 
     /**
@@ -162,9 +202,8 @@ public final class InfoComponent
      *
      * @param message The history message to be added.
      */
-    private static @NotNull String formatHistoryMessage(String message) {
-        if(message == null) return FETCH_SIGNATURE + "<t:" + Instant.now().getEpochSecond() + ":D> • Plot has been fetched by the system";
-        else return "<t:" + Instant.now().getEpochSecond() + ":D> • " + message;
+    private @NotNull String formatHistoryMessage(@NotNull String message) {
+        return message.replace("{timestamp}", String.valueOf(Instant.now().getEpochSecond()));
     }
 
     /**
@@ -199,7 +238,7 @@ public final class InfoComponent
             }
             case INFO_LOCATION -> {
                 this.register(INFO_LOCATION, id -> {
-                    Button button = Button.link(component.getObject("accessory").getString("url"), "Google Map");
+                    Button button = Button.link(component.getObject("accessory").getString("url"), METADATA.googleMapLabel());
                     TextButtonSection field = new TextButtonSection(id, button);
                     field.addTextDisplay(new TextDisplay(component.getArray("components").getObject(0).getString("content")));
                     return field;

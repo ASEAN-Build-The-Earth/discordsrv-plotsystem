@@ -2,10 +2,16 @@ package github.tintinkung.discordps.core.system.embeds;
 
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.database.ThreadStatus;
+import github.tintinkung.discordps.core.providers.WebhookStatusProvider;
+import github.tintinkung.discordps.core.system.AvailableTag;
 import github.tintinkung.discordps.core.system.MemberOwnable;
-import org.jetbrains.annotations.Contract;
+import github.tintinkung.discordps.core.system.io.LanguageFile;
+import github.tintinkung.discordps.core.system.io.MessageLang;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Locale;
 
 /**
  * Status embed for tracking plot status.
@@ -22,39 +28,46 @@ public class StatusEmbed extends EmbedBuilder implements PlotDataEmbed {
             (member) -> this.setAuthor(member.getUser().getName(), null, member.getEffectiveAvatarUrl()),
             () -> this.setAuthor(owner.getOwner().getName())
         );
+        DisplayMessage message = DisplayMessage.fromStatus(status);
 
-        this.setTitle(getDisplayStatus(status));
-        this.setDescription(getDisplayDetail(status));
+        this.setTitle(message.get().title());
+        this.setDescription(message.get().description());
         this.setColor(status.toTag().getColor());
     }
 
-    public StatusEmbed(@NotNull MessageEmbed from) {
-        super();
+    /**
+     * Saved message presets for displaying by thread status
+     */
+    public enum DisplayMessage implements WebhookStatusProvider {
+        ON_GOING("status-embeds.on-going"),
+        FINISHED("status-embeds.finished"),
+        REJECTED("status-embeds.rejected"),
+        APPROVED("status-embeds.approved"),
+        ARCHIVED("status-embeds.archived"),
+        ABANDONED("status-embeds.abandoned");
 
-        this.copyFrom(from);
-    }
+        private final MessageLang message;
 
-    @Contract(pure = true)
-    private static @NotNull String getDisplayStatus(@NotNull ThreadStatus status) {
-        return switch (status) {
-            case on_going -> ":white_circle: On Going";
-            case finished -> ":yellow_circle: Submitted";
-            case rejected -> ":red_circle: Rejected";
-            case approved -> ":green_circle: Approved";
-            case archived -> ":blue_circle: Archived";
-            case abandoned -> ":purple_circle: Abandoned";
-        };
-    }
+        DisplayMessage(String message) {
+            this.message = () -> message;
+        }
 
-    @Contract(pure = true)
-    private static @NotNull String getDisplayDetail(@NotNull ThreadStatus status) {
-        return switch (status) {
-            case on_going -> "The plot is under construction.";
-            case finished -> "Please wait for staff to review this plot.";
-            case rejected -> "This plot is rejected, please make changes given my our staff team and re-submit this plot.";
-            case approved -> "Plot is completed and staff has approved this plot.";
-            case archived -> "The plot has been marked as archived.";
-            case abandoned -> "The user has abandoned their plot, anyone can re-claim this plot.";
-        };
+        public static @NotNull DisplayMessage fromStatus(@NotNull ThreadStatus status) {
+            return valueOf(status.name().toUpperCase(Locale.ENGLISH));
+        }
+
+        public @NotNull LanguageFile.EmbedLang get() {
+            return DiscordPS.getMessagesLang().getEmbed(this.message);
+        }
+
+        @Override
+        public @NotNull ThreadStatus toStatus() {
+            return valueOf(ThreadStatus.class, this.name().toLowerCase(Locale.ENGLISH));
+        }
+
+        @Override
+        public @NotNull AvailableTag toTag() {
+            return valueOf(AvailableTag.class, this.name());
+        }
     }
 }

@@ -1,0 +1,181 @@
+# -------------------------------------------
+# Messages
+# -------------------------------------------
+
+# ========================
+# Available Format Tokens
+# ⚠️ Important: For default messages, only the formatter tokens included in
+# the message text are guaranteed to be available during runtime.
+# ========================
+
+# {plotID} - The unique numeric ID of the plot.
+# {owner} - The formatted name of the plot owner.
+# {threadID} - The Discord thread's snowflake ID.
+# {messageID} - The Discord message's snowflake ID.
+# {userID} - The Discord user's ID (typically the plot submitter or reviewer).
+# {timestamp} - A Discord snowflake representing the time of the event.
+# {filename} - The name of a file (e.g., an attachment or export).
+# {path} - The absolute path to a file, if relevant.
+# {label} - A custom-defined label or button name related to the message.
+# {event} - The simple name of the event class triggering this message.
+# {count} - A dynamic, incrementing number (e.g., for listing or tracking).
+
+plot:
+  # -------------------------------------------
+  # Plot information title (markdown message)
+  # -------------------------------------------
+  plot-info-title: "# :house: Plot #{plotID} ({country}, {city})"
+
+  # -------------------------------------------
+  # Showcase message format (markdown message)
+  # -------------------------------------------
+  plot-showcase-title: |
+    # :earth_asia: {country}, {city}
+    > ## :house: Plot by {owner}
+    > -# Tracked as Plot ID #{plotID} in <#{threadID}>
+
+  # -------------------------------------
+  # The thread name format of every plot
+  # Raw text only, markdown not supported
+  # -------------------------------------
+  thread-name: "Plot #{plotID} {owner}"
+
+  # ----------------------------------------------------
+  # Title for plot histories section (markdown message)
+  # ----------------------------------------------------
+  plot-histories: "## Plot Histories"
+
+  # --------------------------------------
+  # Prefix for each history message
+  # --------------------------------------
+  histories-prefix: ":small_blue_diamond:"
+
+  # ----------------------------------------------------
+  # Plot interactions:
+  # google-map:    The link to google map button
+  # documentation: The link a documentation website in each plot
+  # help:          The help button that can be interacted with
+  #                to display content
+  # feedback-label: The feedback button that is attached when plot is reviewed
+  # ----------------------------------------------------
+  google-map: "Google Map"
+  documentation:
+    label: "Documentation"
+    url: "https://asean.buildtheearth.asia/intro/getting-started/building-first-build/plot-system"
+  help:
+    label: "Help"
+    content: "Click the documentation link above to take a look at a detailed guide on how to build your plot!"
+  feedback-label:
+    rejected-feedback: "Show Reason"
+    approved-feedback: "View Feedback"
+    rejected-no-feedback: "No Reason Yet"
+    approved-no-feedback: "No Feedback Yet"
+
+# ============================================
+# Interaction Messages
+# Available:
+# - plot-button-bad-owner: when a member interact with an un-authorized button
+# - plot-feedback-get-failed: when an internal exception occurred trying to get feedback data of a plot
+# ============================================
+interactions:
+  plot-button-bad-owner:
+    - "You don't own this plot"
+    - "Go build a plot!"
+  plot-feedback-get-failed:
+    - "Error :("
+    - |
+      Sorry an error occurred trying to get your feedback data. 
+      Please message our staff to ask for it instead.
+
+# ============================================
+# Plot notification message
+# Send when an event is triggered
+# Can be disabled separately in config.yml set enabled to false
+# ============================================
+plot-notification:
+  on-plot-submitted: |
+      ### :yellow_circle: Plot Submitted
+      -# Staff will review this plot as soon as possible.
+  on-plot-reviewed: |
+      ## :pencil: Your plot has been reviewed!
+      {owner}, click the **{label}** button above to view the your feedback.
+  on-plot-approved: |
+      ## :tada: Your plot has been **approved**!
+      {owner}, we will notify your review feedback by the button above.
+  on-plot-rejected: |
+      ## :broken_heart: Your plot has been *rejected*
+      {owner}, we will notify the rejected reason by the button above, you can re-submit your plot again to get an approval.
+  on-undo-review: |
+      ### :recycle: Review has been revoked
+      -# The review has been undone — it may be under reconsideration. Please wait for updates.
+  on-undo-submit: |
+      ### :recycle: Submission withdrawn
+      -# The builder chose to keep working on the plot for now.
+  on-plot-showcased: |
+      ## :loudspeaker: Your plot has been showcased!
+      {owner}, your build is now featured publicly. Check it out in <#{threadID}>!
+
+history-messages:
+  # Triggered on the initial claim of each plot
+  initial-creation: "{owner} created the plot <t:{timestamp}:R>"
+  # Triggered only if a system fetch the plot as created
+  on-created:       "<t:{timestamp}:D> • Plot is claimed and under construction."
+  on-submitted:     "<t:{timestamp}:D> • Plot submitted and awaiting review."
+  on-approved:      "<t:{timestamp}:D> • Plot has been approved"
+  on-rejected:      "<t:{timestamp}:D> • Plot has been rejected"
+  on-abandoned:     "<t:{timestamp}:D> • Plot has been abandoned by the builder."
+  on-archived:      "<t:{timestamp}:D> • Plot has been archived by {owner}"
+  on-reclaimed:     "<t:{timestamp}:D> • Plot is reclaimed by {owner}"
+  on-system-fetch:  "<t:{timestamp}:D> • Plot has been fetched by the system"
+
+status-embeds:
+  on-going:
+    - ":white_circle: On Going"
+    - "The plot is under construction."
+  finished:
+    - ":yellow_circle: Submitted"
+    - "Please wait for staff to review this plot."
+  rejected:
+    - ":red_circle: Rejected"
+    - "This plot is rejected, please make changes given my our staff team and re-submit this plot."
+  approved:
+    - ":green_circle: Approved"
+    - "Plot is completed and staff has approved this plot."
+  archived:
+    - ":blue_circle: Archived"
+    - "The plot has been marked as archived."
+  abandoned:
+    - ":purple_circle: Abandoned"
+    - "The user has abandoned their plot, anyone can re-claim this plot."
+
+status-messages:
+  on-going: |
+    ## Claimed by {owner}
+  
+    Use this thread to follow the progress of this plot.
+    Our friend Bob the Landlord will post updates here as things move forward.
+  finished: |
+    ## Claimed by {owner}
+  
+    The plot has been marked as finished.
+    Please wait patiently while it gets reviewed.
+  rejected: |
+    ## Claimed by {owner}
+  
+    This plot has been **rejected** by a reviewer.
+    Please review the improvement guide, make the necessary changes, and submit again.
+  approved: |
+    ## Claimed by {owner}
+  
+    This plot has been **approved**!
+    It will be archived to our master server shortly.
+  archived: |
+    ## Built by {owner}
+  
+    This plot is now **archived**.
+    You can still visit or continue improving it on our master server.
+  abandoned: |
+    ## Abandoned by {owner}
+  
+    This plot has been *abandoned*.
+    Anyone may now re-claim it to continue building.

@@ -126,7 +126,7 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
     public void onPlotDelete(@NotNull SlashCommandEvent event) {
         if(requiredReady(event)) return;
 
-        this.onSlashCommand(event, false, PlotCommand.class, PlotCommand::getDeleteCommand, () ->
+        this.onSlashCommand(event, true, PlotCommand.class, PlotCommand::getDeleteCommand, () ->
             new OnPlotDelete(
                 event.getUser().getIdLong(),
                 event.getIdLong(),

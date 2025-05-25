@@ -6,11 +6,16 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHoo
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectOption;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectionMenu;
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.commands.interactions.Interaction;
 import github.tintinkung.discordps.commands.interactions.PlotInteraction;
 import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.system.MemberOwnable;
+import github.tintinkung.discordps.core.system.io.LanguageFile;
+import github.tintinkung.discordps.core.system.io.SystemLang;
+import github.tintinkung.discordps.core.system.io.lang.CommandInteractions;
+import github.tintinkung.discordps.core.system.io.lang.PlotCommand;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
@@ -18,21 +23,64 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
-public abstract class AbstractPlotCommand<T extends Interaction & PlotInteraction> extends SubcommandProvider<T> {
+/**
+ * Super class to all plot management commands
+ *
+ * @param <I> The command's interaction payload
+ * @param <V> The command's language data that contains messages enum
+ */
+public abstract class AbstractPlotCommand<
+        I extends Interaction & PlotInteraction, V extends SystemLang
+        > extends SystemCommandProvider<I, V> {
 
-    public AbstractPlotCommand(@NotNull String name, @NotNull String description) {
-        super(name, description);
+    /**
+     * Construct a new plot command with no description.
+     *
+     * <p>Note that description is set to {@link LanguageFile#NULL_LANG} by default,
+     * use {@link #setDescription(String)} to override a new description in.</p>
+     *
+     * @param name The subcommand name
+     */
+    public AbstractPlotCommand(@NotNull String name) {
+        super(name, LanguageFile.NULL_LANG);
     }
 
+    /**
+     * Queue a new message embed to this interaction.
+     *
+     * <p>By default, this has ephemeral set to {@code true}.
+     *    Override this method to modify the interaction.</p>
+     *
+     * @param hook The interaction hook to send message embed to
+     * @param embed The message embed to send
+     */
     protected void queueEmbed(@NotNull InteractionHook hook, @NotNull MessageEmbed embed) {
         hook.sendMessageEmbeds(embed).setEphemeral(true).queue();
     }
 
+    /**
+     * Queue a new message embed to this interaction with an action row.
+     *
+     * <p>By default, this has ephemeral set to {@code true}.
+     *    Override this method to modify the interaction.</p>
+     *
+     * @param hook The interaction hook to send message embed to
+     * @param interactions The action row interaction to attach to the embed
+     * @param embed The message embed to send
+     */
     protected void queueEmbed(@NotNull InteractionHook hook, @NotNull ActionRow interactions, @NotNull MessageEmbed embed) {
         hook.sendMessageEmbeds(embed).addActionRows(interactions).setEphemeral(true).queue();
     }
 
+    /**
+     * Get a display emoji for each status
+     * which is a colored circles for default status colors.
+     *
+     * @param status The thread status
+     * @return {@link Emoji} instance from unicode
+     */
     protected Emoji getStatusEmoji(@NotNull ThreadStatus status) {
         return switch (status) {
             case on_going -> Emoji.fromUnicode("U+26AA");
@@ -78,8 +126,11 @@ public abstract class AbstractPlotCommand<T extends Interaction & PlotInteractio
             if(this.menu.getOptions().isEmpty()) {
                 this.defaultOptionSelector.accept(Collections.singletonList(entryOption));
 
-                this.menu.addOptions(entryOption.withLabel(label + " [Latest]")
-                        .withDefault(true));
+                // Format latest entry as "@entry [Latest]"
+                final String latest = DiscordPS.getSystemLang().get(CommandInteractions.LABEL_LATEST);
+
+                this.menu.addOptions(entryOption.withLabel(label + " [" + latest + "]")
+                    .withDefault(true));
             }
             else this.menu.addOptions(entryOption);
         }
@@ -112,20 +163,52 @@ public abstract class AbstractPlotCommand<T extends Interaction & PlotInteractio
         out.accept(label, entryOption);
     }
 
-    // Error Constants
+    /**
+     * Common Error constants.
+     * Stores each error type and the description message.
+     *
+     * @see #get()
+     * @see #getMessage()
+     */
+    protected enum Error {
+        /**
+         * Intended for when plot action that returns {@link java.util.Optional} return an empty.
+         */
+        PLOT_CREATE_RETURNED_NULL(NoSuchElementException::new, PlotCommand.EMPTY_ACTION_EXCEPTION),
+        /**
+         * When fetching plot data with no owner which is not supported by this plugin.
+         */
+        PLOT_FETCH_UNKNOWN_OWNER(RuntimeException::new, PlotCommand.UNKNOWN_OWNER_EXCEPTION),
+        /**
+         * When fetching null plot data, the only case of this happening is an SQL exception.
+         */
+        PLOT_FETCH_RETURNED_NULL(RuntimeException::new, PlotCommand.NULL_ACTION_EXCEPTION);
 
-    protected static final Throwable PLOT_CREATE_RETURNED_NULL = new NoSuchElementException(
-            "Plot create action returned empty, possibly an internal error occurred! "
-            + "please debug this process for more info."
-    );
+        private final @NotNull Function<String, Throwable> throwable;
+        private final @NotNull SystemLang message;
 
-    protected static final Throwable PLOT_FETCH_UNKNOWN_OWNER = new RuntimeException(
-            "Plot has no owner! This plugin does not support fetching un-claim plot.\n"
-            + "A plot must be created by a member first before it can be manually fetch for any updates."
-    );
+        Error(@NotNull Function<String, Throwable> throwable,
+              @NotNull SystemLang message) {
+            this.throwable = throwable;
+            this.message = message;
+        }
 
-    protected static final Throwable PLOT_FETCH_RETURNED_NULL = new RuntimeException(
-            "Failed to fetch plot data from plot-system database, possibly sql exception has occurred. "
-            + "please debug this process for more info."
-    );
+        /**
+         * Create a throwable instance of this error
+         *
+         * @return Throwable as a new instance
+         */
+        public @NotNull Throwable get() {
+            return this.throwable.apply(this.getMessage());
+        }
+
+        /**
+         * Get the description message
+         *
+         * @return Message from system language file
+         */
+        public @NotNull String getMessage() {
+            return DiscordPS.getSystemLang().get(this.message);
+        }
+    }
 }

@@ -1,29 +1,32 @@
 package github.tintinkung.discordps.core.system;
 
-import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.api.events.PlotEvent;
-import github.tintinkung.discordps.api.events.PlotSubmitEvent;
 import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.system.components.api.ComponentV2;
+import github.tintinkung.discordps.core.system.io.LanguageFile;
+import github.tintinkung.discordps.core.system.io.lang.Format;
+import github.tintinkung.discordps.core.system.io.lang.PlotInformation;
+import github.tintinkung.discordps.core.system.io.lang.PlotNotification;
 import github.tintinkung.discordps.core.system.layout.Layout;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.awt.Color;
 import java.sql.SQLException;
-import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+
+import static github.tintinkung.discordps.core.system.io.lang.Notification.ErrorMessage;
 
 sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
 
@@ -33,12 +36,30 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
     protected final ForumWebhook webhook;
 
     /**
+     * memorized metadata per instance
+     *
+     * @see Metadata
+     */
+    protected final Metadata metadata;
+
+    /**
      * Initialize webhook instance
      *
      * @param webhook The forum webhook manager instance
      */
     protected AbstractPlotSystemWebhook(ForumWebhook webhook) {
         this.webhook = webhook;
+        this.metadata = new Metadata(
+            DiscordPS.getMessagesLang().get(PlotInformation.HELP_LABEL),
+            DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_FEEDBACK_LABEL),
+            DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_FEEDBACK_LABEL),
+            DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_NO_FEEDBACK_LABEL),
+            DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_NO_FEEDBACK_LABEL),
+            Button.link(
+                DiscordPS.getMessagesLang().get(PlotInformation.DOCS_URL),
+                DiscordPS.getMessagesLang().get(PlotInformation.DOCS_LABEL)
+            )
+        );
     }
 
     /**
@@ -78,7 +99,12 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
         try {
             WebhookEntry.updateThreadStatus(messageID, status);
         } catch (SQLException ex) {
-            Notification.sendErrorEmbed(PLOT_UPDATE_SQL_EXCEPTION.apply(event), ex.toString());
+            Notification.sendErrorEmbed(
+                ErrorMessage.PLOT_UPDATE_SQL_EXCEPTION,
+                ex.toString(),
+                String.valueOf(event.getPlotID()),
+                event.getClass().getSimpleName()
+            );
         }
     }
 
@@ -97,16 +123,33 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
                                                                   boolean register,
                                                                   boolean force);
 
+    /**
+     * Create and register a plot status by a given plot data.
+     * Will create an initial status message with help button and documentation link.
+     *
+     * @param plotData The plot information
+     * @param plotID The plot ID
+     * @param threadID The thread ID this plot is created on
+     */
     protected abstract void registerNewPlot(@NotNull PlotData plotData,
                                             int plotID,
                                             long threadID);
 
+    /**
+     * Wrapper for {@link #registerNewPlot(PlotData, int, long)}
+     * to register new plot based on the initial message reference.
+     *
+     * @param plotData The plot data to register this plot
+     * @param plotID The plot ID to register this plot
+     * @param initialMessage Action required to receive message reference for registering this plot.
+     *                       Conventionally is using as {@link Optional#ifPresentOrElse(Consumer, Runnable)}
+     */
     protected void registerNewPlot(PlotData plotData,
                                    int plotID,
                                    @NotNull BiConsumer<Consumer<MessageReference>, Runnable> initialMessage) {
         initialMessage.accept(
             message -> this.registerNewPlot(plotData, plotID, message.getMessageIdLong()),
-            () -> Notification.sendErrorEmbed(PLOT_CREATION_EXCEPTION)
+            () -> Notification.notify(ErrorMessage.PLOT_CREATE_UNKNOWN_EXCEPTION)
         );
     }
 
@@ -154,38 +197,12 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
                                                                 @NotNull ThreadStatus status);
 
     /**
-     * Update plot by the given action with specified event.
+     * Update plot by the given event creating a new {@link PlotSystemThread.UpdateAction#fromEvent(PlotEvent)}
+     * for updating plot by the event information.
      *
-     * @param action The update action that specify what plot entry to be updated
-     * @param event The referring event that trigger this action
-     * @param status The primary status to update to
-     * @param whenComplete Invoked when the update action is completed returning this action
-     * @param <T> The type of referring event that activate this action
-     */
-    public <T extends PlotEvent>
-    void updatePlot(@NotNull PlotSystemThread.UpdateAction action,
-                    @Nullable T event,
-                    @NotNull ThreadStatus status,
-                    @NotNull Consumer<PlotSystemThread.UpdateAction> whenComplete) {
-        this.updatePlot(action, event, status).whenComplete((update, error) -> whenComplete.accept(update));
-    }
-
-    /**
-     * Update plot by the given action with specified event.
-     *
-     * @param event The referring event that trigger this action
-     * @param status The primary status to update to
-     * @param <T> The type of referring event that activate this action
-     */
-    public <T extends PlotEvent>
-    void updatePlot(@NotNull T event, @NotNull ThreadStatus status) {
-        this.updatePlot(event, status, null);
-    }
-
-    /**
-     * Update plot by the given event,
-     * will create a new {@link PlotSystemThread.UpdateAction#fromEvent(PlotEvent)}
-     * for updating plot by event information.
+     * <p>Note: This will fetch a latest plot entry to be updated.
+     * To update more specifically, provide {@link PlotSystemThread.UpdateAction}
+     * and use {@link #updatePlot(PlotSystemThread.UpdateAction, PlotEvent, ThreadStatus)} instead.</p>
      *
      * @param event The referring event that trigger this action
      * @param status The primary status to update to
@@ -194,15 +211,10 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
      */
     public <T extends PlotEvent> void updatePlot(@NotNull T event,
                                                  @NotNull ThreadStatus status,
-                                                 @Nullable Consumer<PlotSystemThread.UpdateAction> whenComplete) {
+                                                 @NotNull Consumer<PlotSystemThread.UpdateAction> whenComplete) {
         PlotSystemThread.UpdateAction action = PlotSystemThread.UpdateAction.fromEvent(event);
-
         if(action == null) return;
-
-        if(event instanceof PlotSubmitEvent) PLOT_SUBMIT_NOTIFICATION.accept(action.plotID(), action.threadID());
-
-        if(whenComplete == null) this.updatePlot(action, event, status);
-        else this.updatePlot(action, event, status).thenAccept(whenComplete);
+        this.updatePlot(action, event, status).thenAccept(whenComplete);
     }
 
     /**
@@ -237,7 +249,7 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
     /**
      * Create interactive layout by status as follows:
      * <ul>
-     *     <li>{@code on_going} {@code finished} Help & docs button</li>
+     *     <li>{@code on_going} {@code finished} Help & Docs button</li>
      *     <li>{@code approved} Approval feedback button</li>
      *     <li>{@code rejected} Rejected reason button</li>
      * </ul>
@@ -253,143 +265,176 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
                                                                  long messageID,
                                                                  @NotNull ThreadStatus status,
                                                                  @NotNull MemberOwnable owner) {
-        ActionRow documentationRow = ActionRow.of(PLOT_DOCUMENTATION_BUTTON);
+        ActionRow documentationRow = ActionRow.of(this.metadata.documentationButton());
 
         Function<Long, ActionRow> interactionRow = userID -> ActionRow.of(
-                this.newHelpButton(messageID, userID, plotID),
-                PLOT_DOCUMENTATION_BUTTON
+            this.newHelpButton(messageID, userID, plotID),
+            this.metadata.documentationButton()
         );
 
-        Function<Long, ActionRow> approvedRow = userID -> ActionRow.of(
-                Button.success(AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID), APPROVED_FEEDBACK_LABEL)
+        Function<Long, ActionRow> approvedRow = userID -> ActionRow.of(Button.success(
+            AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID),
+            this.metadata.approvedFeedbackLabel())
         );
 
-        Function<Long, ActionRow> rejectedRow = userID -> ActionRow.of(
-                Button.danger(AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID), REJECTED_FEEDBACK_LABEL)
+        Function<Long, ActionRow> rejectedRow = userID -> ActionRow.of(Button.danger(
+            AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID),
+            this.metadata.rejectedFeedbackLabel())
         );
 
-        return (owner.getOwnerDiscord().isPresent()) ? switch (status) {
+        // Interactive row if owner has discord to interact with it
+        List<ActionRow> interactiveRow = switch (status) {
             case on_going, finished -> List.of(interactionRow.apply(owner.getOwnerDiscord().get().getIdLong()));
             case approved -> List.of(approvedRow.apply(owner.getOwnerDiscord().get().getIdLong()));
             case rejected -> List.of(rejectedRow.apply(owner.getOwnerDiscord().get().getIdLong()));
             default -> null;
-        } : switch (status) {
+        };
+
+        // Static row if owner discord is not present
+        List<ActionRow> staticRow = switch (status) {
             case on_going, finished, rejected -> List.of(documentationRow);
             default -> null;
         };
+
+        return owner.getOwnerDiscord().isPresent()? interactiveRow : staticRow;
     }
 
-    protected static final String REJECTED_FEEDBACK_LABEL = "Show Reason";
-    protected static final String APPROVED_FEEDBACK_LABEL = "View Feedback";
-    protected static final String REJECTED_NO_FEEDBACK_LABEL = "No Reason Yet";
-    protected static final String APPROVED_NO_FEEDBACK_LABEL = "No Feedback Yet";
+    /**
+     * Send a plot notification message to a thread
+     *
+     * @param type The notification message to send to
+     * @param threadID The thread ID to send notification to
+     * @param content The content of the notification as a modifier function
+     */
+    protected abstract void sendNotification(@NotNull PlotNotification type,
+                                             @NotNull String threadID,
+                                             @NotNull Function<String, String> content);
+
+    /**
+     * Send a plot notification message with no placeholder variable
+     *
+     * @param type  The notification message to send to
+     * @param threadID The thread ID to send notification to
+     */
+    public void sendNotification(@NotNull PlotNotification type,
+                                 @NotNull String threadID) {
+        this.sendNotification(type, threadID, Function.identity());
+    }
+
+    /**
+     * Send a plot notification message with owner ID placeholder
+     *
+     * @param type The notification message to send to
+     * @param threadID The thread ID to send notification to
+     *                 <i>(placeholder: {@code {threadID}})</i>
+     * @param owner Owner ID to apply to this notification message
+     *              <i>(placeholder: {@code {owner}})</i>
+     */
+    public void sendNotification(@NotNull PlotNotification type,
+                                 @NotNull String threadID,
+                                 @Nullable String owner) {
+        this.sendNotification(type, threadID, content -> content
+                .replace(Format.THREAD_ID, threadID)
+                .replace(Format.OWNER, owner == null? LanguageFile.NULL_LANG : owner));
+    }
+
+    /**
+     * Special notification {@link PlotNotification#ON_REVIEWED} that notifies the review button label.
+     *
+     * @param threadID The thread ID to send notification to
+     * @param owner  Owner ID to apply to this notification message
+     *               <i>(placeholder: {@code {owner}})</i>
+     * @param label  Button label apply to this notification message
+     *               <i>(placeholder: {@code {label}})</i>
+     */
+    protected void sendNotification(@NotNull String threadID,
+                                    @NotNull String owner,
+                                    @NotNull String label) {
+        this.sendNotification(PlotNotification.ON_REVIEWED, threadID, content -> content
+                .replace(Format.USER_ID, owner)
+                .replace(Format.LABEL, label));
+    }
 
     protected Button newHelpButton(long messageID, long ownerID, int plotID) {
-        return Button.primary(AvailableButton.HELP_BUTTON.resolve(messageID, ownerID, plotID), "Help");
+        return Button.primary(AvailableButton.HELP_BUTTON.resolve(messageID, ownerID, plotID), this.metadata.helpButtonLabel());
     }
 
-    protected static final Button PLOT_DOCUMENTATION_BUTTON = Button.link(
-            "https://asean.buildtheearth.asia/intro/getting-started/building-first-build/plot-system",
-            "Documentation"
-    );
-
-    protected static final BiConsumer<PlotData, String> PLOT_CREATE_NOTIFICATION = (plotData, threadID) -> Notification.sendMessageEmbeds(
-        new EmbedBuilder()
-            .setTitle(":hammer_pick: New Plot Created at <#" + threadID + ">")
-            .setDescription("By " + plotData.getOwnerMentionOrName() + " (Plot ID: " + plotData.getPlot().plotID() + ")")
-            .setColor(Color.GREEN)
-            .build()
-    );
-
-    // TODO: Expose this to config so we can decide who to ping
-    protected static final BiConsumer<Integer, String> PLOT_SUBMIT_NOTIFICATION = (plotID, threadID) -> Notification.sendMessageEmbeds(
-        "<@501366655624937472> <@480350715735441409> <@728196906395631637> <@939467710247604224> <@481786697860775937>",
-        new EmbedBuilder()
-            .setTitle(":bell: Plot #" + plotID + " Has just submitted <t:" + Instant.now().getEpochSecond() + ":R>")
-            .setDescription("Tracker: <#" + threadID + ">")
-            .setColor(Color.CYAN)
-            .build()
-    );
-
-    protected static final Function<Integer, String> PLOT_CREATE_RUNTIME_EXCEPTION = plotID ->
-            "Runtime exception **creating** new plot thread, "
-            + "The plot ID #`" + plotID + "` "
-            + "may or may not be tracked correctly by the system depending on the error.";
-
-    protected static final Function<PlotEvent, String> PLOT_UPDATE_RUNTIME_EXCEPTION = event ->
-            "Runtime exception **updating** plot data (" + event.getClass().getSimpleName() + "), "
-            + "The plot ID #`" + event.getPlotID() + "` "
-            + "may or may not be tracked correctly by the system depending on the error.";
-
-    protected static final Function<Integer, String> PLOT_FEEDBACK_SQL_EXCEPTION = plotID ->
-            "Failed update webhook feedback in the database,"
-            + "The plot ID #`" + plotID + "` "
-            + "feedback button will not be functional, the user will not be able to view it.";
-
-    protected static final Function<PlotEvent, String> PLOT_UPDATE_SQL_EXCEPTION = event ->
-            "SQL exception occurred **updating** plot data (" + event.getClass().getSimpleName() + "), "
-            + "The plot ID #`" + event.getPlotID() + "` "
-            + "may or may not be tracked by the system depending on the error.";
-
-    protected static final Function<Integer, String> PLOT_ENTRY_NOT_EXIST = plotID ->
-            "Failed to create and register new plot because its data does not exist in plot-system database, "
-            + "The plot ID #`" + plotID + "` will not be tracked by the system.";
-
-    protected static final String PLOT_UPDATING_EXCEPTION = "Error occurred while updating plot data.";
-    protected static final String PLOT_CREATION_EXCEPTION = "Failed to resolve data trying to create new plot.";
-    protected static final String PLOT_REGISTER_EXCEPTION = "Failed to resolve data trying to register new plot to database.";
-    protected static final String PLOT_FEEDBACK_EXCEPTION = "Error occurred while setting plot's feedback data.";
-
-    protected static final Consumer<? super Throwable> ON_PLOT_UPDATING_EXCEPTION = error -> {
-        DiscordPS.error(PLOT_UPDATING_EXCEPTION, error);
-        Notification.sendErrorEmbed(PLOT_UPDATING_EXCEPTION, error.toString());
+    protected static final Consumer<? super Throwable> ON_PLOT_OVERRIDING_EXCEPTION = error -> {
+        DiscordPS.error("Error occurred adding new plot to existing data.", error);
+        Notification.sendErrorEmbed(ErrorMessage.PLOT_UPDATE_UNKNOWN_EXCEPTION, error.toString());
     };
 
     protected static final BiConsumer<Integer, ? super Throwable> ON_PLOT_CREATION_EXCEPTION = (plotID, error) -> {
-        DiscordPS.error(PLOT_CREATION_EXCEPTION, error);
-        Notification.sendErrorEmbed(PLOT_CREATE_RUNTIME_EXCEPTION.apply(plotID), error.toString());
+        DiscordPS.error("Failed to resolve data trying to create new plot.", error);
+        Notification.sendErrorEmbed(ErrorMessage.PLOT_CREATE_EXCEPTION, error.toString(), String.valueOf(plotID));
     };
 
-    protected static final Consumer<? super Throwable> ON_PLOT_REGISTER_EXCEPTION = error -> {
-        DiscordPS.error(PLOT_REGISTER_EXCEPTION, error);
-        Notification.sendErrorEmbed(PLOT_REGISTER_EXCEPTION, error.toString());
+    protected static final BiConsumer<Integer, ? super Throwable> ON_PLOT_REGISTER_EXCEPTION = (plotID, error) -> {
+        DiscordPS.error("Failed to resolve data trying to register new plot to database.", error);
+        Notification.sendErrorEmbed(ErrorMessage.PLOT_REGISTER_ENTRY_EXCEPTION, error.toString(), String.valueOf(plotID));
     };
 
     protected static final Consumer<? super Throwable> ON_PLOT_FEEDBACK_EXCEPTION = error -> {
-        DiscordPS.error(PLOT_FEEDBACK_EXCEPTION, error);
-        Notification.sendErrorEmbed(PLOT_FEEDBACK_EXCEPTION, error.toString());
+        DiscordPS.error("Error occurred while setting plot's feedback data.", error);
+        Notification.sendErrorEmbed(ErrorMessage.PLOT_FEEDBACK_UNKNOWN_EXCEPTION, error.toString());
     };
 
     protected static final BiConsumer<PlotEvent, ? super Throwable> ON_PLOT_UPDATE_EXCEPTION = (event, error) -> {
-        DiscordPS.error(PLOT_UPDATE_RUNTIME_EXCEPTION.apply(event), error);
-        Notification.sendErrorEmbed(PLOT_UPDATE_RUNTIME_EXCEPTION.apply(event), error.toString());
+        DiscordPS.error("Error occurred while updating plot data.", error);
+        Notification.sendErrorEmbed(
+            ErrorMessage.PLOT_UPDATE_EXCEPTION,
+            error.toString(),
+            String.valueOf(event.getPlotID()),
+            event.getClass().getSimpleName()
+        );
     };
 
     protected static final BiConsumer<Optional<?>, ? super Throwable> HANDLE_BUTTON_ATTACH_ERROR = (success, failure) -> {
         if(failure != null) {
             DiscordPS.error("A thread interaction attach action returned an exception", failure);
-            Notification.sendErrorEmbed("Failed to attach interactions (buttons) to a plot entry", failure.toString());
+            Notification.sendErrorEmbed(ErrorMessage.FAILED_ATTACH_BUTTON, failure.toString());
         }
     };
 
     protected static final BiConsumer<Optional<?>, ? super Throwable> HANDLE_THREAD_EDIT_ERROR = (success, failure) -> {
         if(failure != null) {
             DiscordPS.error("A thread data update action returned an exception", failure);
-            Notification.sendErrorEmbed("Failed to update thread data (this include thread name and its tags)", failure.toString());
+            Notification.sendErrorEmbed(ErrorMessage.FAILED_THREAD_EDIT, failure.toString());
         }
     };
 
     protected static final BiConsumer<Optional<?>, ? super Throwable> HANDLE_MESSAGE_EDIT_ERROR = (success, failure) -> {
         if(failure != null) {
             DiscordPS.error("A thread message update action returned an exception", failure);
-            Notification.sendErrorEmbed("Failed to update plot status message.", failure.toString());
+            Notification.sendErrorEmbed(ErrorMessage.FAILED_MESSAGE_EDIT, failure.toString());
         }
     };
 
     protected static final BiConsumer<Optional<?>, ? super Throwable> HANDLE_LAYOUT_EDIT_ERROR = (success, failure) -> {
         if(failure != null) {
             DiscordPS.error("A thread layout update action returned an exception", failure);
-            Notification.sendErrorEmbed("Failed to update thread layout.", failure.toString());
+            Notification.sendErrorEmbed(ErrorMessage.FAILED_LAYOUT_EDIT, failure.toString());
         }
     };
+
+
+    /**
+     * Plot Metadata from messages language file, mostly button label data.
+     * <p>Below are the default label of each buttons</p>
+     *
+     * @param helpButtonLabel "Help" label
+     * @param rejectedFeedbackLabel "Show Reason" label
+     * @param approvedFeedbackLabel "View Feedback" label
+     * @param rejectedNoFeedbackLabel "No Feedback Yet" label
+     * @param approvedNoFeedbackLabel "No Feedback Yet" label
+     * @param documentationButton Documentation URL button
+     */
+    protected record Metadata(
+            String helpButtonLabel,
+            String rejectedFeedbackLabel,
+            String approvedFeedbackLabel,
+            String rejectedNoFeedbackLabel,
+            String approvedNoFeedbackLabel,
+            Button documentationButton
+    ) { }
 }

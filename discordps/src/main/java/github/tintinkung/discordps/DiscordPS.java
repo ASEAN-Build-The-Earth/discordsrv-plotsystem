@@ -20,13 +20,18 @@ import github.scarsz.discordsrv.DiscordSRV;
 import github.tintinkung.discordps.core.database.DatabaseConnection;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTextColor;
 import github.tintinkung.discordps.core.providers.PluginListenerProvider;
+import github.tintinkung.discordps.core.system.Notification;
 import github.tintinkung.discordps.core.system.PlotSystemWebhook;
 import github.tintinkung.discordps.core.system.ShowcaseWebhook;
+import github.tintinkung.discordps.core.system.io.LangConfiguration;
+import github.tintinkung.discordps.core.system.io.LangManager;
+import github.tintinkung.discordps.core.system.io.SystemLang;
+import github.tintinkung.discordps.core.system.io.MessageLang;
+import github.tintinkung.discordps.core.system.io.lang.Notification.PluginMessage;
 import github.tintinkung.discordps.utils.CoordinatesUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.HandlerList;
-import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -59,6 +64,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
     private YamlConfiguration config;
     private YamlConfiguration webhookConfig;
     private YamlConfiguration showcaseConfig;
+    private LangConfiguration langConfig;
 
     private boolean debuggingEnabled = true;
 
@@ -102,6 +108,13 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         return (DiscordPS) plugin;
     }
 
+    public static @NotNull LangManager<SystemLang> getSystemLang() {
+        return getPlugin().langConfig.getSystemLang();
+    }
+
+    public static @NotNull LangManager<MessageLang> getMessagesLang() {
+        return getPlugin().langConfig.getMessagesLang();
+    }
 
     @Override
     public void onEnable() {
@@ -111,9 +124,11 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         // Create configs
         createConfig();
 
+        // Initialize plugin
         Thread initThread = createInitThread();
         initThread.start();
 
+        // Startup Message
         try(BukkitAudiences bukkit = BukkitAudiences.create(this)) {
             bukkit.console().sendMessage(text("[", NamedTextColor.GREEN)
                     .append(text("Discord Plot System", NamedTextColor.AQUA))
@@ -127,6 +142,19 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         final ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("DiscordPlotSystem - Shutdown").build();
         try(final ExecutorService executor = Executors.newSingleThreadExecutor(threadFactory)) {
             executor.invokeAll(Collections.singletonList(() -> {
+                if(isShuttingDown()) {
+                    DiscordPS.warning("==============================================================");
+                    DiscordPS.warning(shuttingDown);
+                    DiscordPS.warning(". . . Disabling DiscordPlotSystem V" + VERSION);
+                    DiscordPS.warning("==============================================================");
+                    Notification.notify(PluginMessage.PLUGIN_STOPPING_ON_ERROR, shuttingDown);
+                }
+                else {
+                    // Proper (or force) shutdown with no error message
+                    DiscordPS.info("Disabling DiscordPlotSystem V" + VERSION);
+                    Notification.notify(PluginMessage.PLUGIN_STOPPING_GRACEFUL);
+                }
+
                 // Unsubscribe to DiscordSRV
                 if(isDiscordSrvHookEnabled()) {
                     // Clear DiscordSRV event listener
@@ -151,17 +179,6 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
                 // unregister event listeners because of garbage reloading plugins
                 HandlerList.unregisterAll(this);
 
-                if(isShuttingDown()) {
-                    DiscordPS.warning("==============================================================");
-                    DiscordPS.warning(shuttingDown);
-                    DiscordPS.warning(". . . Disabling DiscordPlotSystem V" + VERSION);
-                    DiscordPS.warning("==============================================================");
-                }
-                else {
-                    // Proper (or force) shutdown with no error message
-                    DiscordPS.info("Disabling DiscordPlotSystem V" + VERSION);
-                }
-
                 return null;
             }), 15, TimeUnit.SECONDS);
 
@@ -176,6 +193,11 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         super.onDisable();
     }
 
+    /**
+     * Forcefully disable this plugin
+     *
+     * @param shutdownMessage The shutdown reason to log to console
+     */
     public void disablePlugin(@NotNull String shutdownMessage) {
         this.shuttingDown = shutdownMessage;
         SchedulerUtil.runTask(
@@ -212,8 +234,8 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
             DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, ex.getMessage(), ex);
         }
 
-        Plugin discordSRV = getServer().getPluginManager().getPlugin(DISCORD_SRV_SYMBOL);
-        Plugin plotSystem = getServer().getPluginManager().getPlugin(PLOT_SYSTEM_SYMBOL);
+        org.bukkit.plugin.Plugin discordSRV = getServer().getPluginManager().getPlugin(DISCORD_SRV_SYMBOL);
+        org.bukkit.plugin.Plugin plotSystem = getServer().getPluginManager().getPlugin(PLOT_SYSTEM_SYMBOL);
 
         if(plotSystem != null) {
             DiscordPS.info("Plot-System is loaded");
@@ -260,7 +282,9 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         this.config = new YamlConfiguration();
         this.webhookConfig = new YamlConfiguration();
         this.showcaseConfig = new YamlConfiguration();
+        this.langConfig = new LangConfiguration(this);
         try {
+            this.langConfig.initLanguageFiles();
             this.config.load(createConfig);
             this.webhookConfig.load(webhookConfig);
             this.showcaseConfig.load(showcaseConfig);
@@ -281,7 +305,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
      * @param plugin The DiscordSRV plugin instance
      * @see github.scarsz.discordsrv.api.ApiManager#subscribe(Object)
      */
-    public void subscribeToDiscordSRV(@NotNull Plugin plugin) {
+    public void subscribeToDiscordSRV(@NotNull org.bukkit.plugin.Plugin plugin) {
         DiscordPS.info("subscribing to DiscordSRV: " + plugin);
 
         if (!DISCORD_SRV_SYMBOL.equals(plugin.getName()) || !(plugin instanceof DiscordSRV)) {
@@ -312,7 +336,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
      *
      * @param plugin The Plot-System plugin instance
      */
-    public void subscribeToPlotSystemUtil(@NotNull Plugin plugin) {
+    public void subscribeToPlotSystemUtil(@NotNull org.bukkit.plugin.Plugin plugin) {
         try {
             // Find class symbol without triggering its static initializer
             ClassLoader classLoader = plugin.getClass().getClassLoader();

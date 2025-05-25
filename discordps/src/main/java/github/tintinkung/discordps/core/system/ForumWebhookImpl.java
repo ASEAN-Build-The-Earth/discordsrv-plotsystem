@@ -638,12 +638,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
 
 
     /**
-     * Queue a rest action followed by another rest action
-     *
-     * @param restAction The rest action to starts with
-     * @param whenComplete The follow-up action to do after the first action complete successfully, invoking with its result.
-     * @return The combined action that is completed with the follow-up action
-     * @param <T> The type of the action that will be resolved to
+     * {@inheritDoc}
      */
     @NotNull
     public <T> CompletableFuture<Optional<MessageReference>> queueNewUpdateAction(

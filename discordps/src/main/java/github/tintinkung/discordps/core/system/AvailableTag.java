@@ -1,5 +1,6 @@
 package github.tintinkung.discordps.core.system;
 
+import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.ConfigPaths;
 
@@ -29,12 +30,12 @@ import java.util.concurrent.TimeUnit;
  * configured with {@link ConfigPaths}, Value must be one-to-one to {@link ThreadStatus}.
  */
 public enum AvailableTag implements WebhookStatusProvider {
-    ON_GOING(ConfigPaths.TAG_ON_GOING, ConfigPaths.EMBED_COLOR_ON_GOING, Color.GRAY),
-    FINISHED(ConfigPaths.TAG_FINISHED, ConfigPaths.EMBED_COLOR_FINISHED, Color.YELLOW),
-    REJECTED(ConfigPaths.TAG_REJECTED, ConfigPaths.EMBED_COLOR_REJECTED, Color.RED),
-    APPROVED(ConfigPaths.TAG_APPROVED, ConfigPaths.EMBED_COLOR_APPROVED, Color.GREEN),
-    ARCHIVED(ConfigPaths.TAG_ARCHIVED, ConfigPaths.EMBED_COLOR_ARCHIVED, Color.CYAN),
-    ABANDONED(ConfigPaths.TAG_ABANDONED, ConfigPaths.EMBED_COLOR_ABANDONED, Color.GRAY);
+    ON_GOING(ConfigPaths.TAG_ON_GOING, ConfigPaths.EMBED_COLOR_ON_GOING, Constants.GRAY),
+    FINISHED(ConfigPaths.TAG_FINISHED, ConfigPaths.EMBED_COLOR_FINISHED, Constants.YELLOW),
+    REJECTED(ConfigPaths.TAG_REJECTED, ConfigPaths.EMBED_COLOR_REJECTED, Constants.RED),
+    APPROVED(ConfigPaths.TAG_APPROVED, ConfigPaths.EMBED_COLOR_APPROVED, Constants.GREEN),
+    ARCHIVED(ConfigPaths.TAG_ARCHIVED, ConfigPaths.EMBED_COLOR_ARCHIVED, Constants.BLUE),
+    ABANDONED(ConfigPaths.TAG_ABANDONED, ConfigPaths.EMBED_COLOR_ABANDONED, Constants.PURPLE);
 
     private static final ExpiringDualHashBidiMap<String, String> tagCache = new ExpiringDualHashBidiMap<>(TimeUnit.SECONDS.toMillis(10));
     private static final ColorSpace colorSpace = ColorSpace.getInstance(ColorSpace.CS_sRGB);

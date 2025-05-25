@@ -1,0 +1,518 @@
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# System Related Messages -- Edit with cautions
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+# ------------------------
+# 🛠 Archived thread prefix
+# The prefix that will be applied to thread name when archiving this plot
+# This field is safe to edit
+# ------------------------
+archive-prefix: "[Archived]"
+
+# ------------------------
+# 🛠 Notification Messages
+# Message embeds sending to notification channel
+# ------------------------
+system-notification:
+  # Plugin started embed
+  plugin-started:
+    - ":green_circle: Discord-PlotSystem started."
+    - ~
+  # Plugin shutdown embed
+  plugin-stopping-graceful:
+    - ":orange_circle: Server is shutting down, Disabling Discord-PlotSystem."
+    - ~
+  plugin-stopping-on-error:
+    - ":red_circle: Fatal error occurred! Disabling Discord-PlotSystem."
+    - ~
+  plot-status:
+    plot-created:
+      - ":hammer_pick: New Plot Created at <#{threadID}>"
+      - "By {owner} (Plot ID: {plotID})"
+    plot-submitted:
+      - ":bell: Plot #{plotID} Has just submitted <t:{timestamp}:R>"
+      - "Tracker: <#{threadID}>"
+    plot-approved:
+      - ":sparkles: Plot #{plotID} has been approved!"
+      - "Tracker: <#{threadID}>"
+    plot-rejected:
+      - ":broken_heart: Plot #{plotID} has been *rejected*"
+      - "Tracker: <#{threadID}>"
+    plot-inactive-abandoned:
+      - ":broken_heart: Plot #{plotID} is now abandoned due to inactivity"
+      - "Tracker: <#{threadID}>"
+    plot-manually-abandoned:
+      - ":broken_heart: Plot #{plotID} is now abandoned by the builder"
+      - "Tracker: <#{threadID}>"
+  plot-commands:
+    plot-fetch:
+      - "A thread as been fetched to the status `{label}`"
+      - "Updated by <@{userID}> (Plot ID: {plotID})"
+    plot-delete:
+      - "An Entry has been deleted from the database"
+      - |
+        A Manual deletion event has been triggered by <@{userID}> to delete a webhook entry from the database.
+        The entry from message ID `{messageID}` at <#{threadID}> will no longer be tracked by the system.
+    plot-archive:
+      - "Plot #{plotID} has been archived!"
+      - "<@{userID}> Archived the plot in <#{threadID}>"
+    plot-showcase:
+      - ":sparkles: Plot Showcased!"
+      - "Thread: <#{threadID}> Showcased by: <@{userID}>"
+  # System error messages
+  system-error:
+    # Error title applied to all system related error notifications
+    error-title: ":red_circle: Discord Plot-System Error"
+    # Stacktrace field title to all system related error notifications
+    error-label: "Error"
+
+    # Invalid data exceptions, e.g. if the updating data
+    # is outdated from the running plugin version
+    plot-create-exception:
+      - ~
+      - >
+        Runtime exception **creating** new plot thread, The plot ID #`{plotID}` 
+        may or may not be tracked correctly by the system depending on the error.
+    plot-update-exception:
+      - ~
+      - >
+        Runtime exception **updating** plot data ({event}), The plot ID #`{plotID}` 
+        may or may not be tracked correctly by the system depending on the error.
+    plot-feedback-sql-exception:
+      - ~
+      - >
+        Failed update webhook feedback in the database, The plot ID #`{plotID}` 
+        may or may not be tracked by the system depending on the error.
+    plot-update-sql-exception:
+      - ~
+      - >
+        SQL exception occurred **updating** plot data ({event}), The plot ID #`{plotID}` 
+        may or may not be tracked by the system depending on the error.
+    plot-register-entry-exception:
+      - ~
+      - >
+        Failed to create and register new plot because its data does not exist in plot-system database,
+        The plot ID #`{plotID}` will not be tracked by the system.
+    plot-feedback-get-exception:
+      - ~
+      - >
+        Runtime exception **fetching** plot feedback, 
+        The owner of plot ID #`{plotID}` <@{userID}> cannot view their feedback message!
+    # Plot updating failure
+    failed-attach-button:
+      - ~
+      - "Failed to attach interactions (buttons) to a plot entry."
+    failed-thread-edit:
+      - ~
+      - "Failed to update thread data (this include thread name and its tags)."
+    failed-message-edit:
+      - ~
+      - "Failed to update plot status message."
+    failed-layout-edit:
+      - ~
+      - "Failed to update thread layout."
+
+    # Unknown exception in plot processing stages
+    plot-update-unknown-exception:
+      - ~
+      - "Error occurred while updating plot data."
+    plot-create-unknown-exception:
+      - ~
+      - "Failed to resolve data trying to create new plot."
+    plot-register-unknown-exception:
+      - ~
+      - "Failed to resolve data trying to register new plot to database."
+    plot-feedback-unknown-exception:
+      - ~
+      - "Error occurred while setting plot's feedback data."
+
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# System Slash Commands -- Edit with cautions
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+slash-commands:
+  # ------------------------
+  # Common Interactions
+  # ------------------------
+  interactions:
+    buttons:
+      confirm: "Confirm"
+      dismiss: "Dismiss"
+      cancel: "Cancel"
+      attach-image: "Attach Image"
+      provide-image: "Already Provided"
+      archive-now: "Archive Now"
+      showcase-now: "Showcase Now"
+      confirm-delete: "Confirm Delete"
+      create-register: "Create & Register"
+      create-untracked: "Create & Make un-tracked"
+      create-webhook: "Create Webhook"
+    labels:
+      latest: "Latest"
+      error: "Error"
+      error-occurred: "Error occurred!"
+      sql-error-occurred: "SQL Exception Occurred!"
+    embeds:
+      attach-image-error:
+        - "Please send a message with attachment"
+        - "And make sure it is the latest message before confirming."
+      attach-image-interaction:
+        - ":paperclip: Attach an image"
+        - "Please send a message with one image attachment below, and click the confirm button to apply."
+      provide-image-interaction:
+        - ":open_file_folder: Provide an image"
+        - "Please upload an image named `{filename}` in your plugin data folder: ```{path}```"
+
+  # ------------------------
+  # Plot Management Commands
+  # ------------------------
+  plot-command:
+    description: "Manually manage Discord Plot-System"
+    messages:
+      empty-action-exception: |
+        Plot create action returned empty, possibly an internal error occurred! 
+        please debug this process for more info.
+      unknown-owner-exception: |
+        Plot has no owner! This plugin does not support fetching un-claim plot.
+        A plot must be created by a member first before it can be manually fetch for any updates.
+      null-action-exception: |
+        Failed to fetch plot data from plot-system database, possibly sql exception has occurred. 
+        please debug this process for more info.
+  plot-delete:
+    description:
+      command: "Delete a plot from being tracked by the system"
+      plot-id: "The plot ID to be deleted"
+    embeds:
+      delete-info:
+        - "Delete Options"
+        - "Found plot to delete, please choose what entry to delete."
+      nothing-to-delete:
+        - "Nothing to Delete!"
+        - "There are no entries found for this plot ID."
+      deleted-info:
+        - "Entry Deleted"
+        - "The entry from message ID `{messageID}` at <#{threadID}> will no longer be tracked by the system."
+      deleted-notification:
+        - "An Entry has been deleted from the database"
+        - |
+          A Manual deletion event has been triggered by <@{userID}> to delete a webhook entry from the database.
+          The entry from message ID `{messageID}` at <#{threadID}> will no longer be tracked by the system.
+    messages:
+      sql-get-error: "The system failed get data for this plot ID, cannot delete the entry."
+      sql-delete-error: "The system failed delete entry data."
+      validation-error: "The system failed to verify selected plot to delete."
+  plot-showcase:
+    description:
+      command: "Showcase a completed plot by ID"
+      plot-id: "The plot ID in integer to showcase"
+    embeds:
+      showcase-info:
+        - "Confirm your showcase data"
+        - ":warning: After confirming, the action cannot be undo or edited."
+      nothing-to-showcase:
+        - "Nothing to Showcase!"
+        - "There are no entries found for this plot ID."
+      plot-not-archived:
+        - "Cannot Showcase!"
+        - >
+          The plot to showcase has to be mark archived first! 
+          run the command `/plot archive` to proceed the archival steps.
+      on-showcase:
+        - "Processing Data . . ."
+        - "Showcase output will be created on showcase forum soon."
+      showcase-success-notification:
+        - ":sparkles: Plot Showcased!"
+        - "Thread: <#{threadID}> Showcased by: <@{userID}>"
+    messages:
+      thread-id: "Thread ID"
+      plot-title: "Plot Title"
+      owner: "Owner"
+      owner-avatar: "Owner Avatar"
+      image-files: "Image File(s)"
+      location: "Location"
+      google-map-link: "Google Map Link"
+      showcased-to: "Plot Showcased to <#{threadID}>"
+      error-failed-to-showcase: "Failed to showcase this plot."
+      plot-data-returned-null: "Failed to retrieve plot data"
+      plot-data-no-owner: "Plot data to showcase invalid"
+  plot-fetch:
+    description:
+      command: "Manually fetch a plot tracking thread to a new status"
+      plot-id: "The plot ID to fetch"
+      override: "If false will create new thread for this plot"
+      tag: "Fetch/Update the status {label} to this plot."
+    embeds:
+      cannot-fetch-archive:
+        - "Cannot fetch plot as archived"
+        - "Use the command `/plot archive` to archive a plot instead."
+      status-not-set:
+        - "Status not set"
+        - "Confirming this will fetch the current plot-system status of this plot ID as the primary status."
+      already-registered:
+        - "Plot already registered in the database"
+        - "Found {count} entries of this plot ID in the database. "
+      fetch-success:
+        - "Fetched Plot#{plotID} at <#{threadID}>"
+        - "for <@{userID}>"
+      override-options:
+        - "Override Options"
+        - "This plot has an existing entry which will be overwritten!"
+      not-tracked-options:
+        - "Plot not tracked!"
+        - >
+          This plot is not registered in the database,
+          do you want to register it or make it an un-tracked thread?
+      on-create:
+        - "Creating Plot . . ."
+        - ~
+      on-create-successful:
+        - "Successfully created the plot!"
+        - ~
+    messages:
+      confirm-fetch: "Confirm Fetch"
+      plot-id: "Plot ID"
+      override: "Override Existing"
+      primary-status: "Primary Status"
+      override-enabled: "Confirming this will override the existing thread."
+      override-disabled: "To proceed, please use this command again with override set to `true`."
+      sql-plot-error: "The system failed to verify if the plot ID exist in the database or not, proceed with cautions."
+      sql-get-error: "The system failed to get entry data."
+      error-override-validation: "The system failed to verify selected plot to override."
+  plot-archive:
+    description:
+      command: "Archive a plot"
+      plot-id: "The plot ID in integer to be archived"
+      override: "If false will create new thread for this archival plot"
+    embeds:
+      image-not-set:
+        - "Plot images is not set!"
+        - >
+          For archival we require some completed image to showcase this plot,
+          Please choose a method to apply plot images.
+      image-attached:
+        - "There are already image attached to this plot"
+        - >
+          You can archive this plot right away or attach more images into it,
+          archiving now will edit the existing thread status as archived.
+      found-thread:
+        - "Found tracking thread <#{threadID}> to archive"
+        - "Please make sure this thread exist and it is the thread for plot ID `{plotID}`"
+      nothing-to-archive:
+        - "Nothing to Archive!"
+        - "There are no entries found for this plot ID."
+      on-upload:
+        - "Saving Attachment . . ."
+        - ~
+      on-archive:
+        - "Archiving Plot . . ."
+        - ~
+      on-attachment-download-failed:
+        - "Failed to save attachment images!"
+        - >
+          The system failed save your image attachments to server resource,
+          please try again or provide it manually instead.
+      on-layout-failed:
+        - > 
+          The system failed to restore this plot's thread layout data,
+          maybe it is created from an outdated version of this plugin. 
+          You can try using this command again with **override** set to `true`
+          to create a new thread for archiving this plot.
+      showcase-this-plot:
+        - "Showcase this plot"
+        - "The plugin has showcase webhook enabled! continue to showcase this plot?"
+      media-folder-created:
+        - ":open_file_folder: Created media folder to archive plot"
+        - ~
+      media-pending-cache:
+        - ":warning: Detected cached image files that is not attached to the plot layout"
+        - "Attaching new image files will delete this cached files, make sure these file is not important."
+      media-folder-failed:
+        - ":warning: Failed to create plot media folder"
+        - "Images may not be save correctly, please create the media folder manually instead."
+      archive-successful:
+        - "Successfully archived the plot!"
+        - ~
+    messages:
+      on-layout-failed: >
+          The system failed to restore this plot's thread layout data,
+          maybe it is created from an outdated version of this plugin. 
+          You can try using this command again with **override** set to `true`
+          to create a new thread for archiving this plot.
+      cannot-showcase: "Internal error occurred triggering showcase command. Instead try /plot showcase"
+      interaction-empty: "The system failed to process this archive information."
+      media-folder-not-exist: "The system failed to find plot's media folder"
+      media-cache-deleted: "Deleted pending cached file (\"{filename}\") to archive plot images"
+      media-saved: "Saved {count} image(s)"
+      confirm-archive: "Confirm Archive"
+      detected-files: "Detected Files"
+      archive-override-enabled: "**Overriding enabled**, the existing plot's thread will be edited to archived status."
+      archive-override-disabled: "Override **disabled**, the system will create a new non-tracked thread to archive this plot."
+
+  # ------------------------
+  # System Setup Commands
+  # ------------------------
+  setup-command:
+    description: "Setup Discord Plot-System Configuration"
+  setup-showcase:
+    description: "Setup Plot-System showcase channel setup"
+  setup-webhook:
+    description:
+      command: "Setup Plot-System webhook integration"
+      channel: "The webhook forum channel that will be created in"
+      name: "The webhook name that will be displayed"
+    embeds:
+      already-configured:
+        - "Already configured!"
+        - | 
+          A webhook is already configured in the plugin's config file.
+          If you want to create a new webhook, please delete (and backup) the file: ```{path}```
+          Then, restart the plugin and use this command again.
+      bad-username:
+        - "Bad user name!"
+        - >
+          User cannot contain the substring of discord api
+          banned/blocked words (eg. Clyde and Discord)
+          and DiscordSRV owned webhook name (DSRV, DiscordSRV)
+      bad-channel:
+        - "Bad channel!"
+        - "Only Forum channel is supported by this plugin."
+      cant-verify-channel:
+        - "Error Occurred!"
+        - >
+          Failed to try verify channel type,
+          please make sure the given channel is a forum channel.
+          You may proceed with cautions
+      internal-exception:
+        - "Internal Exception Occurred!"
+        - "Please see the server console or send help from the developer."
+      confirm-settings:
+        - "Please verify your webhook settings"
+        - ~
+      created-with-no-perms:
+        - "Webhook Created BUT no permission to write in config file"
+        - >
+          Please replace the field "webhook" with all fields 
+          created in the embed above in the plugin's data folder at: ```{path}```
+          Run the `/setup` command again check the checklist.
+      image-download-failed:
+        - "Failed to save attachment images!"
+        - >
+          The system failed save your image attachments to server resource,
+          please try again or provide it manually instead.
+      setup-avatar-image:
+        - "Webhook avatar image is not set!"
+        - "Please choose a method to apply webhook avatar image."
+      uploading-attachments:
+        - "Uploading Attachment . . ."
+        - "Please wait . . ."
+      file-not-found:
+        - "File not found!"
+        - "Make sure the file is named `{filename}` and provided at the path: ```{path}```"
+      created-success:
+        - "Discord-PlotSystem Webhook Created"
+        - "Webhook config has been saved to `{path}`, Run `/setup help` command to check the checklist"
+      created-info:
+        - "Webhook created"
+        - "Consider pinning this message or archive it somewhere."
+      created-confirmation:
+        - "Confirm your final config"
+        - "Make sure the channel is a Forum channel, otherwise the plugin will not be functional."
+    messages:
+      webhook-name: "Webhook Name"
+      webhook-channel: "Webhook Channel"
+  setup-help:
+    description:
+      command: "See the Discord-PlotSystem integration checklist"
+    embeds:
+      not-ready:
+        - ":x: Discord-PlotSystem is NOT Ready!"
+        - "There are unresolved configuration or runtime errors preventing startup."
+      ready-with-warning:
+        - ":warning: Discord-PlotSystem is Ready (with warnings)"
+        - "The plugin is usable, but consider resolving these warnings."
+      ready:
+        - ":white_check_mark: Discord-PlotSystem is Ready!"
+        - "The plugin is fully configured and ready for use."
+      checklist:
+        - ":receipt: Setup Checklist"
+        - "All checks must pass for full functionality."
+      debugging-notice:
+        - ":warning: Notices"
+        - |
+          The configuration and control commands `/setup` and `/plot` are **publicly accessible by default**.
+          To secure these commands:
+          - Open the bot’s **Slash Command Permissions** in the Server integration settings.  
+          - **Disable access for `@everyone`**.
+          - **Add permission overrides to allow only trusted roles or users**.
+          -# Edit the plugin's `config.yml` and set `debugging: false` to disable this message.
+      tags-config-info:
+        - ":orange_circle: Webhook forum channel is missing required tags"
+        - >
+          > The field `available-tag` in `config.yml` must be configured
+          with the available and existing tags in the forum channel.
+          The value can be either the tag name or the snowflake ID.
+    # Checklist Messages
+    messages:
+      warnings: ":warning:️ Warnings"
+
+# ------------------------------------------------------------------
+# 🛠 System Debugging Messages
+# These messages are shown when using the /setup help command.
+# Each key maps to a debugging error group (passed/failed).
+# Each value is an embed field with a title and description.
+# ------------------------------------------------------------------
+debugging:
+  # ErrorGroup.CONFIG_VALIDATION
+  config-validation:
+    failed:
+      - "Failed to load one or more configuration files"
+      - |
+        An internal error occurred while loading the configuration files. 
+        This should not happen—please contact the developer for support.
+    passed:
+      - "Configuration files loaded successfully"
+      - |
+        Successfully validated configuration files at:
+        `{path}/webhook.yml`
+        `{path}/config.yml`
+  # ErrorGroup.PLUGIN_VALIDATION
+  plugin-validation:
+    failed:
+      - "Failed to validate required plugin: DiscordSRV"
+      - >
+        Failed to validate the DiscordSRV plugin. 
+        Please ensure it is installed and enabled on the server.
+    passed:
+      - "DiscordSRV plugin validated successfully"
+      - "Successfully subscribed to the DiscordSRV API."
+  # ErrorGroup.DATABASE_CONNECTION
+  database-connection:
+    failed:
+      - "Failed to connect to the Plot-System database"
+      - |
+        Unable to connect to the Plot-System database. Please verify your settings in:
+        `{path}/config.yml`
+    passed:
+      - "Connected to the Plot-System database"
+      - "Successfully connected to the Plot-System database."
+  # ErrorGroup.WEBHOOK_REFS_VALIDATION
+  webhook-refs-validation:
+    failed:
+      - "Failed to validate webhook configurations"
+      - >
+        One or more required webhook configurations could not be validated. 
+        Please check your webhook setup.
+    passed:
+      - "Webhook configurations are valid"
+      - |
+        All webhook configurations are valid at:
+        `{path}/webhook.yml`
+  # ErrorGroup.WEBHOOK_CHANNEL_VALIDATION
+  webhook-channel-validation:
+    failed:
+      - "The configured webhook has unresolved channel errors"
+      - |
+        The configured webhook's channel could not be validated. 
+        Please ensure it is set to a proper forum channel and has the required tags.
+    passed:
+      - "Webhook channel confirmed and operational"
+      - "Webhook channel successfully validated."

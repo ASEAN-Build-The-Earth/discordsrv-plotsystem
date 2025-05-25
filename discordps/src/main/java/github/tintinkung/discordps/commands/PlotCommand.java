@@ -1,6 +1,7 @@
 package github.tintinkung.discordps.commands;
 
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.build.CommandData;
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.commands.events.PlotArchiveEvent;
 import github.tintinkung.discordps.commands.events.PlotDeleteEvent;
 import github.tintinkung.discordps.commands.events.PlotFetchEvent;
@@ -10,10 +11,12 @@ import github.tintinkung.discordps.commands.interactions.OnPlotDelete;
 import github.tintinkung.discordps.commands.interactions.OnPlotFetch;
 import github.tintinkung.discordps.commands.interactions.OnPlotShowcase;
 import github.tintinkung.discordps.commands.providers.SlashCommand;
+import static github.tintinkung.discordps.core.system.io.lang.PlotCommand.DESC;
 
 public final class PlotCommand extends CommandData {
 
     // Common parameters
+    // TODO: rename to /plotctl as for plot controls commands
     public static final String PLOT = "plot";
     public static final String PLOT_ID = "id";
     public static final String PLOT_OVERRIDE = "override";
@@ -36,7 +39,7 @@ public final class PlotCommand extends CommandData {
     private final PlotShowcaseCommand plotShowcaseCommand;
 
     public PlotCommand(boolean defaultEnabled) {
-        super(PLOT, "Manually debug Discord Plot-System");
+        super(PLOT, DiscordPS.getSystemLang().get(DESC));
         this.addSubcommands(
                 plotArchiveCommand = new PlotArchiveCommand(ARCHIVE, PLOT_ID, PLOT_OVERRIDE),
                 plotFetchCommand = new PlotFetchCommand(FETCH, PLOT_ID, PLOT_OVERRIDE),

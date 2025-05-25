@@ -8,12 +8,15 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Act
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectOption;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.tintinkung.discordps.DiscordPS;
+import github.tintinkung.discordps.api.events.PlotEvent;
+import github.tintinkung.discordps.api.events.PlotUndoReviewEvent;
 import github.tintinkung.discordps.commands.interactions.OnPlotFetch;
 import github.tintinkung.discordps.commands.providers.AbstractPlotFetchCommand;
 import github.tintinkung.discordps.core.database.PlotEntry;
 import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.system.*;
+import github.tintinkung.discordps.core.system.io.lang.Format;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -21,40 +24,38 @@ import org.jetbrains.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static github.tintinkung.discordps.core.system.io.lang.Notification.CommandMessage;
+import static github.tintinkung.discordps.core.system.io.lang.PlotFetchCommand.*;
+import static github.tintinkung.discordps.Constants.RED;
+import static github.tintinkung.discordps.Constants.GREEN;
+import static github.tintinkung.discordps.Constants.ORANGE;
 
 class PlotFetchCommand extends AbstractPlotFetchCommand {
 
     public PlotFetchCommand(@NotNull String name, @NotNull String plotID, @NotNull String override) {
-        super(name, "Manually create a plot tracking thread by ID");
+        super(name);
 
-        this.addOption(
-            OptionType.INTEGER,
-            plotID,
-            "The plot ID in integer to be fetch",
-            true);
+        this.setDescription(getLang(DESC));
 
-        this.addOption(
-            OptionType.BOOLEAN,
-            override,
-            "If false will create new thread for this plot",
-            true);
+        this.addOption(OptionType.INTEGER, plotID, getLang(DESC_PLOT_ID), true);
+
+        this.addOption(OptionType.BOOLEAN, override, getLang(DESC_OVERRIDE), true);
 
         for(ThreadStatus status : ThreadStatus.VALUES) {
-            this.addOption(
-                OptionType.BOOLEAN,
-                status.name(),
-                "Apply the initial status `" + status.name() + "` to this plot on creation.",
-                false);
+            String description = getLang(DESC_TAG).replace(Format.LABEL, status.name());
+            this.addOption(OptionType.BOOLEAN, status.name(), description, false);
         }
     }
 
     @Override
     public void onCommandTriggered(@NotNull InteractionHook hook, @NotNull OnPlotFetch payload) {
-        if(payload.getPrimaryStatus() == null) this.queueEmbed(hook, STATUS_WARNING);
+        if(payload.getPrimaryStatus() == null) this.queueEmbed(hook, getEmbed(ORANGE, EMBED_STATUS_NOT_SET));
         else if(payload.getPrimaryStatus() == ThreadStatus.archived) {
-            this.queueEmbed(hook, STATUS_EXCEPTION);
+            this.queueEmbed(hook, getEmbed(RED, EMBED_CANNOT_MAKE_ARCHIVE));
             return;
         }
 
@@ -63,18 +64,21 @@ class PlotFetchCommand extends AbstractPlotFetchCommand {
 
             // Existing entries detected
             if(!entries.isEmpty()) {
-                this.queueEmbed(hook, OVERRIDE_WARNING.apply(entries.size(), payload.override));
+                this.queueEmbed(hook, formatOverrideWarning(
+                        String.valueOf(entries.size()),
+                        payload.override)
+                );
                 // Exit if we can't override the data
                 if(!payload.override) return;
             }
         }
         catch (SQLException ex) {
-            this.queueEmbed(hook, SQL_ERROR_PLOT.apply(ex.toString()));
+            this.queueEmbed(hook, sqlErrorEmbed(MESSAGE_SQL_GET_ERROR, ex.toString()));
         }
 
         ActionRow options = ActionRow.of(
-            FETCH_CONFIRM_BUTTON.apply(payload),
-            FETCH_DISMISS_BUTTON.apply(payload)
+            Button.FETCH_CONFIRM.get(payload),
+            Button.FETCH_DISMISS.get(payload)
         );
 
         MessageEmbed embed = this.formatConfirmationEmbed(
@@ -96,36 +100,36 @@ class PlotFetchCommand extends AbstractPlotFetchCommand {
 
                 entries.forEach(entry -> this.formatEntryOption(entry, menu::registerMenuOption));
 
-                hook.sendMessageEmbeds(OVERRIDE_INFO)
+                hook.sendMessageEmbeds(getEmbed(ORANGE, EMBED_OVERRIDE_OPTIONS))
                     .addActionRow(menu.build())
                     .addActionRow(
-                        OVERRIDE_CONFIRM_BUTTON.apply(interaction),
-                        OVERRIDE_CANCEL_BUTTON.apply(interaction))
+                        Button.OVERRIDE_CONFIRM.get(interaction),
+                        Button.OVERRIDE_CANCEL.get(interaction))
                     .setEphemeral(true)
                     .queue();
                 return;
             }
         }
         catch (SQLException ex) {
-            this.queueEmbed(hook, SQL_ERROR_PLOT.apply(ex.toString()));
+            this.queueEmbed(hook, sqlErrorEmbed(MESSAGE_SQL_PLOT_ERROR, ex.toString()));
         }
 
         // Plot does not exist in the database
         // Send creation options
         ActionRow interactions = ActionRow.of(
-            CREATE_REGISTER_BUTTON.apply(interaction),
-            CREATE_UNTRACKED_BUTTON.apply(interaction),
-            CREATE_CANCEL_BUTTON.apply(interaction)
+            Button.CREATE_REGISTER.get(interaction),
+            Button.CREATE_UNTRACKED.get(interaction),
+            Button.CREATE_CANCEL.get(interaction)
         );
 
-        this.queueEmbed(hook, interactions, CREATE_INFO);
+        this.queueEmbed(hook, interactions, getEmbed(ORANGE, EMBED_UNTRACKED_OPTIONS));
     }
 
     public void onConfirmOverride(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction) {
         DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
 
         if(interaction.getFetchOptions() == null || interaction.getFetchOptions().isEmpty()) {
-            this.queueEmbed(hook, ERROR_SELECTED_OPTION);
+            this.queueEmbed(hook, errorEmbed(MESSAGE_VALIDATION_ERROR));
             return;
         }
 
@@ -148,29 +152,63 @@ class PlotFetchCommand extends AbstractPlotFetchCommand {
                     Long.toUnsignedString(entry.threadID())
                 );
 
-                DiscordPS.getPlugin().getWebhook().updatePlot(
-                    action,
-                    null,
-                    interaction.getPrimaryStatus() == null? entry.status() : interaction.getPrimaryStatus(),
-                    ignored -> this.queueEmbed(hook, FETCH_SUCCESSFUL.apply(interaction.getPlotID(), entry))
-                );
+                ThreadStatus updateStatus = interaction.getPrimaryStatus() == null
+                        ? entry.status()
+                        : interaction.getPrimaryStatus();
+
+                PlotEvent event = null;
+
+                // Detect if this fetch even is an undo from reviewed plot to finished
+                if(entry.status() != updateStatus) {
+                    if(entry.status() == ThreadStatus.approved || entry.status() == ThreadStatus.rejected)
+                        if(updateStatus == ThreadStatus.finished)
+                            event = new PlotUndoReviewEvent(interaction.getPlotID());
+                }
+
+                BiConsumer<PlotSystemThread.UpdateAction, ? super Throwable> handler = (ok, error) -> {
+                    if(error != null) this.queueEmbed(hook, errorEmbed(error.toString()));
+                    else {
+                        this.queueEmbed(hook, formatSuccessEmbed(interaction.getPlotID(), entry));
+                        Notification.notify(
+                            CommandMessage.PLOT_FETCH,
+                            updateStatus.name(),
+                            hook.getInteraction().getUser().getId(),
+                            String.valueOf(interaction.plotID)
+                        );
+                    }
+                };
+
+                DiscordPS.getPlugin()
+                    .getWebhook()
+                    .updatePlot(action, event, updateStatus)
+                    .whenComplete(handler);
             }
             catch (SQLException ex) {
-                this.queueEmbed(hook, SQL_ERROR_ENTRY.apply(ex.toString()));
+                this.queueEmbed(hook, sqlErrorEmbed(MESSAGE_SQL_GET_ERROR, ex.toString()));
             }
         }
     }
 
     public void onCreateRegister(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction) {
-        Consumer<Message> onCreatePlot = createPlot(DiscordPS.getPlugin().getWebhook()::createAndRegisterNewPlot, interaction);
-
-        hook.sendMessageEmbeds(CREATING_MESSAGE).setEphemeral(true).queue(onCreatePlot);
+        this.createPlot(
+            DiscordPS.getPlugin().getWebhook()::createAndRegisterNewPlot,
+            hook.getInteraction().getUser().getId(),
+            interaction,
+            hook.sendMessageEmbeds(getEmbed(ORANGE, EMBED_ON_CREATE))
+                .setEphemeral(true)
+                .submit()
+        );
     }
 
     public void onCreateUntracked(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction) {
-        Consumer<Message> onCreatePlot = createPlot(DiscordPS.getPlugin().getWebhook()::createNewUntrackedPlot, interaction);
-
-        hook.sendMessageEmbeds(CREATING_MESSAGE).setEphemeral(true).queue(onCreatePlot);
+        this.createPlot(
+            DiscordPS.getPlugin().getWebhook()::createNewUntrackedPlot,
+            hook.getInteraction().getUser().getId(),
+            interaction,
+            hook.sendMessageEmbeds(getEmbed(ORANGE, EMBED_ON_CREATE))
+                .setEphemeral(true)
+                .submit()
+        );
     }
 
     /**
@@ -178,19 +216,39 @@ class PlotFetchCommand extends AbstractPlotFetchCommand {
      * returning as an action consumer for embed message.
      *
      * @param creator The plot creator reference to call for
+     * @param userID The user that triggered this interaction for notification message
      * @param interaction The interaction data
-     * @return An action consumer to edit message as the creation status
+     * @param receiver An action consumer to edit message as the creation status
      */
     @Contract(pure = true)
-    private @NotNull Consumer<Message> createPlot(@NotNull Function<PlotSystemThread, CompletableFuture<Void>> creator,
-                                                  @NotNull OnPlotFetch interaction) {
-        return  defer -> this.createPlot(
-                creator,
-                interaction.getPlotID(),
-                interaction.getPrimaryStatus(),
-                ok -> defer.editMessageEmbeds(SUCCESSFULLY_CREATED).queue(),
-                failed -> defer.editMessageEmbeds(ON_CREATE_ERROR.apply(failed.toString())).queue()
+    private void createPlot(@NotNull Function<PlotSystemThread, CompletableFuture<Void>> creator,
+                            @NotNull String userID,
+                            @NotNull OnPlotFetch interaction,
+                            @NotNull CompletableFuture<Message> receiver) {
+        Consumer<PlotEntry> onSuccess = plot -> {
+            // Edit defer embed as successful
+            receiver.thenAccept(this::acceptSuccessful);
+
+            // Notify the system
+            Notification.notify(
+                CommandMessage.PLOT_FETCH,
+                interaction.getPrimaryStatus() != null
+                    ? interaction.getPrimaryStatus().name()
+                    : ThreadStatus.fromPlotStatus(plot.status()).name(),
+                userID,
+                String.valueOf(interaction.plotID)
+            );
+        };
+
+        Consumer<Throwable> onFailure = failed -> receiver.thenAccept(
+            defer -> defer.editMessageEmbeds(errorEmbed(failed.toString())).queue()
         );
+
+        this.createPlot(creator, interaction.getPlotID(), interaction.getPrimaryStatus(), onSuccess, onFailure);
+    }
+
+    private void acceptSuccessful(@NotNull Message defer) {
+        defer.editMessageEmbeds(getEmbed(GREEN, EMBED_ON_CREATE_SUCCESS)).queue();
     }
 
     /**
@@ -206,15 +264,15 @@ class PlotFetchCommand extends AbstractPlotFetchCommand {
     private void createPlot(@NotNull Function<PlotSystemThread, CompletableFuture<Void>> creator,
                             int plotID,
                             @Nullable ThreadStatus status,
-                            @NotNull Consumer<Void> onSuccess,
+                            @NotNull Consumer<PlotEntry> onSuccess,
                             @NotNull Consumer<Throwable> onFailure) {
         PlotEntry plot = PlotEntry.getByID(plotID);
 
         if(plot == null) {
-            onFailure.accept(PLOT_FETCH_RETURNED_NULL);
+            onFailure.accept(Error.PLOT_FETCH_RETURNED_NULL.get());
             return;
         } else if (plot.ownerUUID() == null) {
-            onFailure.accept(PLOT_FETCH_UNKNOWN_OWNER);
+            onFailure.accept(Error.PLOT_FETCH_UNKNOWN_OWNER.get());
             return;
         }
 
@@ -229,10 +287,12 @@ class PlotFetchCommand extends AbstractPlotFetchCommand {
 
         CompletableFuture<Void> createAction =  creator.apply(thread);
 
-        if(createAction == null) onFailure.accept(PLOT_CREATE_RETURNED_NULL);
-        else createAction.whenComplete((ok, error) -> {
+        if(createAction == null)
+            onFailure.accept(Error.PLOT_CREATE_RETURNED_NULL.get());
+        else
+            createAction.whenComplete((ok, error) -> {
             if(error != null) onFailure.accept(error);
-            else onSuccess.accept(ok);
+            else onSuccess.accept(plot);
         });
     }
 }

@@ -4,6 +4,9 @@ import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.api.events.PlotEvent;
 import github.tintinkung.discordps.core.database.PlotEntry;
 import github.tintinkung.discordps.core.database.WebhookEntry;
+import github.tintinkung.discordps.core.system.io.lang.Format;
+import github.tintinkung.discordps.core.system.io.lang.HistoryMessage;
+import github.tintinkung.discordps.core.system.io.lang.PlotInformation;
 import github.tintinkung.discordps.core.system.layout.InfoComponent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -16,6 +19,15 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static github.tintinkung.discordps.core.system.io.lang.Notification.ErrorMessage.PLOT_UPDATE_SQL_EXCEPTION;
+
+/**
+ * Plot-System forum thread manager
+ *
+ * @see #setProvider(PlotDataProvider)
+ * @see #setApplier(ThreadNameApplier)
+ * @see #setModifier(PlotInfoModifier)
+ */
 public class PlotSystemThread {
 
     /**
@@ -26,7 +38,10 @@ public class PlotSystemThread {
      *
      * @see #DEFAULT_THREAD_NAME
      */
-    public static final BiFunction<Integer, String, String> THREAD_NAME = (plotID, ownerName) -> "Plot #" + plotID + " " + ownerName;
+    public static final BiFunction<Integer, String, String> THREAD_NAME = (plotID, ownerName) -> DiscordPS.getMessagesLang()
+            .get(PlotInformation.THREAD_NAME)
+            .replace(Format.OWNER, ownerName)
+            .replace(Format.PLOT_ID, String.valueOf(plotID));
 
     public static final Function<Integer, ThreadNameApplier> DEFAULT_THREAD_NAME = plotID -> owner -> THREAD_NAME.apply(plotID, owner.formatOwnerName());
 
@@ -37,7 +52,10 @@ public class PlotSystemThread {
      *
      * @see #DEFAULT_THREAD_CREATED_STATUS
      */
-    public static final Function<String, String> INITIAL_HISTORY = ownerName -> ownerName + " created the plot <t:" + Instant.now().getEpochSecond() + ":R>";
+    public static final Function<String, String> INITIAL_HISTORY = ownerName -> DiscordPS.getMessagesLang()
+            .get(HistoryMessage.INITIAL_CREATION)
+            .replace(Format.OWNER, ownerName)
+            .replace(Format.TIMESTAMP, String.valueOf(Instant.now().getEpochSecond()));
 
     public static final PlotInfoModifier DEFAULT_THREAD_CREATED_STATUS = (owner, info) -> info.addHistory(INITIAL_HISTORY.apply(owner.getOwnerMentionOrName()));
 
@@ -181,7 +199,11 @@ public class PlotSystemThread {
             catch (SQLException ex) {
                 DiscordPS.error("Failed to fetch webhook entry for plot ID: " + event.getPlotID());
                 DiscordPS.warning("Skipping plot update event " + event.getClass().getSimpleName());
-                Notification.sendErrorEmbed(AbstractPlotSystemWebhook.PLOT_UPDATE_SQL_EXCEPTION.apply(event), ex.toString());
+                Notification.sendErrorEmbed(PLOT_UPDATE_SQL_EXCEPTION,
+                    ex.toString(),
+                    String.valueOf(event.getPlotID()),
+                    event.getClass().getSimpleName()
+                );
                 return null;
             }
 

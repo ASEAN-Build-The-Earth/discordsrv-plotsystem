@@ -4,21 +4,26 @@ import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonClickEvent;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
+import github.tintinkung.discordps.Constants;
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.system.Notification;
 import github.tintinkung.discordps.core.system.components.buttons.PluginButton;
 import github.tintinkung.discordps.core.system.components.buttons.PluginButtonHandler;
 import github.tintinkung.discordps.core.system.components.buttons.SimpleButtonHandler;
+import github.tintinkung.discordps.core.system.io.lang.PlotInteraction;
 import org.jetbrains.annotations.NotNull;
 
-import java.awt.*;
 import java.sql.SQLException;
+import static github.tintinkung.discordps.core.system.io.lang.Notification.ErrorMessage;
 
 public class PlotFeedback implements PluginButtonHandler, SimpleButtonHandler {
     @Override
     public void onInteracted(@NotNull PluginButton button, ButtonClickEvent event) {
         Checks.notNull(button.getPayload(), "Feedback button payload");
 
+        // TODO: Make feedback embed ComponentV2
+        // TODO: Let plot feedback editable with markdown text
         try {
             WebhookEntry entry = WebhookEntry.getByMessageID(button.getIDLong());
 
@@ -28,10 +33,6 @@ public class PlotFeedback implements PluginButtonHandler, SimpleButtonHandler {
             MessageEmbed feedbackEmbed = new EmbedBuilder()
                     .setTitle("Your Feedback")
                     .setDescription(entry.feedback())
-                    .addField("Help",
-                            "Please message our support bot <@1361310076308033616> " +
-                                    "for questions if you need help about this plot. (or just ping a staff here)",
-                            false)
                     .setColor(entry.status().toTag().getColor())
                     .build();
 
@@ -39,35 +40,30 @@ public class PlotFeedback implements PluginButtonHandler, SimpleButtonHandler {
 
 
         } catch (SQLException ex) {
-            MessageEmbed errorEmbed = new EmbedBuilder()
-                    .setTitle("Error :(")
-                    .setDescription("Sorry an error occurred trying to get your feedback data. " +
-                            "Please message our support bot <@1361310076308033616> to ask for it.")
-                    .setColor(Color.RED)
-                    .build();
+            // Reply owner that it failed
+            MessageEmbed errorEmbed = DiscordPS.getMessagesLang()
+                .getEmbedBuilder(PlotInteraction.FEEDBACK_GET_FAILURE)
+                .setColor(Constants.RED)
+                .build();
             event.deferReply(true).addEmbeds(errorEmbed).queue();
 
+            // Notify
+            String plotID = button.getPayload();
 
-            String plot = button.getPayload();
-
-            Notification.sendMessageEmbeds(new EmbedBuilder()
-                    .setTitle(":red_circle: Discord Plot-System Error")
-                    .setDescription("Runtime exception **fetching** plot feedback, "
-                            + "The owner of plot ID #`" + plot + "` "
-                            + "cannot view their feedback message!")
-                    .addField("Error", "```" + ex.toString() + "```", false)
-                    .setColor(Color.RED)
-                    .build()
+            Notification.sendErrorEmbed(
+                ErrorMessage.PLOT_FEEDBACK_GET_EXCEPTION,
+                ex.toString(),
+                plotID,
+                event.getUser().getId()
             );
         }
     }
 
     @Override
     public void onInteractedBadOwner(@NotNull ButtonClickEvent event) {
-        MessageEmbed notOwnerEmbed = new EmbedBuilder()
-                .setTitle("You don't own this plot")
-                .setDescription("Go build a plot!")
-                .setColor(Color.RED)
+        MessageEmbed notOwnerEmbed = DiscordPS.getMessagesLang()
+                .getEmbedBuilder(PlotInteraction.INTERACTED_BAD_OWNER)
+                .setColor(Constants.RED)
                 .build();
         event.deferReply(true).addEmbeds(notOwnerEmbed).queue();
     }

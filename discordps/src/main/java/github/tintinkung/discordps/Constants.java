@@ -1,5 +1,7 @@
 package github.tintinkung.discordps;
 
+import java.awt.Color;
+
 /**
  * Constant values to use plugin-wide.
  */
@@ -36,4 +38,11 @@ public abstract class Constants {
      */
     public static final String PLOT_IMAGE_FILE = "plot-image";
 
+    public static final Color RED    = new Color(14495300);
+    public static final Color ORANGE = new Color(14188300);
+    public static final Color YELLOW = new Color(16632664);
+    public static final Color GREEN  = new Color(7909721);
+    public static final Color BLUE   = new Color(5614830);
+    public static final Color PURPLE = new Color(11177686);
+    public static final Color GRAY   = new Color(8421504);
 }

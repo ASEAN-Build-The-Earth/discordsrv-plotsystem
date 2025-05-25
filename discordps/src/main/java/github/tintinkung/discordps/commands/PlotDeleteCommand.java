@@ -4,6 +4,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHoo
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.OptionType;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectOption;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
+import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.commands.interactions.OnPlotDelete;
 import github.tintinkung.discordps.commands.providers.AbstractPlotDeleteCommand;
@@ -13,18 +14,18 @@ import org.jetbrains.annotations.NotNull;
 
 import java.sql.SQLException;
 import java.util.List;
+import static github.tintinkung.discordps.core.system.io.lang.PlotDeleteCommand.*;
+import static github.tintinkung.discordps.core.system.io.lang.Notification.CommandMessage;
 
-public class PlotDeleteCommand extends AbstractPlotDeleteCommand {
+class PlotDeleteCommand extends AbstractPlotDeleteCommand {
 
 
     public PlotDeleteCommand(@NotNull String name, @NotNull String plotID) {
-        super(name, "Manually create a plot tracking thread by ID");
+        super(name);
 
-        this.addOption(
-            OptionType.INTEGER,
-            plotID,
-            "The plot ID in integer to be fetch",
-            true);
+        this.setDescription(getLang(DESC));
+
+        this.addOption(OptionType.INTEGER, plotID, getLang(DESC_PLOT_ID), true);
     }
 
     public void onCommandTriggered(@NotNull InteractionHook hook, @NotNull OnPlotDelete interaction) {
@@ -38,18 +39,18 @@ public class PlotDeleteCommand extends AbstractPlotDeleteCommand {
 
                 entries.forEach(entry -> this.formatEntryOption(entry, menu::registerMenuOption));
 
-                hook.sendMessageEmbeds(DELETE_INFO)
+                hook.sendMessageEmbeds(getEmbed(Constants.ORANGE, EMBED_DELETE_INFO))
                     .addActionRow(menu.build())
                     .addActionRow(
-                        DELETE_CONFIRM_BUTTON.apply(interaction),
-                        DELETE_CANCEL_BUTTON.apply(interaction))
+                        this.getConfirmButton(interaction),
+                        this.getCancelButton(interaction))
                     .setEphemeral(true)
                     .queue();
             } // Entry does not exist, nothing to delete
-            else this.queueEmbed(hook, NOTHING_TO_DELETE);
+            else this.queueEmbed(hook, getEmbed(Constants.ORANGE, EMBED_NOTHING_TO_DELETE));
         }
         catch (SQLException ex) {
-            this.queueEmbed(hook, SQL_ERROR_PLOT.apply(ex.toString()));
+            this.queueEmbed(hook, sqlErrorEmbed(MESSAGE_SQL_GET_ERROR, ex.toString()));
         }
     }
 
@@ -58,7 +59,7 @@ public class PlotDeleteCommand extends AbstractPlotDeleteCommand {
         DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
 
         if(interaction.getFetchOptions() == null || interaction.getFetchOptions().isEmpty()) {
-            this.queueEmbed(hook, ERROR_SELECTED_OPTION);
+            this.queueEmbed(hook, errorEmbed(MESSAGE_VALIDATION_ERROR));
             return;
         }
 
@@ -74,12 +75,25 @@ public class PlotDeleteCommand extends AbstractPlotDeleteCommand {
 
                 if(entry == null) throw new SQLException("Entry does not exist for selected id: " + selected);
 
+                String threadID = Long.toUnsignedString(entry.threadID());
+
                 WebhookEntry.deleteEntry(entry.messageID());
-                Notification.sendMessageEmbeds(DELETED_NOTIFICATION.apply(entry, hook.getInteraction().getUser().getId()));
-                this.queueEmbed(hook, DELETED_INFO.apply(selected, Long.toUnsignedString(entry.threadID())));
+                Notification.notify(
+                    CommandMessage.PLOT_DELETE,
+                    selected,
+                    threadID,
+                    hook.getInteraction().getUser().getId()
+                );
+
+                this.queueEmbed(hook, getEmbed(
+                    Constants.RED,
+                    EMBED_DELETED_INFO,
+                    selected,
+                    threadID)
+                );
             }
             catch (SQLException ex) {
-                this.queueEmbed(hook, SQL_ERROR_ENTRY.apply(ex.toString()));
+                this.queueEmbed(hook, sqlErrorEmbed(MESSAGE_SQL_DELETE_ERROR, ex.toString()));
             }
         }
     }

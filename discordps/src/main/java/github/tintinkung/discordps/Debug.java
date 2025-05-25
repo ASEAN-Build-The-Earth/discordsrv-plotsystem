@@ -1,6 +1,5 @@
 package github.tintinkung.discordps;
 
-
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -15,41 +14,26 @@ import java.util.Set;
  */
 public final class Debug {
 
+    /**
+     * Categorized error groups for debugging.
+     *
+     * @see #toMessage()
+     */
     public enum ErrorGroup {
-        PLUGIN_VALIDATION(
-                "DiscordSRV plugin validated successfully",
-                "Failed to validate required plugin: DiscordSRV"
-        ),
-        DATABASE_CONNECTION(
-                "Connected to the Plot-System database",
-                "Failed to connect to the Plot-System database"
-        ),
-        CONFIG_VALIDATION(
-                "Configuration files loaded successfully",
-                "Failed to load one or more configuration files"
-        ),
-        WEBHOOK_REFS_VALIDATION(
-                "Webhook configurations are valid",
-                "Failed to validate webhook configurations"
-        ),
-        WEBHOOK_REFS_CONFIRMATION(
-                "Webhook channel confirmed and operational",
-                "The configured webhook has unresolved channel errors"
-        );
-        private final String unresolved;
-        private final String resolved;
+        PLUGIN_VALIDATION,
+        DATABASE_CONNECTION,
+        CONFIG_VALIDATION,
+        WEBHOOK_REFS_VALIDATION,
+        WEBHOOK_CHANNEL_VALIDATION;
 
-        ErrorGroup(String resolved, String unresolved) {
-            this.unresolved = unresolved;
-            this.resolved = resolved;
-        }
-
-        public String getUnresolved() {
-            return unresolved;
-        }
-
-        public String getResolved() {
-            return resolved;
+        /**
+         * Get the debugging message and instructions for this error group.
+         *
+         * @return The debugging message as a language key to be used at runtime.
+         */
+        @NotNull
+        public github.tintinkung.discordps.core.system.io.lang.DebuggingMessage toMessage() {
+            return valueOf(github.tintinkung.discordps.core.system.io.lang.DebuggingMessage.class, this.name());
         }
     }
 
@@ -114,10 +98,10 @@ public final class Debug {
 
         // Webhook References confirmation
         WEBHOOK_TAG_VALIDATION_FAILED(
-                ErrorGroup.WEBHOOK_REFS_CONFIRMATION,
+                ErrorGroup.WEBHOOK_CHANNEL_VALIDATION,
                 "Failed to validate for webhook forum tags"),
         WEBHOOK_TAG_CONFIGURATION_FAILED(
-                ErrorGroup.WEBHOOK_REFS_CONFIRMATION,
+                ErrorGroup.WEBHOOK_CHANNEL_VALIDATION,
                 "Failed to parse the config file for available tags field, is the config.yml edited?"),
         // Config file (config.yml & webhook.yml)
         CONFIG_FILE_FAILED_TO_LOAD(
@@ -142,8 +126,7 @@ public final class Debug {
     }
 
 
-    private final EnumMap<Warning, String> warning;;
-
+    private final EnumMap<Warning, String> warning;
     private final EnumMap<Error, String> error;
     private final EnumMap<ErrorGroup, Error> errorGroup;
 

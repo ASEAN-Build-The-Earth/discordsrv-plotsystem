@@ -2,10 +2,12 @@ package github.tintinkung.discordps.commands;
 
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.build.CommandData;
 
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.commands.events.SetupWebhookEvent;
 import github.tintinkung.discordps.commands.interactions.Interaction;
 import github.tintinkung.discordps.commands.interactions.OnSetupWebhook;
 import github.tintinkung.discordps.commands.providers.SlashCommand;
+import github.tintinkung.discordps.core.system.io.lang.LangPaths;
 
 
 public final class SetupCommand extends CommandData {
@@ -37,7 +39,7 @@ public final class SetupCommand extends CommandData {
     private final SetupHelpCommand setupHelpCommand;
 
     public SetupCommand(boolean defaultEnabled) {
-        super(SetupCommand.SETUP, "Setup Discord Plot-System Configuration");
+        super(SetupCommand.SETUP, DiscordPS.getSystemLang().get(LangPaths.SETUP_COMMAND));
         this.addSubcommands(
             setupWebhookCommand = new SetupWebhookCommand(WEBHOOK, WEBHOOK_YML, WEBHOOK_CHANNEL, WEBHOOK_NAME),
             setupShowcaseCommand = new SetupShowcaseCommand(SHOWCASE, SHOWCASE_YML, WEBHOOK_CHANNEL, WEBHOOK_NAME),

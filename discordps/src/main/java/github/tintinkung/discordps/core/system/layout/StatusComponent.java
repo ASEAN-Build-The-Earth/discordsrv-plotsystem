@@ -4,6 +4,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.tintinkung.discordps.Constants;
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.database.ThreadStatus;
 import github.tintinkung.discordps.core.providers.LayoutComponentProvider;
 import github.tintinkung.discordps.core.providers.WebhookStatusProvider;
@@ -15,6 +16,7 @@ import github.tintinkung.discordps.core.system.components.api.Container;
 import github.tintinkung.discordps.core.system.components.api.TextDisplay;
 import github.tintinkung.discordps.core.system.components.api.TextThumbnailSection;
 import github.tintinkung.discordps.core.system.components.api.Thumbnail;
+import github.tintinkung.discordps.core.system.io.MessageLang;
 import github.tintinkung.discordps.utils.FileUtil;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -240,53 +242,17 @@ public final class StatusComponent
      * Saved message presets for displaying by thread status
      */
     public enum DisplayMessage implements StatusMessage, WebhookStatusProvider {
-        ON_GOING("""
-        ## Claimed by {owner}\
+        ON_GOING("status-messages.on-going"),
+        FINISHED("status-messages.finished"),
+        REJECTED("status-messages.rejected"),
+        APPROVED("status-messages.approved"),
+        ARCHIVED("status-messages.archived"),
+        ABANDONED("status-messages.abandoned");
 
-        Use this thread to follow the progress of this plot.\
-
-        Our friend Bob the Landlord will post updates here as things move forward.
-        """),
-        FINISHED("""
-        ## Claimed by {owner}\
-
-        The plot has been marked as finished.\
-
-        Please wait patiently while it gets reviewed.
-        """),
-        REJECTED("""
-        ## Claimed by {owner}\
-
-        This plot has been **rejected** by a reviewer.\
-
-        Please review the improvement guide, make the necessary changes, and submit again.
-        """),
-        APPROVED("""
-        ## Claimed by {owner}\
-
-        This plot has been **approved**!\
-
-        It will be archived to our master server shortly.
-        """),
-        ARCHIVED("""
-        ## Built by {owner}\
-
-        This plot is now **archived**.\
-
-        You can still visit or continue improving it on our master server.
-        """),
-        ABANDONED("""
-        ## Abandoned by {owner}\
-
-        This plot has been *abandoned*.\
-
-        Anyone may now re-claim it to continue building.
-        """);
-
-        private final String message;
+        private final MessageLang message;
 
         DisplayMessage(String message) {
-            this.message = message;
+            this.message = () -> message;
         }
 
         public static DisplayMessage fromTag(@NotNull AvailableTag tag) {
@@ -297,9 +263,9 @@ public final class StatusComponent
             return valueOf(status.name().toUpperCase(Locale.ENGLISH));
         }
 
-        @Contract(pure = true)
+        @Override
         public @NotNull String getMessage() {
-            return this.message;
+            return DiscordPS.getMessagesLang().get(this.message);
         }
 
         @Override

@@ -3,7 +3,7 @@ package github.tintinkung.discordps.api.events;
 /**
  * Archive event for usage internally.
  */
-public class PlotArchiveEvent extends PlotEvent implements ScopedEvent {
+public final class PlotArchiveEvent extends PlotClosureEvent implements ScopedEvent {
 
     private final String owner;
 

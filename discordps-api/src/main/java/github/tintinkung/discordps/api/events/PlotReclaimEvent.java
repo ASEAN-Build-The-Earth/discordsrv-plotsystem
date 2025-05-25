@@ -1,6 +1,6 @@
 package github.tintinkung.discordps.api.events;
 
-public class PlotReclaimEvent extends PlotEvent implements ScopedEvent {
+public final class PlotReclaimEvent extends PlotEvent implements ScopedEvent {
 
     private final String owner;
 

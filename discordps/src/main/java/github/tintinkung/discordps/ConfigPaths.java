@@ -10,8 +10,11 @@ public abstract class ConfigPaths {
     public static final String DATABASE_WEBHOOK_TABLE = DATABASE + "webhook-table";
 
     // Notifications
-    private static final String NOTIFICATION = "notification.";
+    public static final String NOTIFICATION = "system-notification.";
     public static final String NOTIFICATION_CHANNEL = NOTIFICATION + "channel-id";
+    public static final String NOTIFICATION_CONTENT = NOTIFICATION + "notification-content";
+    public static final String NOTIFICATION_ERRORS = NOTIFICATION + "notify-system-errors";
+    public static final String NOTIFICATION_PLUGIN = NOTIFICATION + "notify-plugin-states";
 
     // Webhook
     private static final String WEBHOOK = "webhook.";

@@ -17,6 +17,8 @@ import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.commands.interactions.OnSetupWebhook;
 import github.tintinkung.discordps.commands.providers.AbstractSetupWebhookCommand;
+import github.tintinkung.discordps.core.system.io.LanguageFile;
+import github.tintinkung.discordps.core.system.io.lang.Format;
 import github.tintinkung.discordps.utils.FileUtil;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.NotNull;
@@ -27,45 +29,40 @@ import java.io.IOException;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static github.tintinkung.discordps.Constants.ORANGE;
+import static github.tintinkung.discordps.Constants.GREEN;
+import static github.tintinkung.discordps.Constants.RED;
 import static github.tintinkung.discordps.Constants.WEBHOOK_AVATAR_FILE;
+import static github.tintinkung.discordps.core.system.io.lang.SetupWebhookCommand.*;
+
 
 class SetupWebhookCommand extends AbstractSetupWebhookCommand {
 
-    public SetupWebhookCommand(@NotNull String name, @NotNull String outputFile, @NotNull String webhookChannel, @NotNull String webhookName) {
-        this(name, outputFile, "Setup Plot-System webhook integration", webhookChannel, webhookName);
-    }
-
     public SetupWebhookCommand(@NotNull String name,
                                @NotNull String outputFile,
-                               @NotNull String description,
                                @NotNull String webhookChannel,
                                @NotNull String webhookName) {
-        super(name, outputFile, description);
-
-        this.addOption(
-            OptionType.CHANNEL,
-            webhookChannel,
-            "The webhook forum channel that will be created in",
-            true);
-
-        this.addOption(
-            OptionType.STRING,
-            webhookName,
-            "The webhook name that will be displayed",
-            true);
-
+        super(name, outputFile);
+        this.setDescription(getLang(DESC));
+        this.addOption(OptionType.CHANNEL, webhookChannel, getLang(DESC_CHANNEL), true);
+        this.addOption(OptionType.STRING, webhookName, getLang(DESC_NAME), true);
     }
 
     @Override
     public void onCommandTriggered(@NotNull InteractionHook hook, @NotNull OnSetupWebhook payload)  {
         // Exit if webhook already has been configured
         if(DiscordPS.getPlugin().getWebhook() != null) {
-            hook.sendMessageEmbeds(ALREADY_CONFIGURED_ERROR.apply(getOutputPath().toString())).queue();
+            MessageEmbed embed = getEmbed(
+                ORANGE,
+                EMBED_ALREADY_CONFIGURED,
+                getOutputPath().toString()
+            );
+
+            hook.sendMessageEmbeds(embed).queue();
             DiscordPS.getPlugin().exitSlashCommand(payload.eventID);
             return;
         }
@@ -84,7 +81,7 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
                 .replaceAll(Constants.DISCORD_SRV_WEBHOOK_PREFIX_LEGACY, "$1*$2");
 
         if (!username.equals(interaction.webhookName)) {
-            hook.sendMessageEmbeds(BAD_USERNAME_ERROR).queue();
+            hook.sendMessageEmbeds(getEmbed(RED, EMBED_BAD_USERNAME_ERROR)).queue();
             DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
             return;
         }
@@ -94,22 +91,22 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
             int channelType = getChannelType(interaction.webhookChannel, true).complete().orElseThrow();
             // GUILD_FORUM	15	Channel that can only contain threads
             if(channelType != 15) {
-                hook.sendMessageEmbeds(BAD_CHANNEL_ERROR).queue();
+                hook.sendMessageEmbeds(getEmbed(RED, EMBED_BAD_CHANNEL_ERROR)).queue();
                 DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
                 return;
             }
         }
         catch (NoSuchElementException ex) { // Skip if we cant verify it, handle it later
-            hook.sendMessageEmbeds(CANT_VERIFY_CHANNEL_ERROR).queue();
+            hook.sendMessageEmbeds(getEmbed(RED, EMBED_CANT_VERIFY_CHANNEL_ERROR)).queue();
         }
 
         // Confirmation Message
         hook.sendMessageEmbeds(
-                CONFIRM_SETTINGS_EMBED.apply(interaction.webhookName, interaction.webhookChannel),
-                AVATAR_IMAGE_SETUP_EMBED.apply(WEBHOOK_AVATAR_FILE, DiscordPS.getPlugin().getDataFolder().getAbsolutePath())
+                formatInfoEmbed(interaction.webhookName, Long.toUnsignedString(interaction.webhookChannel)),
+                formatImageEmbed()
             ).addActionRows(ActionRow.of(
-                SUBMIT_AVATAR_BUTTON.apply(interaction),
-                PROVIDED_AVATAR_BUTTON.apply(interaction)
+                Button.SUBMIT_AVATAR_BUTTON.get(interaction),
+                Button.PROVIDED_AVATAR_BUTTON.get(interaction)
             )).queue();
     }
 
@@ -132,7 +129,8 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
             Checks.notNull(avatarURI, "Unexpected error of webhook image URI");
 
         } catch (IOException | IllegalArgumentException ex) {
-            DiscordPS.error("Unknown error when trying to find webhook image file from resource: " + ex.getMessage());
+            DiscordPS.error("Exception occurred trying to find webhook image file from resource: " + ex.getMessage());
+
             DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
             return;
         }
@@ -160,11 +158,12 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
             .resolve(WEBHOOK_AVATAR_FILE + "." + attachment.getFileExtension())
             .toFile();
 
-        CompletableFuture<Message> queuedMessage = channel.sendMessageEmbeds(UPLOADING_EMBED).submit();
+        CompletableFuture<Message> queuedMessage = channel.sendMessageEmbeds(getEmbed(ORANGE, EMBED_UPLOADING_ATTACHMENT)).submit();
         CompletableFuture<File> queuedDownload = attachment.downloadToFile(avatarFile);
 
         queuedDownload.whenComplete((file, error) -> {
-            if(error != null) queuedMessage.thenAccept(defer -> ON_IMAGE_DOWNLOAD_FAILED.accept(defer, error.toString()));
+            if(error != null) queuedMessage.thenAccept(defer ->
+                defer.editMessageEmbeds(errorEmbed(EMBED_IMAGE_DOWNLOAD_FAILED, error.toString())).queue());
             else queuedMessage.thenAccept(defer -> onConfirmAvatarImage(defer, interaction, file));
         });
     }
@@ -179,18 +178,23 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
 
             // File not found
             if(file == null) {
-                channel.sendMessageEmbeds(AVATAR_FILE_NOT_FOUND).queue();
+                channel.sendMessageEmbeds(getEmbed(
+                        Constants.RED,
+                        EMBED_FILE_NOT_FOUND,
+                        DiscordPS.getPlugin().getDataFolder().getAbsolutePath(),
+                        WEBHOOK_AVATAR_FILE
+                )).queue();
                 DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
                 return;
             }
 
             Consumer<Message> onSuccess = defer -> onConfirmAvatarImage(defer, interaction, file);
-            channel.sendMessageEmbeds(UPLOADING_EMBED).queue(onSuccess);
+            channel.sendMessageEmbeds(getEmbed(ORANGE, EMBED_UPLOADING_ATTACHMENT)).queue(onSuccess);
 
         } catch (IOException | IllegalArgumentException ex) {
             DiscordPS.error("Cannot download file to resource", ex);
 
-            channel.sendMessageEmbeds(INTERNAL_EXCEPTION.apply(ex.getMessage())).queue();
+            channel.sendMessageEmbeds(errorEmbed(EMBED_INTERNAL_EXCEPTION, ex.toString())).queue();
             DiscordPS.getPlugin().exitSlashCommand(interaction.eventID);
         }
     }
@@ -218,7 +222,9 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
 
         File filePath = DiscordPS.getPlugin().getDataFolder().toPath().resolve(outputFile).toFile();
 
-        MessageEmbed editedEmbed = this.formatCreatedInformation(
+        MessageEmbed editedEmbed = this.formatWebhookInformation(
+                ORANGE,
+                EMBED_CREATED_INFO,
                 outputFile,
                 config.saveToString(),
                 webhook.getString("url"))
@@ -228,13 +234,21 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
         // Try save payload into file
         try { config.save(filePath); }
         catch(IOException | IllegalArgumentException ex) {
-            MessageEmbed noPermsEmbed = CREATED_NO_PERMISSION.apply(ex.toString(), this.getOutputFilename());
-            defer.editMessageEmbeds(editedEmbed).queue(msg -> msg.replyEmbeds(noPermsEmbed).queue());
+
+            LanguageFile.EmbedLang info = getEmbed(EMBED_CREATED_NO_PERMISSION);
+
+            String description = info.description().replace(Format.PATH, filePath.getAbsolutePath());
+
+            Consumer<Message> onFailure = message -> message
+                .replyEmbeds(errorEmbed(info.title(), description, ex.toString()))
+                .queue();
+
+            defer.editMessageEmbeds(editedEmbed).queue(onFailure);
             return;
         }
 
         defer.editMessageEmbeds(editedEmbed).queue((msg) -> {
-            msg.replyEmbeds(WEBHOOK_CREATED_SUCCESSFUL.apply(this.getOutputFilename())).queue();
+            msg.replyEmbeds(getEmbed(GREEN, EMBED_CREATED_SUCCESS, outputFile)).queue();
         });
     }
 
@@ -242,7 +256,7 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
      * Invoked after avatar image has been uploaded in a message,
      * where this interaction will edit sent message to be confirmation embed
      *
-     * @param message Sent message reference
+     * @param defer Sent message reference
      * @param interaction The interaction data
      * @param image The uploaded avatar image
      */
@@ -256,13 +270,17 @@ class SetupWebhookCommand extends AbstractSetupWebhookCommand {
             null
         );
 
-        MessageEmbed finalConfirm = this.formatCreatedConfirmation(interaction.outputFile, draftConfig.saveToString())
+        MessageEmbed finalConfirm = this.formatWebhookInformation(
+                GREEN,
+                EMBED_CREATE_CONFIRMATION,
+                interaction.outputFile,
+                draftConfig.saveToString(), null)
             .setThumbnail("attachment://" + image.getName())
             .build();
 
         ActionRow interactions = ActionRow.of(
-            CONFIRM_CONFIG_BUTTON.apply(interaction),
-            CANCEL_CONFIG_BUTTON.apply(interaction)
+            Button.CONFIRM_CONFIG_BUTTON.get(interaction),
+            Button.CANCEL_CONFIG_BUTTON.get(interaction)
         );
 
         defer.editMessageEmbeds(finalConfirm).setActionRows(interactions).addFile(image).queue();

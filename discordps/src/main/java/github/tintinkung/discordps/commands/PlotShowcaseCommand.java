@@ -20,34 +20,42 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-public class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
+import static github.tintinkung.discordps.core.system.io.lang.Notification.CommandMessage;
+import static github.tintinkung.discordps.core.system.io.lang.PlotShowcaseCommand.*;
+import static github.tintinkung.discordps.Constants.ORANGE;
+
+class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
 
     public PlotShowcaseCommand(@NotNull String name, @NotNull String plotID) {
-        super(name, "Showcase a completed plot by ID");
+        super(name);
 
-        this.addOption(
-            OptionType.INTEGER,
-            plotID,
-            "The plot ID in integer to showcase",
-            true);
+        this.setDescription(getLang(DESC));
+
+        this.addOption(OptionType.INTEGER, plotID, getLang(DESC_PLOT_ID), true);
     }
 
     public void onCommandTriggered(@NotNull InteractionHook hook, @NotNull OnPlotShowcase interaction) {
 
         WebhookEntry.ifPlotExisted(interaction.getPlotID()).ifPresentOrElse(entry -> {
-//            if(entry.status() != ThreadStatus.archived) {
-//                this.queueEmbed(hook, ENTRY_NOT_ARCHIVED);
-//                return;
-//            }
+            if(entry.status() != ThreadStatus.archived) {
+                this.queueEmbed(hook, errorEmbed(getEmbed(EMBED_PLOT_NOT_ARCHIVED)));
+                return;
+            }
 
             // Fetch plot information from plot-system database
             PlotEntry plot = PlotEntry.getByID(interaction.getPlotID());
 
             if(plot == null) {
-                this.queueEmbed(hook, PLOT_DATA_RETURNED_NULL);
+                this.queueEmbed(hook, errorEmbed(
+                    MESSAGE_DATA_RETURNED_NULL,
+                    Error.PLOT_FETCH_RETURNED_NULL.getMessage())
+                );
                 return;
             } else if (plot.ownerUUID() == null) {
-                this.queueEmbed(hook, PLOT_DATA_NO_OWNER);
+                this.queueEmbed(hook, errorEmbed(
+                    MESSAGE_DATA_RETURNED_NULL,
+                    Error.PLOT_FETCH_UNKNOWN_OWNER.getMessage())
+                );
                 return;
             }
 
@@ -56,8 +64,8 @@ public class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
             interaction.setPlotInfo(plotData, entry);
 
             ActionRow interactions = ActionRow.of(
-                    SHOWCASE_CONFIRM_BUTTON.apply(interaction),
-                    SHOWCASE_CANCEL_BUTTON.apply(interaction)
+                this.getConfirmButton(interaction),
+                this.getCancelButton(interaction)
             );
 
             final WebhookMessageAction<Message> action = hook
@@ -69,7 +77,7 @@ public class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
                 action.addFile(plotData.getAvatarFile().get()).queue();
             else action.queue();
 
-        }, () -> this.queueEmbed(hook, NOTHING_TO_SHOWCASE));
+        }, () -> this.queueEmbed(hook, getEmbed(ORANGE, EMBED_NOTHING_TO_SHOWCASE)));
     }
 
     @Override
@@ -79,7 +87,10 @@ public class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
         if(payload.getPlotData() == null
         || payload.getPlotEntry() == null
         || DiscordPS.getPlugin().getShowcase() == null) {
-            this.queueEmbed(hook, PLOT_DATA_RETURNED_NULL);
+            this.queueEmbed(hook, errorEmbed(
+                MESSAGE_DATA_RETURNED_NULL,
+                Error.PLOT_FETCH_RETURNED_NULL.getMessage())
+            );
             return;
         }
 
@@ -88,14 +99,15 @@ public class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
                 .showcasePlot(payload.getPlotData(), payload.getPlotEntry());
 
         Consumer<Message> onShowcase = defer -> showcaseAction.whenComplete((optMessage, error) -> {
-            if(error != null) defer.editMessageEmbeds(ON_SHOWCASE_ERROR.apply(error.toString())).queue();
+            if(error != null) defer.editMessageEmbeds(errorEmbed(MESSAGE_SHOWCASE_FAILED, error.toString())).queue();
             else optMessage.ifPresentOrElse(
                 message -> handleSuccessful(hook, defer, message),
-                () -> defer.editMessageEmbeds(ON_SHOWCASE_ERROR.apply("Requested API call returned empty")).queue()
+                () -> defer.editMessageEmbeds(errorEmbed(MESSAGE_SHOWCASE_FAILED,
+                    "Requested API call returned empty")).queue()
             );
         });
 
-        hook.sendMessageEmbeds(ON_SHOWCASE_EMBED).setEphemeral(true).queue(onShowcase);
+        hook.sendMessageEmbeds(getEmbed(ORANGE, EMBED_ON_SHOWCASE)).setEphemeral(true).queue(onShowcase);
     }
 
     /**
@@ -111,9 +123,9 @@ public class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
 
         defer.editMessageEmbeds(this.formatSuccessfulEmbed(message)).queue();
 
-        Notification.sendMessageEmbeds(ON_SHOWCASE_COMPLETED.apply(
+        Notification.notify(CommandMessage.PLOT_SHOWCASE,
             hook.getInteraction().getUser().getId(),
-            message.getMessageId())
+            message.getMessageId()
         );
     }
 }

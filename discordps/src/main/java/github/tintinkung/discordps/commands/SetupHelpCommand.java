@@ -3,19 +3,28 @@ package github.tintinkung.discordps.commands;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
+import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.Debug;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.commands.interactions.Interaction;
-import github.tintinkung.discordps.commands.providers.SubcommandProvider;
+import github.tintinkung.discordps.commands.providers.SystemCommandProvider;
+import github.tintinkung.discordps.core.system.io.LanguageFile;
+import github.tintinkung.discordps.core.system.io.SystemLang;
+import github.tintinkung.discordps.core.system.io.lang.Format;
 import org.jetbrains.annotations.NotNull;
 
-import java.awt.Color;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
-class SetupHelpCommand extends SubcommandProvider<Interaction> {
+import static github.tintinkung.discordps.core.system.io.lang.SetupHelpCommand.*;
+
+class SetupHelpCommand extends SystemCommandProvider<Interaction,
+        github.tintinkung.discordps.core.system.io.lang.SetupHelpCommand> {
 
     public SetupHelpCommand(@NotNull String name) {
-        super(name, "See the Discord-PlotSystem integration checklist");
+        super(name, LanguageFile.NULL_LANG);
+        this.setDescription(getLang(DESC));
     }
 
     @Override
@@ -28,37 +37,36 @@ class SetupHelpCommand extends SubcommandProvider<Interaction> {
 
         if (isReady) {
             if (!hasWarning) {
+                LanguageFile.EmbedLang ready = getEmbed(EMBED_READY);
                 titleEmbed
-                    .setTitle(":white_check_mark: Discord-PlotSystem is Ready!")
-                    .setDescription("The plugin is fully configured and ready for use.")
-                    .setColor(Color.GREEN);
+                    .setTitle(ready.title())
+                    .setDescription(ready.description())
+                    .setColor(Constants.GREEN);
 
                     if(DiscordPS.getPlugin().isDebuggingEnabled()) {
-                        titleEmbed.addField(":warning: Notices", "The configuration commands `/setup webhook` and `/setup help` "
-                            + "are exposed to public use by default. To secure these commands, disable them in the config file at: ```"
-                            + DiscordPS.getPlugin().getDataFolder().getAbsolutePath() + "/config.yml```\n"
-                            + "Set the field `debugging: false`, then restart the plugin and the command will be disabled.",
-                            false);
+                        LanguageFile.EmbedLang notices = getEmbed(EMBED_DEBUGGING_NOTICE);
+                        titleEmbed.addField(notices.title(), notices.description(), false);
                     }
             } else {
+                LanguageFile.EmbedLang ready = getEmbed(EMBED_READY_WITH_WARNING);
                 titleEmbed
-                    .setTitle(":warning: Discord-PlotSystem is Ready (with warnings)")
-                    .setDescription("The plugin is usable, but consider resolving these warnings.")
-                    .setColor(Color.ORANGE);
+                    .setTitle(ready.title())
+                    .setDescription(ready.description())
+                    .setColor(Constants.ORANGE);
             }
         } else {
+            LanguageFile.EmbedLang notReady = getEmbed(EMBED_NOT_READY);
             titleEmbed
-                .setTitle(":x: Discord-PlotSystem is NOT Ready!")
-                .setDescription("There are unresolved configuration or runtime errors preventing startup.")
-                .setColor(Color.RED);
+                .setTitle(notReady.title())
+                .setDescription(notReady.description())
+                .setColor(Constants.RED);
         }
 
         // 🧾 Setup Checklist
-        MessageEmbed checklistEmbedTitle = new EmbedBuilder()
-                .setTitle("🧾 Setup Checklist")
-                .setDescription("All checks must pass for full functionality.")
-                .setColor(Color.CYAN)
-                .build();
+        MessageEmbed checklistEmbedTitle = getLangManager()
+            .getEmbedBuilder(EMBED_CHECKLIST)
+            .setColor(Constants.BLUE)
+            .build();
 
         List<MessageEmbed> checklistEmbeds = new ArrayList<>();
 
@@ -73,7 +81,9 @@ class SetupHelpCommand extends SubcommandProvider<Interaction> {
         // ⚠️ Warnings
         EmbedBuilder warningEmbed = null;
         if(hasWarning) {
-            warningEmbed = new EmbedBuilder().setTitle(":warning:️ Warnings").setColor(Color.YELLOW.darker());
+            warningEmbed = new EmbedBuilder()
+                .setTitle(getLang(MESSAGE_WARNINGS))
+                .setColor(Constants.ORANGE);
             for (Map.Entry<Debug.Warning, String> entry : debugger.allThrownWarnings()) {
                 warningEmbed.addField("• " + entry.getKey().name(), entry.getValue(), false);
             }
@@ -88,14 +98,16 @@ class SetupHelpCommand extends SubcommandProvider<Interaction> {
         }
     }
 
-    private @NotNull EmbedBuilder makeGroupEmbed(Debug.ErrorGroup group, Debug debugger) {
+    private @NotNull EmbedBuilder makeGroupEmbed(Debug.ErrorGroup group, @NotNull Debug debugger) {
         EmbedBuilder groupEmbed = new EmbedBuilder();
 
         boolean failed = debugger.hasGroup(group);
+        LanguageFile.EmbedLang message = makeDebuggingMessage(group, failed);
+        String configPath = DiscordPS.getPlugin().getDataFolder().getAbsolutePath();
 
-        groupEmbed.setTitle(failed ? ":red_circle: " + group.getUnresolved() : ":green_circle: " + group.getResolved());
-        groupEmbed.setColor(failed? Color.RED : Color.GREEN);
-        groupEmbed.setDescription(getInstruction(group, failed));
+        groupEmbed.setTitle(message.title());
+        groupEmbed.setDescription(message.description().replace(Format.PATH, configPath));
+        groupEmbed.setColor(failed? Constants.RED : Constants.GREEN);
 
 
         // Add each individual error in this group
@@ -106,12 +118,8 @@ class SetupHelpCommand extends SubcommandProvider<Interaction> {
 
                 // Special message for tags configurations
                 if(entry.getKey() == Debug.Error.WEBHOOK_TAG_VALIDATION_FAILED) {
-                    groupEmbed.addField(
-                        ":orange_circle: Webhook forum channel is missing required tags",
-                        "> The field `available-tag` in `config.yml` must be configured "
-                        + "with the available and existing tags in the forum channel. "
-                        + "The value can be either the tag name or the snowflake ID.",
-                        false);
+                    LanguageFile.EmbedLang info = getEmbed(EMBED_TAGS_CONFIG_INFO);
+                    groupEmbed.addField(info.title(), info.description(), false);
                     continue;
                 }
 
@@ -124,33 +132,8 @@ class SetupHelpCommand extends SubcommandProvider<Interaction> {
         return groupEmbed;
     }
 
-    public String getInstruction(Debug.ErrorGroup group, boolean failed) {
-        String configPath = DiscordPS.getPlugin().getDataFolder().getAbsolutePath();
-
-        return switch (group) {
-            case CONFIG_VALIDATION -> failed
-                    ? "An internal error occurred while loading the configuration files. This should not happen—please contact the developer for support."
-                    : "Successfully validated configuration files at:\n"
-                    + "`" + configPath + "/webhook.yml`\n"
-                    + "`" + configPath + "/config.yml`";
-
-            case PLUGIN_VALIDATION -> failed
-                    ? "Failed to validate the DiscordSRV plugin. Please ensure it is installed and enabled on the server."
-                    : "Successfully subscribed to the DiscordSRV API.";
-
-            case DATABASE_CONNECTION -> failed
-                    ? "Unable to connect to the Plot-System database. Please verify your settings in:\n"
-                    + "`" + configPath + "/config.yml`"
-                    : "Successfully connected to the Plot-System database.";
-
-            case WEBHOOK_REFS_VALIDATION -> failed
-                    ? "One or more required webhook configurations could not be validated. Please check your webhook setup."
-                    : "All webhook configurations are valid.\n"
-                    + "Source file: `" + configPath + "/webhook.yml`";
-
-            case WEBHOOK_REFS_CONFIRMATION -> failed
-                    ? "The configured webhook's channel could not be validated. Please ensure it is set to a proper forum channel and has the required tags."
-                    : "Webhook channel successfully validated.";
-        };
+    private @NotNull LanguageFile.EmbedLang makeDebuggingMessage(Debug.ErrorGroup group, boolean failed) {
+        SystemLang lang = failed? group.toMessage().getFailed() : group.toMessage().getPassed();
+        return getLangManager().getEmbed(lang);
     }
 }

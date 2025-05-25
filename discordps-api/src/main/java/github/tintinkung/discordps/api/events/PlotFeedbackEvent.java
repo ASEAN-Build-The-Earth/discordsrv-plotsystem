@@ -1,6 +1,6 @@
 package github.tintinkung.discordps.api.events;
 
-public class PlotFeedbackEvent extends PlotReviewEvent{
+public final class PlotFeedbackEvent extends PlotReviewEvent{
 
     private final String feedback;
 

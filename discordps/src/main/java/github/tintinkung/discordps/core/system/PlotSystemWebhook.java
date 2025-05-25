@@ -19,15 +19,20 @@ import github.tintinkung.discordps.core.system.components.api.Container;
 import github.tintinkung.discordps.core.system.components.api.TextDisplay;
 import github.tintinkung.discordps.core.system.components.buttons.PluginButton;
 import github.tintinkung.discordps.core.system.components.api.ComponentV2;
+import github.tintinkung.discordps.core.system.io.lang.LangPaths;
+import github.tintinkung.discordps.core.system.io.lang.PlotNotification;
 import github.tintinkung.discordps.core.system.layout.InfoComponent;
 import github.tintinkung.discordps.core.system.layout.Layout;
 import github.tintinkung.discordps.core.system.layout.StatusComponent;
 import github.tintinkung.discordps.core.system.embeds.StatusEmbed;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -39,6 +44,8 @@ import java.util.function.Function;
 
 import static github.tintinkung.discordps.core.system.PlotSystemThread.THREAD_NAME;
 import static github.tintinkung.discordps.core.system.WebhookDataBuilder.WebhookData;
+import static github.tintinkung.discordps.core.system.io.lang.Notification.ErrorMessage;
+import static github.tintinkung.discordps.core.system.io.lang.Notification.PlotMessage;
 
 public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
@@ -80,7 +87,10 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         PlotEntry plot = PlotEntry.getByID(thread.getPlotID());
 
         if(plot == null) {
-            Notification.sendErrorEmbed(PLOT_ENTRY_NOT_EXIST.apply(thread.getPlotID()));
+            Notification.notify(
+                ErrorMessage.PLOT_REGISTER_ENTRY_EXCEPTION,
+                String.valueOf(thread.getPlotID())
+            );
             return null;
         }
 
@@ -160,7 +170,10 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         Optional<String> threadID = thread.getOptID().map(Long::toUnsignedString);
 
         if(plot == null || threadID.isEmpty()) {
-            Notification.sendErrorEmbed(PLOT_ENTRY_NOT_EXIST.apply(thread.getPlotID()));
+            Notification.notify(
+                ErrorMessage.PLOT_REGISTER_ENTRY_EXCEPTION,
+                String.valueOf(thread.getPlotID())
+            );
             return null;
         }
 
@@ -189,18 +202,13 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         );
 
         return allAction.whenComplete((ok, error) -> {
-            if(error != null) ON_PLOT_UPDATING_EXCEPTION.accept(error);
+            if(error != null) ON_PLOT_OVERRIDING_EXCEPTION.accept(error);
             if(onSuccess != null) onSuccess.accept(plotData);
         });
     }
 
     /**
-     * Create and register a plot status by a given plot data.
-     * Will create an initial status message with help button and documentation link.
-     *
-     * @param plotData The plot information
-     * @param plotID The plot ID
-     * @param threadIDLong The thread ID this plot is created on
+     * {@inheritDoc}
      */
     protected void registerNewPlot(@NotNull PlotData plotData, int plotID, long threadIDLong) {
         String threadID = Long.toUnsignedString(threadIDLong);
@@ -243,11 +251,16 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // Send status interaction embed
         // This is where the user can interact with etc. "Help" button
         webhook.sendMessageInThread(threadID, statusData, false, true).queue(optMsg ->
-            optMsg.ifPresentOrElse(onMessageEntrySent, () -> Notification.sendErrorEmbed(PLOT_REGISTER_EXCEPTION)),
-            ON_PLOT_REGISTER_EXCEPTION
+            optMsg.ifPresentOrElse(onMessageEntrySent, () -> Notification.notify(ErrorMessage.PLOT_REGISTER_UNKNOWN_EXCEPTION)),
+            error -> ON_PLOT_REGISTER_EXCEPTION.accept(plotID, error)
         );
 
-        PLOT_CREATE_NOTIFICATION.accept(plotData, threadID);
+        Notification.notify(
+            PlotMessage.PLOT_CREATED,
+            threadID,
+            String.valueOf(plotID),
+            plotData.getOwnerMentionOrName()
+        );
     }
 
     /**
@@ -301,16 +314,87 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     /**
      * Send ComponentV2 notification to a thread channel
      *
+     * @param type Notification type to send to
      * @param threadID The thread ID to send notification to
-     * @param component The notification component to be sent to
+     * @param content content supplier
      */
-    public void sendNotification(@NotNull String threadID, @NotNull ComponentV2 component) {
+    protected void sendNotification(@NotNull PlotNotification type,
+                                 @NotNull String threadID,
+                                 @NotNull Function<String, String> content) {
+
+        // Exit if this notification is disabled
+        if(!DiscordPS.getPlugin().getConfig().getBoolean(type.getKey(), true)) return;
+
+        // Parse message from language file
+        TextDisplay display = new TextDisplay(content.apply(DiscordPS.getMessagesLang().get(type)));
+
+        Container container = new Container();
+
+        container.addComponent(display);
+
         WebhookData data = new WebhookDataBuilder()
                 .forceComponentV2()
-                .setComponentsV2(Collections.singletonList(component))
+                .setComponentsV2(Collections.singletonList(container))
                 .build();
 
         this.webhook.sendMessageInThread(threadID, data, true, true).queue();
+    }
+
+    /**
+     * Update a plot as submitted
+     *
+     * @param event The submit event containing plot ID to update
+     */
+    public void onPlotSubmit(@NotNull PlotSubmitEvent event) {
+        this.updatePlot(event, ThreadStatus.finished, plot -> Notification.notify(
+                PlotMessage.PLOT_SUBMITTED,
+                plot.threadID(),
+                String.valueOf(event.getPlotID()),
+                String.valueOf(Instant.now().getEpochSecond())
+        ));
+    }
+
+    /**
+     * Update a plot as abandoned
+     *
+     * @param event The submit event containing plot ID to update
+     */
+    public void onPlotAbandon(@NotNull PlotAbandonedEvent event) {
+        PlotMessage notification = event.getType() == AbandonType.INACTIVE
+                ? PlotMessage.PLOT_INACTIVE_ABANDONED
+                : PlotMessage.PLOT_MANUALLY_ABANDONED;
+
+        this.updatePlot(event, ThreadStatus.abandoned, plot -> Notification.notify(
+            notification,
+            plot.threadID(),
+            String.valueOf(event.getPlotID())
+        ));
+    }
+
+    /**
+     * Trigger plot undo event by type as the following:
+     * <ul>
+     *     <li>{@link PlotUndoReviewEvent} notify owner as their plot review has been revoked.</li>
+     *     <li>{@link PlotUndoSubmitEvent} notify owner that they undid their plot submission.</li>
+     * </ul>
+     *
+     * @param event The undo event
+     * @param <T> THe type of plot undo event.
+     */
+    public <T extends PlotUndoEvent> void onPlotUndo(@NotNull T event) {
+        switch (event) {
+            case PlotUndoReviewEvent undo: {
+                this.updatePlot(undo, ThreadStatus.finished,
+                    action -> this.sendNotification(PlotNotification.ON_UNDO_REVIEW, action.threadID()));
+                return;
+            }
+            case PlotUndoSubmitEvent undo: {
+                this.updatePlot(undo, ThreadStatus.on_going,
+                    action -> this.sendNotification(PlotNotification.ON_UNDO_SUBMIT, action.threadID()));
+                return;
+            }
+            default: throw new IllegalStateException("Illegal PlotUndoEvent: " + event);
+        }
     }
 
     /**
@@ -329,39 +413,40 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             case PlotApprovedEvent approved: {
                 this.updatePlot(approved, ThreadStatus.approved, action -> {
                     // Reply and ping user that their plot got reviewed
-
-                    if(action.entry().ownerID() != null) {
-
-                        Container container = new Container();
-
-                        container.addComponent(
-                            new TextDisplay("## :tada: Your plot has been **approved**!\n"
-                            + "<@" + action.entry().ownerID() + "> We will notify your review feedback by the button above.")
-                        );
-
-                        this.sendNotification(action.threadID(), container);
+                    if(action.entry().ownerID() != null)
+                        this.sendNotification(PlotNotification.ON_APPROVED, action.threadID(), "<@" + action.entry().ownerID() + '>');
+                    else {
+                        OfflinePlayer player = Bukkit.getOfflinePlayer(UUID.fromString(action.entry().ownerUUID()));
+                        this.sendNotification(PlotNotification.ON_REJECTED, action.threadID(), player.getName());
                     }
 
-                    this.attachFeedbackButton(ButtonStyle.SUCCESS, APPROVED_NO_FEEDBACK_LABEL, action);
+                    Notification.notify(
+                        PlotMessage.PLOT_APPROVED,
+                        action.threadID(),
+                        String.valueOf(action.plotID())
+                    );
+
+                    this.attachFeedbackButton(ButtonStyle.SUCCESS, this.metadata.approvedNoFeedbackLabel(), action);
                 });
                 return;
             }
             case PlotRejectedEvent rejected: {
                 this.updatePlot(rejected, ThreadStatus.rejected, action -> {
                     // Reply and ping user that their plot got reviewed
-                    if(action.entry().ownerID() != null) {
-                        Container container = new Container();
-
-                        container.addComponent(
-                            new TextDisplay("## :broken_heart: Your plot has been *rejected*\n"
-                            + "<@" + action.entry().ownerID() + "> We will notify the rejected reason by the button above, "
-                            + " you can re-submit your plot again to get an approval.")
-                        );
-
-                        this.sendNotification(action.threadID(), container);
+                    if(action.entry().ownerID() != null)
+                        this.sendNotification(PlotNotification.ON_REJECTED, action.threadID(), "<@" + action.entry().ownerID() + '>');
+                    else {
+                        OfflinePlayer player = Bukkit.getOfflinePlayer(UUID.fromString(action.entry().ownerUUID()));
+                        this.sendNotification(PlotNotification.ON_REJECTED, action.threadID(), player.getName());
                     }
 
-                    this.attachFeedbackButton(ButtonStyle.DANGER, REJECTED_NO_FEEDBACK_LABEL, action);
+                    Notification.notify(
+                        PlotMessage.PLOT_REJECTED,
+                        action.threadID(),
+                        String.valueOf(action.plotID())
+                    );
+
+                    this.attachFeedbackButton(ButtonStyle.DANGER, this.metadata.rejectedNoFeedbackLabel(), action);
                 });
                 return;
             }
@@ -402,7 +487,11 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 WebhookEntry.updateEntryFeedback(action.entry().messageID(), feedback);
             }
             catch (SQLException ex) {
-                Notification.sendErrorEmbed(PLOT_FEEDBACK_SQL_EXCEPTION.apply(action.plotID()), ex.toString());
+                Notification.sendErrorEmbed(
+                    ErrorMessage.PLOT_FEEDBACK_SQL_EXCEPTION,
+                    ex.toString(),
+                    String.valueOf(action.plotID())
+                );
             }
         });
     }
@@ -417,14 +506,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     private @NotNull MessageUpdater onFeedbackSet(@NotNull  PlotSystemThread.UpdateAction action) {
         return message -> this.fetchFeedbackMessage(message, label -> {
-            Container container = new Container();
-
-            container.addComponent(
-                new TextDisplay("## :pencil: Your plot has been reviewed!!\n"
-                + "<@" + action.entry().ownerID() + "> click the **"
-                + label + "** button above to view the your feedback.")
-            );
-            this.sendNotification(action.threadID(), container);
+            if(action.entry().ownerID() == null) return;
+            this.sendNotification(action.threadID(), action.entry().ownerID(), label);
         });
     }
 
@@ -565,7 +648,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         Set<Long> tags = Set.of(tag.getTag().getIDLong());
         if(event instanceof PlotArchiveEvent) {
             // Archive event will insert archive prefix to thread name and auto close the thread in one day (1440 minutes)
-            String threadName = "[Archived] " + THREAD_NAME.apply(event.getPlotID(), owner.formatOwnerName());
+            String threadName = DiscordPS.getSystemLang().get(LangPaths.ARCHIVED_PREFIX)
+                + " " + THREAD_NAME.apply(event.getPlotID(), owner.formatOwnerName());
 
             return this.webhook.modifyThreadChannel(threadID, threadName, tags, 1440, null, null, true).submit();
         }
@@ -660,51 +744,75 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @NotNull
     private <T extends PlotEvent>
-    Optional<WebhookData> fetchStatusMessage(T event,
-                                             Message message,
-                                             MemberOwnable owner,
-                                             ThreadStatus status) {
+    Optional<WebhookData> fetchStatusMessage(@Nullable T event,
+                                             @NotNull Message message,
+                                             @NotNull MemberOwnable owner,
+                                             @NotNull ThreadStatus status) {
         StatusEmbed statusEmbed = new StatusEmbed(owner, status);
+        WebhookDataBuilder data = new WebhookDataBuilder().setEmbeds(Collections.singletonList(statusEmbed.build()));
 
         // No interaction to update
-        if(message.getActionRows().isEmpty()) return Optional.of(
-                new WebhookDataBuilder()
-                        .setEmbeds(Collections.singletonList(statusEmbed.build()))
-                        .build()
-        );
+        if(message.getActionRows().isEmpty()) return Optional.of(data.build());
 
-        // TODO: Remove button base on undo event
+        // Check interaction to update
         ActionRow componentRow = message.getActionRows().getFirst();
 
-        // Clear action row on completion event
-        if(event instanceof PlotArchiveEvent || event instanceof  PlotAbandonedEvent) {
-            List<Button> buttons = new ArrayList<>();
+        // Set new component if it is modified
+        fetchInteractionButton(event, componentRow).ifPresent(data::setComponents);
 
-            // Make all interactive button disabled
-            componentRow.getButtons().forEach(button -> PluginComponent.getOpt(button).ifPresent(component -> {
-                switch (AvailableButton.valueOf(component.getType())) {
-                    // Ignore if feedback button is already attached
-                    case AvailableButton.FEEDBACK_BUTTON:
-                        buttons.add(Button.primary(component.getRawID() + "/Locked", Emoji.fromUnicode("U+1F512")).asDisabled());
-                        break;
-                    case AvailableButton.HELP_BUTTON:
-                        buttons.add(Button.secondary(component.getRawID() + "/Locked", button.getLabel()).asDisabled());
-                }
-            }));
+        return Optional.of(data.build());
+    }
 
-            if(buttons.isEmpty()) buttons.add(PLOT_DOCUMENTATION_BUTTON.asDisabled());
+    /**
+     * Fetch the status interaction row if it should be updated or not
+     *
+     * @param plotEvent The event to determine interactions to update
+     * @param interactionRow The action row object to be updated
+     * @return Optional of the updated component, empty if there's nothing to update
+     * @param <T> The type of plot event
+     */
+    @NotNull
+    private <T extends PlotEvent>
+    Optional<Collection<? extends ActionRow>> fetchInteractionButton(@Nullable T plotEvent,
+                                                                     @NotNull ActionRow interactionRow) {
+        List<Button> buttons = new ArrayList<>();
 
-            return Optional.of(new WebhookDataBuilder()
-                    .setEmbeds(Collections.singletonList(statusEmbed.build()))
-                    .setComponents(Collections.singletonList(ActionRow.of(buttons)))
-                    .build()
-            );
+        switch(plotEvent) {
+            case PlotClosureEvent ignored: // Make all interactive button disabled if the plot is closed
+                interactionRow.getButtons().forEach(button -> PluginComponent.getOpt(button).ifPresentOrElse(component -> {
+                    switch (AvailableButton.valueOf(component.getType())) {
+                        case AvailableButton.FEEDBACK_BUTTON:
+                            buttons.add(
+                                Button.secondary(component.getRawID() + "/Locked",
+                                Emoji.fromUnicode("U+1F512")).asDisabled()
+                            );
+                            break;
+                        case AvailableButton.HELP_BUTTON:
+                            buttons.add(
+                                Button.primary(component.getRawID() + "/Locked",
+                                button.getLabel()).asDisabled()
+                            );
+                            break;
+                    }
+                }, () -> {
+                    if(buttons.isEmpty()) buttons.add(button.asDisabled());
+                }));
+                break;
+            case PlotUndoEvent event:
+                // Undo review: Filter out feedback button from the interaction row
+                if(event instanceof PlotUndoReviewEvent)
+                    interactionRow.getButtons().forEach(button ->
+                        PluginComponent.getOpt(button).ifPresentOrElse(component -> {
+                            if (AvailableButton.valueOf(component.getType()) == AvailableButton.HELP_BUTTON)
+                                buttons.add(component.get());
+                        }, () -> buttons.add(button))
+                    );
+                break;
+            case null, default: return Optional.empty();
         }
 
-        return Optional.of(new WebhookDataBuilder()
-                .setEmbeds(Collections.singletonList(statusEmbed.build()))
-                .build()
-        );
+        if(buttons.isEmpty()) return Optional.empty();
+        else return Optional.of(Collections.singletonList(ActionRow.of(buttons)));
     }
 
     /**
@@ -712,7 +820,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      *
      * @param message The message to fetch a feedback button to.
      * @param onButtonSet Invoke when setting button with message ID and owner ID, use this to supply button style.
-     * @return The updated component data built as {@link github.tintinkung.discordps.core.system.WebhookDataBuilder.WebhookData}
+     * @return The updated component data built as {@link WebhookData}
      */
     @NotNull
     private Optional<WebhookData> fetchFeedbackButton(@NotNull Message message,
@@ -782,8 +890,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     String label = button.getLabel();
 
                     buttons.add(switch (button.getStyle()) {
-                        case DANGER -> button.withLabel(label = REJECTED_FEEDBACK_LABEL).asEnabled();
-                        case SUCCESS -> button.withLabel(label = APPROVED_FEEDBACK_LABEL).asEnabled();
+                        case DANGER -> button.withLabel(label = this.metadata.rejectedFeedbackLabel()).asEnabled();
+                        case SUCCESS -> button.withLabel(label = this.metadata.approvedFeedbackLabel()).asEnabled();
                         default -> button.asDisabled();
                     });
 

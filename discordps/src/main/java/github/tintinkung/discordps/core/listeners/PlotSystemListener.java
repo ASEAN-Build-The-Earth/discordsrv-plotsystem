@@ -30,6 +30,13 @@ public class PlotSystemListener {
     }
 
     @ApiSubscribe
+    public void onPlotCreated(@NotNull PlotCreateEvent event) {
+        Runnable task = () -> this.webhook.createAndRegisterNewPlot(event.getPlotID());
+
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
+    }
+
+    @ApiSubscribe
     public void onPlotFeedback(@NotNull PlotFeedbackEvent event) {
         // Ignore no feedback
         if(event.getFeedback().equals("No Feedback")) return;
@@ -55,23 +62,29 @@ public class PlotSystemListener {
 
     @ApiSubscribe
     public void onPlotAbandoned(@NotNull PlotAbandonedEvent event) {
-        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.abandoned);
+        Runnable task = () -> webhook.onPlotAbandon(event);
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
     @ApiSubscribe
     public void onPlotSubmitted(@NotNull PlotSubmitEvent event) {
-        Runnable task = () -> webhook.updatePlot(event, ThreadStatus.finished);
+        Runnable task = () -> webhook.onPlotSubmit(event);
         DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 
+    @ApiSubscribe
+    public void onPlotUndoSubmit(@NotNull PlotUndoSubmitEvent event) {
+        Runnable task = () -> webhook.onPlotUndo(event);
+        DiscordPS.info("Got event: " + event.getClass().getSimpleName());
+        SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
+    }
 
     @ApiSubscribe
-    public void onPlotCreated(@NotNull PlotCreateEvent event) {
-        Runnable task = () -> this.webhook.createAndRegisterNewPlot(event.getPlotID());
-
+    public void onPlotUndoReview(@NotNull PlotUndoReviewEvent event) {
+        Runnable task = () -> webhook.onPlotUndo(event);
+        DiscordPS.info("Got event: " + event.getClass().getSimpleName());
         SchedulerUtil.runTaskLaterAsynchronously(DiscordPS.getPlugin(), task, DELAYED_TASK);
     }
 }

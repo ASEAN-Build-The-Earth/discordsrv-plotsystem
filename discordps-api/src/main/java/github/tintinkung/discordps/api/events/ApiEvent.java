@@ -1,6 +1,8 @@
 package github.tintinkung.discordps.api.events;
+
 /**
- * All superclass of DiscordPlotSystem API Events
- * @see PlotSubmitEvent
+ * Superclass of all DiscordPlotSystem API Events
+ *
+ * @see PlotEvent
  */
 public abstract class ApiEvent {}

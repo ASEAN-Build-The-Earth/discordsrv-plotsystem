@@ -1,12 +1,12 @@
 package github.tintinkung.discordps.commands.providers;
 
-import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.TextChannel;
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonClickEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
+import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.commands.interactions.InteractionEvent;
 import github.tintinkung.discordps.core.system.components.buttons.PluginButton;
@@ -14,8 +14,9 @@ import github.tintinkung.discordps.core.system.components.buttons.InteractiveBut
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.awt.Color;
 import java.util.function.Function;
+
+import static github.tintinkung.discordps.core.system.io.lang.CommandInteractions.EMBED_ATTACH_IMAGE_FAILED;
 
 public class AttachmentProviderButton implements InteractiveButtonHandler {
     private final Function<Message, InteractiveButtonHandler> sender;
@@ -34,11 +35,10 @@ public class AttachmentProviderButton implements InteractiveButtonHandler {
         TextChannel channel = event.getInteraction().getTextChannel();
         MessageReference lastMsg = getInteractionLastMessage(channel);
 
-        MessageEmbed errorEmbed = new EmbedBuilder()
-                .setTitle("Please send a message with attachment")
-                .setDescription("And make sure it is the latest message before confirming.")
-                .setColor(Color.RED)
-                .build();
+        MessageEmbed errorEmbed = DiscordPS.getSystemLang()
+            .getEmbedBuilder(EMBED_ATTACH_IMAGE_FAILED)
+            .setColor(Constants.RED)
+            .build();
 
         // Last message is not sent (it is the button message)
         if(lastMsg == null || lastMsg.getMessageIdLong() == event.getMessage().getIdLong()) {
@@ -74,7 +74,8 @@ public class AttachmentProviderButton implements InteractiveButtonHandler {
                     channel.getJDA()
             );
         } catch (IllegalStateException ex) {
-            DiscordPS.error("Interaction only support in a text channel");
+            DiscordPS.error("[Internal] Interaction only support in a text channel, "
+                + "A user should not be able to trigger this");
             return null;
         }
     }

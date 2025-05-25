@@ -5,13 +5,12 @@ import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.providers.WebhookProvider;
 import github.tintinkung.discordps.core.system.components.api.Container;
-import github.tintinkung.discordps.core.system.components.api.TextDisplay;
+import github.tintinkung.discordps.core.system.io.lang.PlotNotification;
 import github.tintinkung.discordps.core.system.layout.ShowcaseComponent;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -60,26 +59,15 @@ public final class ShowcaseWebhook extends AbstractShowcaseWebhook {
                 plotData
         );
 
-        Function<MemberOwnable, Function<String, Container>> notificationComponent = owner -> threadID -> {
-            Container container = new Container();
-
-            container.addComponent(
-                new TextDisplay("## :loudspeaker: Your plot has been showcased!\n"
-                + owner.getOwnerMentionOrName() + ", your build is now featured publicly. Check it out in <#" + threadID + ">!")
-            );
-
-            return container;
-        };
-
         final Container component;
-        final Function<String, Container> notification;
+        final String owner;
         final String threadName;
         final Supplier<Optional<File>> avatarFile;
 
         // Safety check if plot entry and webhook entry is as the same owner
         if(plotData.getOwner().getUniqueId().equals(UUID.fromString(plotEntry.ownerUUID()))) {
             component = showcaseComponent.apply(plotData).build();
-            notification = notificationComponent.apply(plotData);
+            owner = plotData.getOwnerMentionOrName();
             threadName = THREAD_NAME.apply(plotEntry.plotID(), plotData.formatOwnerName());
             avatarFile = plotData::getAvatarFile;
         }
@@ -89,14 +77,13 @@ public final class ShowcaseWebhook extends AbstractShowcaseWebhook {
             String error = "Showcasing plot with un-sync owner! Expected: "
                     + plotData.getOwner().getName() + "(" + plotData.getOwner().getUniqueId() + ") Got tracked entry: "
                     + entryOwner.getOwner().getName() + "(" + entryOwner.getOwner().getUniqueId() + "), "
-                    + "the system prioritize tracked entry as the data display.";
+                    + "the system prioritize tracked entry as the data to display.";
 
             Notification.sendErrorEmbed(error);
             DiscordPS.error(error);
 
-
             component = showcaseComponent.apply(entryOwner).build();
-            notification = notificationComponent.apply(entryOwner);
+            owner = entryOwner.getOwnerMentionOrName();
             threadName = THREAD_NAME.apply(plotEntry.plotID(), entryOwner.formatOwnerName());
             avatarFile = entryOwner::getAvatarFile;
         }
@@ -123,8 +110,8 @@ public final class ShowcaseWebhook extends AbstractShowcaseWebhook {
                 avatarFile.get().ifPresent(infoData::addFile);
 
                 // Send notification to plot owner
-                 // DiscordPS.getPlugin().getWebhook()
-                DiscordPS.getPlugin().getWebhook().sendNotification(threadID, notification.apply(messageID));
+                // DiscordPS.getPlugin().getWebhook()
+                DiscordPS.getPlugin().getWebhook().sendNotification(PlotNotification.ON_SHOWCASED, threadID, owner);
 
                 // Send showcase information to the showcase thread
                 return this.webhook.sendMessageInThread(messageID, infoData, true, true)

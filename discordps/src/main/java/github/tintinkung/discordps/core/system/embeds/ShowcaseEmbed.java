@@ -10,15 +10,16 @@ import org.jetbrains.annotations.NotNull;
 
 import github.tintinkung.discordps.core.system.layout.InfoComponent;
 
+@Deprecated
 public class ShowcaseEmbed extends EmbedBuilder implements PlotDataEmbed {
 
     public ShowcaseEmbed(@NotNull PlotData data, WebhookEntry entry) {
         super();
 
-        String title = InfoComponent.makeTitle(data.getPlot().plotID(), data.getPlot().cityName(), data.getPlot().countryName());
+        // String title = InfoComponent.makeTitle(data.getPlot().plotID(), data.getPlot().cityName(), data.getPlot().countryName());
 
         this.setThumbnail(data.getAvatarAttachmentOrURL());
-        this.setTitle(title);
+        // this.setTitle(title);
         this.setDescription("Built by "
             + (data.isOwnerHasDiscord()? data.getOwnerMentionOrName()
             + " (" + data.getOwner().getName() + ")"
@@ -35,7 +36,7 @@ public class ShowcaseEmbed extends EmbedBuilder implements PlotDataEmbed {
         super();
 
         this.setThumbnail(owner.getAvatarAttachmentOrURL());
-        this.setTitle(InfoComponent.makeTitle(plotID, cityName, countryName));
+        // this.setTitle(InfoComponent.makeTitle(plotID, cityName, countryName));
         this.setDescription("Built by "
                 + (owner.isOwnerHasDiscord()? owner.getOwnerMentionOrName()
                 + " (" + owner.getOwner().getName() + ")"

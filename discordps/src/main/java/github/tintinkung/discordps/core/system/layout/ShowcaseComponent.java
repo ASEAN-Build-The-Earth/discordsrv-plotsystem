@@ -6,6 +6,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.But
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.tintinkung.discordps.Constants;
+import github.tintinkung.discordps.DiscordPS;
 import github.tintinkung.discordps.core.providers.LayoutComponentProvider;
 import github.tintinkung.discordps.core.system.AvailableComponent;
 import github.tintinkung.discordps.core.system.MemberOwnable;
@@ -14,6 +15,7 @@ import github.tintinkung.discordps.core.system.components.api.Container;
 import github.tintinkung.discordps.core.system.components.api.TextDisplay;
 import github.tintinkung.discordps.core.system.components.api.TextThumbnailSection;
 import github.tintinkung.discordps.core.system.components.api.Thumbnail;
+import github.tintinkung.discordps.core.system.io.lang.PlotInformation;
 import github.tintinkung.discordps.utils.FileUtil;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -36,22 +38,17 @@ public final class ShowcaseComponent
     private String showcaseMessage;
     private String googleMapURL;
 
-    /**
-     * Default showcase display message
-     */
-    public static final String SHOWCASE_MESSAGE_FORMAT = """
-    # :earth_asia: %s, %s
-    > ## :house: Plot by %s
-    > -# Tracked as Plot ID #%d in <#%s>
-    """;
-
     public static @NotNull String makeShowcaseMessage(int plotID,
                                                       @NotNull String threadID,
                                                       @NotNull String city,
                                                       @NotNull String country,
                                                       @NotNull String ownerName) {
-
-        return SHOWCASE_MESSAGE_FORMAT.formatted(country, city, ownerName, plotID, threadID);
+        return DiscordPS.getMessagesLang().get(PlotInformation.SHOWCASE_TITLE)
+            .replace("{owner}", ownerName)
+            .replace("{plotID}", String.valueOf(plotID))
+            .replace("{country}", country)
+            .replace("{city}", city)
+            .replace("{threadID}", threadID);
     }
 
     /**
@@ -143,7 +140,7 @@ public final class ShowcaseComponent
 
     public Container build() {
         return super.build(Container::addComponent).addActionRow(ActionRow.of(
-            Button.link(this.googleMapURL, "Google Map")
+            Button.link(this.googleMapURL, DiscordPS.getMessagesLang().get(PlotInformation.MAP_LABEL))
         ));
     }
 

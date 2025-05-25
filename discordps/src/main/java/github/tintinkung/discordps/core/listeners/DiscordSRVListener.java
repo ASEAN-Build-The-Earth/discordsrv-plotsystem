@@ -2,32 +2,29 @@ package github.tintinkung.discordps.core.listeners;
 
 
 import github.scarsz.discordsrv.DiscordSRV;
-import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.platform.bukkit.BukkitAudiences;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.TextComponent;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTextColor;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.TextDecoration;
+import github.tintinkung.discordps.Constants;
 import github.tintinkung.discordps.Debug;
 import github.tintinkung.discordps.DiscordPS;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.tintinkung.discordps.commands.PlotCommand;
-import github.tintinkung.discordps.core.database.WebhookEntry;
 import github.tintinkung.discordps.core.providers.PluginListenerProvider;
 import github.tintinkung.discordps.commands.SetupCommand;
 import github.tintinkung.discordps.core.system.*;
 import org.jetbrains.annotations.NotNull;
 
-import java.awt.*;
-import java.sql.SQLException;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
+import static github.tintinkung.discordps.core.system.io.lang.Notification.PluginMessage.PLUGIN_STARTED;
 
 @SuppressWarnings("unused")
 final public class DiscordSRVListener extends PluginListenerProvider {
@@ -48,13 +45,12 @@ final public class DiscordSRVListener extends PluginListenerProvider {
      */
     @Subscribe
     public void onDiscordReady(DiscordReadyEvent event) {
-        DiscordPS.info("[DiscordPS] JDA Is Ready");
+        DiscordPS.info("DiscordSRV JDA Is Ready");
 
         // If this plugin finish initializing before DiscordSRV JDA instance
         if(!hasSubscribed()) {
             subscribeAndValidateJDA();
         }
-        // WebhookDeliver.sendTestEmbed();
     }
 
     /**
@@ -131,11 +127,7 @@ final public class DiscordSRVListener extends PluginListenerProvider {
 
                     DiscordPS.info("Discord-PlotSystem is fully configured! The application is ready.");
 
-                    Notification.sendMessageEmbeds(new EmbedBuilder()
-                            .setTitle(":green_circle: Discord-PlotSystem started.")
-                            .setColor(Color.GREEN)
-                            .build()
-                    );
+                    Notification.notify(PLUGIN_STARTED);
                 }
                 else this.onPluginNotReady();
             });
@@ -144,6 +136,8 @@ final public class DiscordSRVListener extends PluginListenerProvider {
     }
 
     /**
+     * Print blocking debugging message on server console
+     *
      * @see #createDebuggingMessage()
      */
     private void onPluginNotReady() {
@@ -154,7 +148,7 @@ final public class DiscordSRVListener extends PluginListenerProvider {
     }
 
     /**
-     * Send huge debugging message when the plugin is not ready.
+     * Huge debugging message when the plugin is not ready.
      *
      * @return Formatted message with colors.
      */
