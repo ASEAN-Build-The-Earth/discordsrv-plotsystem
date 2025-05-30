@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>github.tintinkung.discordsrv-plotsystem</groupId>
+    <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
     <version>1.1.0</version>
     <packaging>pom</packaging>
@@ -16,14 +16,13 @@
         <build.number>1.1.0</build.number>
     </properties>
 
-    <!-- Jitpack Modules -->
-    <!-- com.github.tintinkung.discordsrv-plotsystem:discordps-api         -->
-    <!-- com.github.tintinkung.discordsrv-plotsystem:discordps             -->
-    <!-- com.github.tintinkung.discordsrv-plotsystem:discordsrv-plotsystem -->
+    <!-- Maven Central Modules -->
+    <!-- asia.buildtheearth.asean.plotsystem.discordsrv-plotsystem  -->
+    <!-- asia.buildtheearth.asean.plotsystem.discord-plotsystem-api -->
+    <!-- asia.buildtheearth.asean.plotsystem.discord-plotsystem     -->
     <modules>
-        <!-- <module>bluemap-connector</module> --><!-- UN-VERSIONED: to-do module -->
-        <module>discordps-api</module>
-        <module>discordps</module>
+        <module>discord-plotsystem-api</module>
+        <module>discord-plotsystem</module>
     </modules>
     <build>
         <pluginManagement>

@@ -1,0 +1,8 @@
+name: DiscordPlotSystem
+version: '1.0.9'
+main: asia.buildtheearth.asean.discord.plotsystem.DiscordPS
+api-version: '1.21'
+prefix: DiscordPlotSystem
+authors: [tintinkung]
+description: Plot-System's DiscordSRV extension
+website: https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem
