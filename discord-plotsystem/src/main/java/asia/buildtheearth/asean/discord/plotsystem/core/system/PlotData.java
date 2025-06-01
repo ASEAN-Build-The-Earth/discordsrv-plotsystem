@@ -11,12 +11,10 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.PlotDataEm
 import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.StatusEmbed;
 import asia.buildtheearth.asean.discord.plotsystem.utils.CoordinatesUtil;
 import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Function;
 
@@ -112,7 +110,6 @@ public class PlotData extends MemberOwnable {
      * Check the media folder of a plot ID
      *
      * @param plotID The plot ID to look for
-     * @param mkdir Whether to create media directory if folder has not been initialized yet
      * @return All image files in this plot's media folder
      */
     public static @NotNull List<File> checkMediaFolder(int plotID) {
@@ -138,7 +135,6 @@ public class PlotData extends MemberOwnable {
      * Return plot media folder by ID and create if not exist.
      *
      * @param plotID The plot ID to look for
-     * @param mkdir whether to make directory for the plot media folder or not
      * @return The media folder as {@link File} instance
      */
     public static @NotNull File prepareMediaFolder(int plotID) {

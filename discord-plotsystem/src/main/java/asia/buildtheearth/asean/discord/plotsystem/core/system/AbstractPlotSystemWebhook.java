@@ -28,6 +28,11 @@ import java.util.function.Function;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage;
 
+/**
+ * Abstract for plot-system webhook management
+ *
+ * @see PlotSystemWebhook
+ */
 sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
 
     /**
@@ -110,8 +115,8 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
 
     /**
      * Create new thread for the given plot ID,
-     * will fall back to {@link #addNewExistingPlot(PlotSystemThread, Consumer)}
-     * if an entry already exist indication a re-claim plot.
+     * will fall back to {@link AbstractPlotSystemWebhook#addNewExistingPlot(WebhookEntry, boolean)}
+     * if an entry already existed indication a re-claim plot.
      *
      * @param thread   The plot ID to be created
      * @param register If true, will register this plot in database entry.
@@ -136,7 +141,7 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
                                             long threadID);
 
     /**
-     * Wrapper for {@link #registerNewPlot(PlotData, int, long)}
+     * Wrapper for {@link AbstractPlotSystemWebhook#registerNewPlot(PlotData, int, long)}
      * to register new plot based on the initial message reference.
      *
      * @param plotData The plot data to register this plot
@@ -249,7 +254,7 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
     /**
      * Create interactive layout by status as follows:
      * <ul>
-     *     <li>{@code on_going} {@code finished} Help & Docs button</li>
+     *     <li>{@code on_going} {@code finished} Help and Docs button</li>
      *     <li>{@code approved} Approval feedback button</li>
      *     <li>{@code rejected} Rejected reason button</li>
      * </ul>
@@ -355,30 +360,36 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
                 .replace(Format.LABEL, label));
     }
 
+    /** Create a plot's help button by owner and message. */
     protected Button newHelpButton(long messageID, long ownerID, int plotID) {
         return Button.primary(AvailableButton.HELP_BUTTON.resolve(messageID, ownerID, plotID), this.metadata.helpButtonLabel());
     }
 
+    /** Unknown error when overriding plot data, happens from an exception in completable future. */
     protected static final Consumer<? super Throwable> ON_PLOT_OVERRIDING_EXCEPTION = error -> {
         DiscordPS.error("Error occurred adding new plot to existing data.", error);
         Notification.sendErrorEmbed(ErrorMessage.PLOT_UPDATE_UNKNOWN_EXCEPTION, error.toString());
     };
 
+    /** Unknown error when creating new plot, happens from an exception in completable future. */
     protected static final BiConsumer<Integer, ? super Throwable> ON_PLOT_CREATION_EXCEPTION = (plotID, error) -> {
         DiscordPS.error("Failed to resolve data trying to create new plot.", error);
         Notification.sendErrorEmbed(ErrorMessage.PLOT_CREATE_EXCEPTION, error.toString(), String.valueOf(plotID));
     };
 
+    /** Exception during plot registration, happen if {@link ForumWebhook#sendMessageInThread(String, WebhookDataBuilder.WebhookData, boolean, boolean) failed.} */
     protected static final BiConsumer<Integer, ? super Throwable> ON_PLOT_REGISTER_EXCEPTION = (plotID, error) -> {
         DiscordPS.error("Failed to resolve data trying to register new plot to database.", error);
         Notification.sendErrorEmbed(ErrorMessage.PLOT_REGISTER_ENTRY_EXCEPTION, error.toString(), String.valueOf(plotID));
     };
 
+    /** Unknown error when setting feedback button, happens from an exception in completable future. */
     protected static final Consumer<? super Throwable> ON_PLOT_FEEDBACK_EXCEPTION = error -> {
         DiscordPS.error("Error occurred while setting plot's feedback data.", error);
         Notification.sendErrorEmbed(ErrorMessage.PLOT_FEEDBACK_UNKNOWN_EXCEPTION, error.toString());
     };
 
+    /** Unknown error when updating plot data, happens from an exception in completable future. */
     protected static final BiConsumer<PlotEvent, ? super Throwable> ON_PLOT_UPDATE_EXCEPTION = (event, error) -> {
         DiscordPS.error("Error occurred while updating plot data.", error);
         Notification.sendErrorEmbed(
@@ -389,6 +400,11 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
         );
     };
 
+    /**
+     * Consumer to handle for button attaching action.
+     *
+     * @see CompletableFuture#whenComplete(BiConsumer)
+     */
     protected static final BiConsumer<Optional<?>, ? super Throwable> HANDLE_BUTTON_ATTACH_ERROR = (success, failure) -> {
         if(failure != null) {
             DiscordPS.error("A thread interaction attach action returned an exception", failure);
@@ -396,6 +412,11 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
         }
     };
 
+    /**
+     * Consumer to handle for thread editing action.
+     *
+     * @see CompletableFuture#whenComplete(BiConsumer)
+     */
     protected static final BiConsumer<Optional<?>, ? super Throwable> HANDLE_THREAD_EDIT_ERROR = (success, failure) -> {
         if(failure != null) {
             DiscordPS.error("A thread data update action returned an exception", failure);
@@ -403,6 +424,11 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
         }
     };
 
+    /**
+     * Consumer to handle for status message editing action.
+     *
+     * @see CompletableFuture#whenComplete(BiConsumer)
+     */
     protected static final BiConsumer<Optional<?>, ? super Throwable> HANDLE_MESSAGE_EDIT_ERROR = (success, failure) -> {
         if(failure != null) {
             DiscordPS.error("A thread message update action returned an exception", failure);
@@ -410,13 +436,17 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
         }
     };
 
+    /**
+     * Consumer to handle for plot layout editing action.
+     *
+     * @see CompletableFuture#whenComplete(BiConsumer)
+     */
     protected static final BiConsumer<Optional<?>, ? super Throwable> HANDLE_LAYOUT_EDIT_ERROR = (success, failure) -> {
         if(failure != null) {
             DiscordPS.error("A thread layout update action returned an exception", failure);
             Notification.sendErrorEmbed(ErrorMessage.FAILED_LAYOUT_EDIT, failure.toString());
         }
     };
-
 
     /**
      * Plot Metadata from messages language file, mostly button label data.

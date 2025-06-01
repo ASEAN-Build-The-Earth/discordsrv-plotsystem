@@ -6,20 +6,50 @@
 
     <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.1.0</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
-
-    <name>discordsrv-plotsystem</name>
 
     <!-- Build Version -->
     <properties>
-        <build.number>1.1.0</build.number>
+        <build.number>1.0.0</build.number>
     </properties>
 
+    <name>DiscordSRV Plot-System Project</name>
+    <description>Discord integration for Build-The-Earth Project's Plot-System plugin using DiscordSRV</description>
+    <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/</url>
+    <inceptionYear>2025</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <issueManagement>
+        <system>Github</system>
+        <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/issues</url>
+    </issueManagement>
+    <scm>
+        <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/tree/main</url>
+        <connection>scm:git@github.com:ASEAN-Build-The-Earth/discordsrv-plotsystem.git</connection>
+        <developerConnection>scm:git@github.com:ASEAN-Build-The-Earth/discordsrv-plotsystem.git</developerConnection>
+    </scm>
+    <developers>
+        <developer>
+            <name>Tintinkung</name>
+            <email>tintinkung.lemonade@gmail.com</email>
+            <url>https://github.com/tintinkung</url>
+            <organization>ASEAN Build The Earth</organization>
+            <organizationUrl>https://github.com/ASEAN-Build-The-Earth</organizationUrl>
+        </developer>
+    </developers>
+
     <!-- Maven Central Modules -->
-    <!-- asia.buildtheearth.asean.plotsystem.discordsrv-plotsystem  -->
-    <!-- asia.buildtheearth.asean.plotsystem.discord-plotsystem-api -->
-    <!-- asia.buildtheearth.asean.plotsystem.discord-plotsystem     -->
+    <!-- asia.buildtheearth.asean.discord.plotsystem.discordsrv-plotsystem  -->
+    <!-- asia.buildtheearth.asean.discord.plotsystem.discord-plotsystem-api -->
+    <!-- asia.buildtheearth.asean.discord.plotsystem.discord-plotsystem     -->
     <modules>
         <module>discord-plotsystem-api</module>
         <module>discord-plotsystem</module>
@@ -46,7 +76,105 @@
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>3.2.4</version>
                 </plugin>
+                <!-- Attach Sources -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.3.1</version>
+                </plugin>
+                <!-- Attach Javadocs -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>3.11.2</version>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
+    <profiles>
+        <!-- Maven Central Publishing Profile -->
+        <profile>
+            <id>publish-maven-central</id>
+            <distributionManagement>
+                <repository>
+                    <id>central</id>
+                    <name>Central Repository</name>
+                    <url>https://central.sonatype.com</url>
+                </repository>
+            </distributionManagement>
+            <build>
+                <plugins>
+                    <!-- Maven Central publishing -->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
+                        </configuration>
+                    </plugin>
+                    <!-- Sign with GPG -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <phase>verify</phase>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <!-- GitHub Packages Publishing Profile -->
+        <profile>
+            <id>publish-github-packages</id>
+            <distributionManagement>
+                <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/asean-build-the-earth/discordsrv-plotsystem</url>
+                </repository>
+            </distributionManagement>
+            <build>
+                <plugins>
+                    <!-- Sign with GPG -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <phase>verify</phase>
+                                <configuration>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

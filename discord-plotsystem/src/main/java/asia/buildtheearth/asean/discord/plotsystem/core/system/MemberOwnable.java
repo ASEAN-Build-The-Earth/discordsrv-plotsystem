@@ -83,7 +83,7 @@ public class MemberOwnable {
     }
 
     /**
-     * Format owner as discord mention <@snowflake> or minecraft player name if not exist.
+     * Format owner as discord mention {@code <@snowflake>} or minecraft player name if not exist.
      *
      * @return Mentionable or the minecraft player name
      */

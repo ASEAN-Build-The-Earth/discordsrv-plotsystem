@@ -7,10 +7,10 @@
     <parent>
         <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.1.0</version>
+        <version>1.0.0</version>
     </parent>
 
-    <name>discord-plotsystem</name>
+    <name>Discord Plot-System Plugin</name>
     <artifactId>discord-plotsystem</artifactId>
     <packaging>jar</packaging>
 
@@ -40,13 +40,14 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
-            <!-- Exclude the maven metadata -->
+            <!-- Shade Dependencies-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <configuration>
                     <outputDirectory>${project.build.directory}</outputDirectory>
                     <createDependencyReducedPom>true</createDependencyReducedPom>
+                    <!-- Exclude all package metadata -->
                     <filters>
                         <filter>
                             <artifact>*:*</artifact>
@@ -60,6 +61,7 @@
                             </excludes>
                         </filter>
                     </filters>
+                    <!-- Add our manifest data -->
                     <transformers>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"/>
                     </transformers>
@@ -73,40 +75,51 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Assemble project to root folder -->
+            <!-- Attach Sources -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
+                <artifactId>maven-source-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>plugin</id>
-                        <phase>package</phase>
+                        <id>attach-sources</id>
+                        <phase>verify</phase>
                         <goals>
-                            <goal>single</goal>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Attach Javadocs -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-javadoc</id>
+                        <goals>
+                            <goal>jar</goal>
                         </goals>
                     </execution>
                 </executions>
                 <configuration>
-                    <descriptors>
-                        <descriptor>src/main/assembly/jar-assembly.xml</descriptor>
-                    </descriptors>
-                    <finalName>${project.parent.artifactId}-${project.version}</finalName>
-                    <outputDirectory>${project.parent.build.directory}</outputDirectory>
-                    <appendAssemblyId>true</appendAssemblyId>
+                    <doclint>none</doclint>
                 </configuration>
             </plugin>
         </plugins>
     </build>
 
     <repositories>
+        <!-- Spigot API -->
         <repository>
             <id>spigot-repo</id>
             <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
         </repository>
+        <!-- DiscordSRV -->
         <repository>
             <id>Scarsz-Nexus</id>
             <url>https://nexus.scarsz.me/content/groups/public/</url>
         </repository>
+        <!-- Maven Central -->
         <repository>
             <id>sonatype</id>
             <url>https://oss.sonatype.org/content/groups/public/</url>
@@ -114,13 +127,13 @@
     </repositories>
 
     <dependencies>
+        <!-- Spigot API -->
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
             <version>1.21.3-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
-
         <!-- DiscordSRV -->
         <dependency>
             <groupId>com.discordsrv</groupId>
@@ -128,15 +141,13 @@
             <version>1.29.0</version>
             <scope>provided</scope>
         </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.jetbrains/annotations -->
+        <!-- Jetbrains Annotations -->
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <version>26.0.2</version>
             <scope>provided</scope>
         </dependency>
-
         <!-- MariaDB Connector -->
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
@@ -144,7 +155,6 @@
             <version>2.7.4</version>
             <scope>compile</scope>
         </dependency>
-
         <!-- MySQL , Provided by DiscordSRV -->
         <dependency>
             <groupId>com.mysql</groupId>
@@ -159,7 +169,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
         <!-- Hikari-CP (MariaDB) -->
         <dependency>
             <groupId>com.zaxxer</groupId>
@@ -167,20 +176,12 @@
             <version>4.0.3</version>
             <scope>compile</scope>
         </dependency>
-
         <!-- This Plugin's API -->
         <dependency>
             <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
             <artifactId>discord-plotsystem-api</artifactId>
             <version>${project.parent.version}</version>
             <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.spigotmc</groupId>
-                    <artifactId>spigot-api</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
     </dependencies>
-
 </project>
