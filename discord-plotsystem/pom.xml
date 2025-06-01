@@ -7,10 +7,19 @@
     <parent>
         <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </parent>
 
-    <name>Discord Plot-System Plugin</name>
+    <name>[DEPRECATED] Discord Plot-System Plugin</name>
+    <description>
+    [DEPRECATED] This artifact has moved to a new Maven groupId.
+
+    New coordinates (starting from version 1.1.0):
+    groupId: asia.buildtheearth.asean.discord
+    artifactId: discord-plotsystem
+
+    Please update your dependencies accordingly. No further updates will be published under 'asia.buildtheearth.asean.discord.plotsystem'.
+    </description>
     <artifactId>discord-plotsystem</artifactId>
     <packaging>jar</packaging>
 

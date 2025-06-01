@@ -6,16 +6,24 @@
 
     <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>pom</packaging>
 
     <!-- Build Version -->
     <properties>
-        <build.number>1.0.0</build.number>
+        <build.number>1.0.1</build.number>
     </properties>
 
-    <name>DiscordSRV Plot-System Project</name>
-    <description>Discord integration for Build-The-Earth Project's Plot-System plugin using DiscordSRV</description>
+    <name>[DEPRECATED] DiscordSRV Plot-System Project</name>
+    <description>
+    [DEPRECATED] This artifact has moved to a new Maven groupId.
+
+    New coordinates (starting from version 1.1.0):
+    groupId: asia.buildtheearth.asean.discord
+    artifactId: discordsrv-plotsystem
+
+    Please update your dependencies accordingly. No further updates will be published under 'asia.buildtheearth.asean.discord.plotsystem'.
+    </description>
     <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/</url>
     <inceptionYear>2025</inceptionYear>
 
