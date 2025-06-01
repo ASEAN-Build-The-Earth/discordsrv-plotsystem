@@ -133,8 +133,9 @@ class SetupHelpCommand extends SystemCommandProvider<Interaction,
         return groupEmbed;
     }
 
-    private @NotNull LanguageFile.EmbedLang makeDebuggingMessage(Debug.ErrorGroup group, boolean failed) {
-        SystemLang lang = failed? DebuggingMessage.valueOf(group.name()).getFailed() : group.toMessage().getPassed();
+    private @NotNull LanguageFile.EmbedLang makeDebuggingMessage(@NotNull Debug.ErrorGroup group, boolean failed) {
+        DebuggingMessage message = DebuggingMessage.valueOf(group.name());
+        SystemLang lang = failed? message.getFailed() : message.getPassed();
         return getLangManager().getEmbed(lang);
     }
 }
