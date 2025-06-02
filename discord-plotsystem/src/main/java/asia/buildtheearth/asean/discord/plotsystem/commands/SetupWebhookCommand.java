@@ -16,7 +16,6 @@ import asia.buildtheearth.asean.discord.plotsystem.ConfigPaths;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnSetupWebhook;
-import asia.buildtheearth.asean.discord.plotsystem.commands.providers.AbstractSetupWebhookCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
@@ -39,8 +38,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.Constants.RED;
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.WEBHOOK_AVATAR_FILE;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.SetupWebhookCommand.*;
 
-
-class SetupWebhookCommand extends AbstractSetupWebhookCommand {
+sealed class SetupWebhookCommand extends AbstractSetupWebhookCommand permits SetupShowcaseCommand {
 
     public SetupWebhookCommand(@NotNull String name,
                                @NotNull String outputFile,

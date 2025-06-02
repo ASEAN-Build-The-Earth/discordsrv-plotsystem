@@ -1,15 +1,8 @@
 name: DiscordPlotSystem
-version: '1.0.1'
+version: '1.1.0'
 main: asia.buildtheearth.asean.discord.plotsystem.DiscordPS
 api-version: '1.21'
 prefix: DiscordPlotSystem
 authors: [tintinkung]
-description: |
-  [DEPRECATED] This artifact has moved to a new Maven groupId.
-  
-  New coordinates (starting from version 1.1.0):
-  groupId: asia.buildtheearth.asean.discord
-  artifactId: discord-plotsystem-api
-  
-  Please update your dependencies accordingly. No further updates will be published under 'asia.buildtheearth.asean.discord.plotsystem'.
+description: Plot-System's DiscordSRV extension
 website: https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem

@@ -1,12 +1,14 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
+import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonClickEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.handlers.*;
-import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.InteractionEvent;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.*;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.handlers.PlotFeedback;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.handlers.PlotHelp;
-import asia.buildtheearth.asean.discord.plotsystem.core.providers.ComponentProvider;
+import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
+import asia.buildtheearth.asean.discord.components.buttons.*;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.buttons.PlotFeedback;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.buttons.PlotHelp;
+import asia.buildtheearth.asean.discord.providers.ComponentProvider;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
@@ -69,6 +71,11 @@ public enum AvailableButton implements ComponentProvider, AvailableButtonHandler
     @Override
     public @Nullable PluginButtonHandler getHandler() {
         return handler;
+    }
+
+    @Override
+    public @NotNull Plugin getPlugin() {
+        return DiscordPS.getPlugin();
     }
 
     /**

@@ -4,25 +4,22 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
+    <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
     <packaging>pom</packaging>
 
     <!-- Build Version -->
     <properties>
-        <build.number>1.0.1</build.number>
+        <build.number>1.1.0</build.number>
     </properties>
 
-    <name>[DEPRECATED] DiscordSRV Plot-System Project</name>
+    <name>DiscordSRV Plot-System Project</name>
     <description>
-    [DEPRECATED] This artifact has moved to a new Maven groupId.
-
-    New coordinates (starting from version 1.1.0):
-    groupId: asia.buildtheearth.asean.discord
-    artifactId: discordsrv-plotsystem
-
-    Please update your dependencies accordingly. No further updates will be published under 'asia.buildtheearth.asean.discord.plotsystem'.
+        Discord integration for the Build The Earth project's Plot-System plugin
+        using DiscordSRV; this parent project includes
+        the API module (discord-plotsystem-api)
+        and the implementation plugin (discord-plotsystem).
     </description>
     <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/</url>
     <inceptionYear>2025</inceptionYear>
@@ -55,9 +52,9 @@
     </developers>
 
     <!-- Maven Central Modules -->
-    <!-- asia.buildtheearth.asean.discord.plotsystem.discordsrv-plotsystem  -->
-    <!-- asia.buildtheearth.asean.discord.plotsystem.discord-plotsystem-api -->
-    <!-- asia.buildtheearth.asean.discord.plotsystem.discord-plotsystem     -->
+    <!-- asia.buildtheearth.asean.discord.discordsrv-plotsystem  -->
+    <!-- asia.buildtheearth.asean.discord.discord-plotsystem-api -->
+    <!-- asia.buildtheearth.asean.discord.discord-plotsystem     -->
     <modules>
         <module>discord-plotsystem-api</module>
         <module>discord-plotsystem</module>

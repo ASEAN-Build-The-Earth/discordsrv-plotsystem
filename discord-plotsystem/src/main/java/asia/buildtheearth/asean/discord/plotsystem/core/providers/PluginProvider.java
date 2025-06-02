@@ -19,4 +19,13 @@ public abstract class PluginProvider {
     public PluginProvider(DiscordPS plugin) {
         this.plugin = plugin;
     }
+
+    /**
+     * Get the plugin instance of this class
+     *
+     * @return The running plugin instance
+     */
+    public DiscordPS getPlugin() {
+        return this.plugin;
+    }
 }

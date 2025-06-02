@@ -11,10 +11,10 @@ import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponen
 import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.MemberOwnable;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotData;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.Container;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.TextDisplay;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.TextThumbnailSection;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.Thumbnail;
+import asia.buildtheearth.asean.discord.components.api.Container;
+import asia.buildtheearth.asean.discord.components.api.TextDisplay;
+import asia.buildtheearth.asean.discord.components.api.TextThumbnailSection;
+import asia.buildtheearth.asean.discord.components.api.Thumbnail;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInformation;
 import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
 import org.jetbrains.annotations.Contract;

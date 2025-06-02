@@ -2,15 +2,13 @@ package asia.buildtheearth.asean.discord.plotsystem.commands.events;
 
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
-import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.SlashCommandEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnSetupWebhook;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Slash command events of the command {@code /setup webhook} and {@code /setup showcase}
+ * Slash command events for the command {@code /setup webhook} and {@code /setup showcase}
  *
  * @see #onSetupWebhook(InteractionHook, OnSetupWebhook)
  * @see #onConfirmAvatarProvided(MessageChannel, OnSetupWebhook)
@@ -22,7 +20,7 @@ public interface SetupWebhookEvent {
     /**
      * 1st interaction when user first activated the command.
      *
-     * @param hook The message hook
+     * @param hook The event's hook
      * @param interaction The {@link OnSetupWebhook} interaction payload of this event.
      */
     void onSetupWebhook(@NotNull InteractionHook hook, @NotNull OnSetupWebhook interaction);
@@ -33,7 +31,7 @@ public interface SetupWebhookEvent {
      * @param channel The channel where this event originate at.
      * @param interaction The {@link OnSetupWebhook} interaction payload of this event.
      */
-    void onConfirmAvatarProvided(MessageChannel channel, OnSetupWebhook interaction);
+    void onConfirmAvatarProvided(@NotNull MessageChannel channel, @NotNull OnSetupWebhook interaction);
 
     /**
      * 2nd interaction when user clicked the "Attach Image" button
@@ -41,7 +39,7 @@ public interface SetupWebhookEvent {
      * @param message The latest message where an attachment is provided by the user.
      * @param interaction The {@link OnSetupWebhook} interaction payload of this event.
      */
-    void onConfirmAvatar(Message message, OnSetupWebhook interaction);
+    void onConfirmAvatar(@NotNull Message message, @NotNull OnSetupWebhook interaction);
 
     /**
      * Final confirmation and the end of interaction.
@@ -49,5 +47,5 @@ public interface SetupWebhookEvent {
      * @param message The message where the final message will be displayed (embed).
      * @param interaction The {@link OnSetupWebhook} interaction payload of this event.
      */
-    void onConfirmConfig(Message message, OnSetupWebhook interaction);
+    void onConfirmConfig(@NotNull Message message, @NotNull OnSetupWebhook interaction);
 }

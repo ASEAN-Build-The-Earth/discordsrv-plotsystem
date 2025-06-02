@@ -1,5 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
+import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
+import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginProvider;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
@@ -8,7 +10,7 @@ import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.ComponentV2;
+import asia.buildtheearth.asean.discord.components.api.ComponentV2;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInformation;
@@ -33,7 +35,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.No
  *
  * @see PlotSystemWebhook
  */
-sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
+sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits PlotSystemWebhook {
 
     /**
      * The webhook instance, provide all functionality in webhook management.
@@ -52,7 +54,8 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
      *
      * @param webhook The forum webhook manager instance
      */
-    protected AbstractPlotSystemWebhook(ForumWebhook webhook) {
+    protected AbstractPlotSystemWebhook(DiscordPS plugin, ForumWebhook webhook) {
+        super(plugin);
         this.webhook = webhook;
         this.metadata = new Metadata(
             DiscordPS.getMessagesLang().get(PlotInformation.HELP_LABEL),
@@ -70,7 +73,7 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
     /**
      * Represent action that update layout component,
      * invoking with {@link Layout} which process data to
-     * {@link asia.buildtheearth.asean.discord.plotsystem.core.system.WebhookDataBuilder.WebhookData} ready to request to API
+     * {@link asia.buildtheearth.asean.discord.components.WebhookDataBuilder.WebhookData} ready to request to API
      */
     @FunctionalInterface
     protected interface LayoutUpdater extends Function<Layout, Optional<WebhookDataBuilder.WebhookData>> {}
@@ -78,7 +81,7 @@ sealed abstract class AbstractPlotSystemWebhook permits PlotSystemWebhook {
     /**
      * Represent action that update message status of a plot entry,
      * invoking with {@link Message} which process data to
-     * {@link asia.buildtheearth.asean.discord.plotsystem.core.system.WebhookDataBuilder.WebhookData} ready to request to API
+     * {@link asia.buildtheearth.asean.discord.components.WebhookDataBuilder.WebhookData} ready to request to API
      */
     @FunctionalInterface
     protected interface MessageUpdater extends Function<Message, Optional<WebhookDataBuilder.WebhookData>> {}

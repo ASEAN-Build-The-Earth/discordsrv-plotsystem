@@ -1,5 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
+import asia.buildtheearth.asean.discord.components.PluginComponent;
+import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Emoji;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
@@ -14,11 +16,10 @@ import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponentProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookProvider;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.PluginComponent;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.Container;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.TextDisplay;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.PluginButton;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.ComponentV2;
+import asia.buildtheearth.asean.discord.components.api.Container;
+import asia.buildtheearth.asean.discord.components.api.TextDisplay;
+import asia.buildtheearth.asean.discord.components.api.ComponentV2;
+import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.LangPaths;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.InfoComponent;
@@ -43,7 +44,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemThread.THREAD_NAME;
-import static asia.buildtheearth.asean.discord.plotsystem.core.system.WebhookDataBuilder.WebhookData;
+import static asia.buildtheearth.asean.discord.components.WebhookDataBuilder.WebhookData;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage;
 
@@ -55,8 +56,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      *
      * @param webhook The forum webhook manager instance
      */
-    public PlotSystemWebhook(ForumWebhook webhook) {
-        super(webhook);
+    public PlotSystemWebhook(DiscordPS plugin, ForumWebhook webhook) {
+        super(plugin, webhook);
     }
 
     /**
@@ -323,7 +324,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                                  @NotNull Function<String, String> content) {
 
         // Exit if this notification is disabled
-        if(!DiscordPS.getPlugin().getConfig().getBoolean(type.getKey(), true)) return;
+        if(!this.plugin.getConfig().getBoolean(type.getKey(), true)) return;
 
         // Parse message from language file
         TextDisplay display = new TextDisplay(content.apply(DiscordPS.getMessagesLang().get(type)));
@@ -779,7 +780,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         switch(plotEvent) {
             case PlotClosureEvent ignored: // Make all interactive button disabled if the plot is closed
-                interactionRow.getButtons().forEach(button -> PluginComponent.getOpt(button).ifPresentOrElse(component -> {
+                interactionRow.getButtons().forEach(button -> PluginComponent.getOpt(this.plugin, button).ifPresentOrElse(component -> {
                     switch (AvailableButton.valueOf(component.getType())) {
                         case AvailableButton.FEEDBACK_BUTTON:
                             buttons.add(
@@ -802,7 +803,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 // Undo review: Filter out feedback button from the interaction row
                 if(event instanceof PlotUndoReviewEvent)
                     interactionRow.getButtons().forEach(button ->
-                        PluginComponent.getOpt(button).ifPresentOrElse(component -> {
+                        PluginComponent.getOpt(this.plugin, button).ifPresentOrElse(component -> {
                             if (AvailableButton.valueOf(component.getType()) == AvailableButton.HELP_BUTTON)
                                 buttons.add(component.get());
                         }, () -> buttons.add(button))
@@ -836,7 +837,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             if(button == null) return;
 
             // Parse for data in help button
-            PluginComponent.getOpt(button).ifPresent(component -> {
+            PluginComponent.getOpt(this.plugin, button).ifPresent(component -> {
                 AvailableButton buttonID = AvailableButton.valueOf(component.getType());
 
                 switch (buttonID) {
@@ -880,7 +881,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
             // Parse for data in feedback button
             try {
-                PluginButton component = new PluginButton(button);
+                PluginButton component = new PluginButton(this.plugin, button);
 
                 // If feedback button is already attached
                 // update it to functional button

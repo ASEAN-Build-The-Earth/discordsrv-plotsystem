@@ -1,6 +1,5 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
-
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.platform.bukkit.BukkitAudiences;
@@ -8,7 +7,6 @@ import github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.TextComponent;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTextColor;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.TextDecoration;
-import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.Debug;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import github.scarsz.discordsrv.api.Subscribe;
@@ -26,18 +24,32 @@ import java.util.concurrent.TimeUnit;
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage.PLUGIN_STARTED;
 
+/**
+ * Main listener and starting point of the plugin.
+ *
+ * <p>Listen for {@link DiscordReadyEvent} and subscribe the the JDA instance,
+ * initializing plugin validation and mark the plugin as ready (or not if an error occurred)</p>
+ *
+ * @see #onDiscordReady(DiscordReadyEvent)
+ * @see #subscribeAndValidateJDA()
+ */
 @SuppressWarnings("unused")
 final public class DiscordSRVListener extends PluginListenerProvider {
 
     private boolean subscribed = false;
 
+    /**
+     * Initialize a main listener for {@link DiscordSRV}
+     *
+     * @param plugin The main plugin instance
+     */
     public DiscordSRVListener(DiscordPS plugin) {
         super(plugin);
     }
 
     @Override
     public boolean hasSubscribed() {
-        return subscribed;
+        return this.subscribed;
     }
 
     /**
@@ -47,10 +59,11 @@ final public class DiscordSRVListener extends PluginListenerProvider {
     public void onDiscordReady(DiscordReadyEvent event) {
         DiscordPS.info("DiscordSRV JDA Is Ready");
 
-        // If this plugin finish initializing before DiscordSRV JDA instance
-        if(!hasSubscribed()) {
-            subscribeAndValidateJDA();
-        }
+        // If this plugin already finish initializing before DiscordSRV JDA instance
+        if(hasSubscribed()) return;
+
+        // Subscribe to JDA
+        subscribeAndValidateJDA();
     }
 
     /**
@@ -67,9 +80,10 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         DiscordSRV.getPlugin().getJda().addEventListener(this.newEventListener(this));
 
         // Initialize and Add our slash command data in
-        newSlashCommandListener().register(DiscordSRV.getPlugin().getMainGuild().getId(),
-            new SetupCommand(DiscordPS.getPlugin().isDebuggingEnabled()),
-            new PlotCommand(DiscordPS.getPlugin().isDebuggingEnabled())
+        newSlashCommandListener().register(
+            DiscordSRV.getPlugin().getMainGuild().getId(),
+            new SetupCommand(),
+            new PlotCommand()
         );
 
         Checks.notNull(this.getPluginSlashCommand(), "Plugin Slash Command Provider");
@@ -90,7 +104,7 @@ final public class DiscordSRVListener extends PluginListenerProvider {
                 this.plugin.getWebhookConfig(),
                 this.plugin.getConfig()
             );
-            this.plugin.initWebhook(new PlotSystemWebhook(forumWebhook));
+            this.plugin.initWebhook(new PlotSystemWebhook(this.plugin, forumWebhook));
         }
         catch (RuntimeException ex) {
             DiscordPS.error(

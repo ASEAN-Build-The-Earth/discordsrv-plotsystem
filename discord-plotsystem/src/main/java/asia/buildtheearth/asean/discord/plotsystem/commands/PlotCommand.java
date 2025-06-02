@@ -10,27 +10,41 @@ import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotA
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotDelete;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotFetch;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotShowcase;
-import asia.buildtheearth.asean.discord.plotsystem.commands.providers.SlashCommand;
+import asia.buildtheearth.asean.discord.commands.SlashCommand;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotCommand.DESC;
 
+/**
+ * Plot command data, parent command of all plot-related commands.
+ *
+ * @see PlotArchiveEvent
+ * @see PlotFetchEvent
+ * @see PlotDeleteEvent
+ * @see PlotShowcaseEvent
+ */
 public final class PlotCommand extends CommandData {
 
-    // Common parameters
-    // TODO: rename to /plotctl as for plot controls commands
+    /// Common parameters
+    /// TODO: rename to /plotctl as for plot controls commands
+
+    /** Plot command signature: {@code plot} */
     public static final String PLOT = "plot";
+
+    /** Plot command's parameter signature: {@code id} */
     public static final String PLOT_ID = "id";
+
+    /** Plot command's parameter signature: {@code override} */
     public static final String PLOT_OVERRIDE = "override";
 
-    // Plot Archive command
+    /** Plot Archive command signature: {@code archive} */
     public static final String ARCHIVE = "archive";
 
-    // Plot Fetch command
+    /** Plot Fetch command signature: {@code fetch} */
     public static final String FETCH = "fetch";
 
-    // Plot Delete command
+    /** Plot Delete command signature: {@code delete} */
     public static final String DELETE = "delete";
 
-    // Plot Showcase command
+    /** Plot Showcase command signature: {@code showcase} */
     public static final String SHOWCASE = "showcase";
 
     private final PlotArchiveCommand plotArchiveCommand;
@@ -38,7 +52,10 @@ public final class PlotCommand extends CommandData {
     private final PlotDeleteCommand plotDeleteCommand;
     private final PlotShowcaseCommand plotShowcaseCommand;
 
-    public PlotCommand(boolean defaultEnabled) {
+    /**
+     * Initialize plot command data creating all of its subcommands.
+     */
+    public PlotCommand() {
         super(PLOT, DiscordPS.getSystemLang().get(DESC));
         this.addSubcommands(
                 plotArchiveCommand = new PlotArchiveCommand(ARCHIVE, PLOT_ID, PLOT_OVERRIDE),
@@ -46,47 +63,69 @@ public final class PlotCommand extends CommandData {
                 plotDeleteCommand = new PlotDeleteCommand(DELETE, PLOT_ID),
                 plotShowcaseCommand = new PlotShowcaseCommand(SHOWCASE, PLOT_ID)
         );
-        this.setDefaultEnabled(defaultEnabled);
     }
 
+    /**
+     * Get the sub command {@code fetch} returning its event.
+     *
+     * @return The subcommand as a trigger interface
+     */
     public SlashCommand<OnPlotFetch> getFetchCommand() {
         return this.plotFetchCommand;
     }
 
+    /**
+     * Get the sub command {@code archive}
+     *
+     * @return The subcommand as a trigger interface
+     */
     public SlashCommand<OnPlotArchive> getArchiveCommand() {
         return this.plotArchiveCommand;
     }
 
+    /**
+     * Get the sub command {@code delete}
+     *
+     * @return The subcommand as a trigger interface
+     */
     public SlashCommand<OnPlotDelete> getDeleteCommand() {
         return this.plotDeleteCommand;
     }
 
+    /**
+     * Get the sub command {@code showcase}
+     *
+     * @return The subcommand as a trigger interface
+     */
     public SlashCommand<OnPlotShowcase> getShowcaseCommand() {
         return this.plotShowcaseCommand;
     }
 
     /**
-     * Get the sub command "archive"
+     * Get the sub command {@code archive} returning its event.
      *
-     * @return The subcommand as event handler
+     * @return The subcommand event interface
+     * @see PlotArchiveEvent
      */
     public PlotArchiveEvent getArchiveEvent() {
         return this.plotArchiveCommand;
     }
 
     /**
-     * Get the sub command "fetch"
+     * Get the sub command {@code fetch} returning its event.
      *
-     * @return The subcommand as event handler
+     * @return The subcommand event interface
+     * @see PlotFetchEvent
      */
     public PlotFetchEvent getFetchEvent() {
         return this.plotFetchCommand;
     }
 
     /**
-     * Get the sub command "delete"
+     * Get the sub command {@code delete} returning its event.
      *
-     * @return The subcommand as event handler
+     * @return The subcommand event interface
+     * @see PlotDeleteEvent
      */
     public PlotDeleteEvent getDeleteEvent() {
         return this.plotDeleteCommand;
@@ -94,9 +133,10 @@ public final class PlotCommand extends CommandData {
 
 
     /**
-     * Get the sub command "showcase"
+     * Get the sub command {@code showcase} returning its event.
      *
-     * @return The subcommand as event handler
+     * @return The subcommand event interface
+     * @see PlotShowcaseEvent
      */
     public PlotShowcaseEvent getShowcaseEvent() {
         return this.plotShowcaseCommand;

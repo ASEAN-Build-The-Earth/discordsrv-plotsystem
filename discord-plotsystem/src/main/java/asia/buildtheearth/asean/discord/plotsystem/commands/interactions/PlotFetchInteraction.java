@@ -7,9 +7,12 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 /**
- * Plot interaction that has to fetch for existing entries as an option menu
+ * Plot interaction that has to fetch for existing entries as an option menu.
+ *
+ * @see OnPlotFetch
+ * @see OnPlotDelete
  */
-public interface PlotFetchInteraction extends PlotInteraction {
+public sealed interface PlotFetchInteraction extends PlotInteraction permits OnPlotFetch, OnPlotDelete {
 
     /**
      * Set the selectable plot options to fetch the specific plot ID.

@@ -7,7 +7,6 @@ import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotDelete;
-import asia.buildtheearth.asean.discord.plotsystem.commands.providers.AbstractPlotDeleteCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import org.jetbrains.annotations.NotNull;
@@ -17,8 +16,7 @@ import java.util.List;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotDeleteCommand.*;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.CommandMessage;
 
-class PlotDeleteCommand extends AbstractPlotDeleteCommand {
-
+final class PlotDeleteCommand extends AbstractPlotDeleteCommand {
 
     public PlotDeleteCommand(@NotNull String name, @NotNull String plotID) {
         super(name);

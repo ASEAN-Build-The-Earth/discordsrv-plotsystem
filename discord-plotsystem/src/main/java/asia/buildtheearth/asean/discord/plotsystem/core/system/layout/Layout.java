@@ -6,7 +6,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponentProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.api.ComponentV2;
+import asia.buildtheearth.asean.discord.components.api.ComponentV2;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

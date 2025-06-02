@@ -9,18 +9,25 @@ import github.scarsz.discordsrv.dependencies.jda.api.requests.CloseCode;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableButton;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.PluginComponent;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.PluginButton;
+import asia.buildtheearth.asean.discord.components.PluginComponent;
+import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
+import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
 /**
- * JDA instance listener
- * DiscordSRV on disconnect does not call any API event, so we have to handle it our own too.
- * @see <a href="https://github.com/DiscordSRV/DiscordSRV/blob/9d4734818ab27069d76f264a4cda74a699806770/src/main/java/github/scarsz/discordsrv/listeners/DiscordDisconnectListener.java#L33">
- *     github.scarsz.discordsrv.listeners.DiscordDisconnectListener
- * </a>
+ * Main JDA events listener.
+ *
+ * <p>Listen for JDA interactions event like {@link ButtonClickEvent} and {@link SelectionMenuEvent}</p>
+ * <p>Note: Also listen for disconnection and shutdown event to further shutdown this plugin gracefully.
+ * (DiscordSRV on disconnect does not call any API event so we have to handle it our own)</p>
+ *
+ * @see ListenerAdapter
+ * @see ButtonClickEvent
+ * @see SelectionMenuEvent
+ * @see DisconnectEvent
+ * @see ShutdownEvent
  */
 final public class DiscordEventListener extends ListenerAdapter {
 
@@ -58,7 +65,7 @@ final public class DiscordEventListener extends ListenerAdapter {
         if(event.getButton() == null) return;
 
         PluginButton
-            .getOpt(event.getComponent(), PluginButton::new)
+            .getOpt(listener.getPlugin(), event.getComponent(), PluginButton::new)
             .ifPresent(button -> AvailableButton.valueOf(button.getType())
                 .interact(button, event, listener.getPluginSlashCommand())
             );
@@ -69,7 +76,7 @@ final public class DiscordEventListener extends ListenerAdapter {
         if(listener.getPluginSlashCommand() == null) return;
         if(event.getComponent() == null) return;
 
-        PluginComponent.getOpt(event.getComponent()).ifPresent(menu -> {
+        PluginComponent.getOpt(listener.getPlugin(), event.getComponent()).ifPresent(menu -> {
             // Exit immediately for un-authorized owner
             if(!menu.getUserID().equals(event.getUser().getId())) return;
 

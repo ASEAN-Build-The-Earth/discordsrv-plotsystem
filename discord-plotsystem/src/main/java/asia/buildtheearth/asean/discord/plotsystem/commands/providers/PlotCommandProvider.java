@@ -7,7 +7,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Act
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectOption;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectionMenu;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.Interaction;
+import asia.buildtheearth.asean.discord.commands.interactions.Interaction;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.PlotInteraction;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
@@ -31,7 +31,7 @@ import java.util.function.Function;
  * @param <I> The command's interaction payload
  * @param <V> The command's language data that contains messages enum
  */
-public abstract class AbstractPlotCommand<
+public abstract class PlotCommandProvider<
         I extends Interaction & PlotInteraction, V extends SystemLang
         > extends SystemCommandProvider<I, V> {
 
@@ -43,7 +43,7 @@ public abstract class AbstractPlotCommand<
      *
      * @param name The subcommand name
      */
-    public AbstractPlotCommand(@NotNull String name) {
+    public PlotCommandProvider(@NotNull String name) {
         super(name, LanguageFile.NULL_LANG);
     }
 

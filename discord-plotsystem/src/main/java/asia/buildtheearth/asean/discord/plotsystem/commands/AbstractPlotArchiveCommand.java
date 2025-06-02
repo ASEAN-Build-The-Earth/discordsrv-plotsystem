@@ -1,5 +1,6 @@
-package asia.buildtheearth.asean.discord.plotsystem.commands.providers;
+package asia.buildtheearth.asean.discord.plotsystem.commands;
 
+import asia.buildtheearth.asean.discord.plotsystem.commands.providers.PlotCommandProvider;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
@@ -24,9 +25,10 @@ import java.util.function.Consumer;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotArchiveCommand.*;
 
-public abstract class AbstractPlotArchiveCommand
-    extends AbstractPlotCommand<OnPlotArchive, PlotArchiveCommand>
-    implements PlotArchiveEvent {
+abstract sealed class AbstractPlotArchiveCommand
+    extends PlotCommandProvider<OnPlotArchive, PlotArchiveCommand>
+    implements PlotArchiveEvent
+    permits asia.buildtheearth.asean.discord.plotsystem.commands.PlotArchiveCommand {
 
     public AbstractPlotArchiveCommand(@NotNull String name) {
         super(name);

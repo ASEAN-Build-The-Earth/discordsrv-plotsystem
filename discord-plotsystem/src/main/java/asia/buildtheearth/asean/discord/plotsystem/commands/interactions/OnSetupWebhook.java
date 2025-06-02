@@ -1,10 +1,11 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands.interactions;
 
-import asia.buildtheearth.asean.discord.plotsystem.commands.events.SetupWebhookEvent;
+import asia.buildtheearth.asean.discord.commands.interactions.Interaction;
 
 /**
- * Payload for {@link SetupWebhookEvent SetupWebhookEvent}
- * Interactions. Created as final class for abstraction visibility.
+ * Payload for the command {@code /setup webhook}
+ *
+ * @see asia.buildtheearth.asean.discord.plotsystem.commands.events.SetupWebhookEvent
  */
 public final class OnSetupWebhook extends Interaction {
     /**

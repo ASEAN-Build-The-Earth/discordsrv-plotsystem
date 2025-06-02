@@ -1,5 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem;
 
+import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.google.common.util.concurrent.ThreadFactoryBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
@@ -15,7 +16,6 @@ import github.scarsz.discordsrv.util.SchedulerUtil;
 
 import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.ApiEvent;
-import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.InteractionEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordSRVListener;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnection;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginListenerProvider;
@@ -44,13 +44,8 @@ import java.util.concurrent.*;
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 
 /**
- * @deprecated This module has moved to:
- *  groupId: asia.buildtheearth.asean.discord
- *  artifactId: discord-plotsystem
- *
- * Please update your dependency to receive further updates.
+ * Main class and implementations for this plugin.
  */
-@Deprecated
 public final class DiscordPS extends DiscordPlotSystemAPI {
     private static final String VERSION = "1.0.1";
     private static final String DISCORD_SRV_VERSION = "1.29.0";
@@ -469,7 +464,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
     }
 
     @Override
-    public <E extends ApiEvent> E callEvent(E event) {
+    public <E extends ApiEvent> @Nullable E callEvent(E event) {
         if(!isReady() || (isReady() && discordSrvHook.getPlotSystemListener() == null))
             return null;
 

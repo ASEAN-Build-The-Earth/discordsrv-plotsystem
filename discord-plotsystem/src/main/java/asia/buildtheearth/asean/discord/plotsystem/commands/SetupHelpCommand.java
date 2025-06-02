@@ -7,7 +7,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHoo
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.Debug;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.Interaction;
+import asia.buildtheearth.asean.discord.commands.interactions.Interaction;
 import asia.buildtheearth.asean.discord.plotsystem.commands.providers.SystemCommandProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.SystemLang;
@@ -20,7 +20,7 @@ import java.util.Map;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.SetupHelpCommand.*;
 
-class SetupHelpCommand extends SystemCommandProvider<Interaction,
+final class SetupHelpCommand extends SystemCommandProvider<Interaction,
         asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.SetupHelpCommand> {
 
     public SetupHelpCommand(@NotNull String name) {

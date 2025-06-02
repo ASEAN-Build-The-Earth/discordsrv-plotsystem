@@ -1,5 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands.interactions;
 
+import asia.buildtheearth.asean.discord.commands.interactions.Interaction;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectOption;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import org.jetbrains.annotations.NotNull;
@@ -8,6 +9,11 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Payload for the command {@code /plot fetch}
+ *
+ * @see asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotFetchEvent
+ */
 public final class OnPlotFetch extends Interaction implements PlotFetchInteraction {
     /**
      * The plot ID to fetch on this interaction
@@ -47,14 +53,23 @@ public final class OnPlotFetch extends Interaction implements PlotFetchInteracti
         return primaryStatus;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public int getPlotID() {
         return (int) plotID;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public void setFetchOptions(@NotNull List<SelectOption> fetchOptions) {
         this.fetchOptions = new ArrayList<>(fetchOptions);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public @Nullable List<SelectOption> getFetchOptions() {
         return fetchOptions;
     }

@@ -3,15 +3,15 @@ package asia.buildtheearth.asean.discord.plotsystem.commands.handlers;
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonClickEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectionMenu;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.PluginButton;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.SimpleButtonHandler;
+import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
+import asia.buildtheearth.asean.discord.components.buttons.SimpleButtonHandler;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Button that as plot selection menu as an action row in the message,
  * On interacted; disable the selection menu then disable the button as well.
  */
-public class MenuButton implements SimpleButtonHandler {
+class MenuButton implements SimpleButtonHandler {
     @Override
     public void onInteracted(@NotNull PluginButton button, @NotNull ButtonClickEvent event) {
         SelectionMenu menu = null;

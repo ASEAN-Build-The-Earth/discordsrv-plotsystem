@@ -10,7 +10,7 @@ import org.jetbrains.annotations.NotNull;
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.ORANGE;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.SetupWebhookCommand.EMBED_ALREADY_CONFIGURED;
 
-class SetupShowcaseCommand extends SetupWebhookCommand {
+final class SetupShowcaseCommand extends SetupWebhookCommand {
 
     public SetupShowcaseCommand(@NotNull String name, @NotNull String outputFile, @NotNull String webhookChannel, @NotNull String webhookName) {
         super(

@@ -1,5 +1,7 @@
-package asia.buildtheearth.asean.discord.plotsystem.commands.providers;
+package asia.buildtheearth.asean.discord.plotsystem.commands;
 
+import asia.buildtheearth.asean.discord.plotsystem.commands.providers.PlotCommandProvider;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
@@ -17,9 +19,10 @@ import org.jetbrains.annotations.NotNull;
 import java.io.File;
 import java.util.stream.Collectors;
 
-public abstract class AbstractPlotShowcaseCommand
-        extends AbstractPlotCommand<OnPlotShowcase, PlotShowcaseCommand>
-        implements PlotShowcaseEvent {
+abstract sealed class AbstractPlotShowcaseCommand
+        extends PlotCommandProvider<OnPlotShowcase, PlotShowcaseCommand>
+        implements PlotShowcaseEvent
+        permits asia.buildtheearth.asean.discord.plotsystem.commands.PlotShowcaseCommand {
 
     public AbstractPlotShowcaseCommand(@NotNull String name) {
         super(name);
@@ -59,11 +62,11 @@ public abstract class AbstractPlotShowcaseCommand
             ? plotData.getOwnerMentionOrName() + " (" + plotData.getOwner().getName() + ")"
             : plotData.formatOwnerName();
 
-        return getLangManager().getEmbedBuilder(PlotShowcaseCommand.EMBED_SHOWCASE_INFO)
+        return getLangManager().getEmbedBuilder(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.EMBED_SHOWCASE_INFO)
             .setColor(Constants.GREEN)
             .setThumbnail(plotData.getAvatarAttachmentOrURL())
             // Showcase Title
-            .addField(getLang(PlotShowcaseCommand.MESSAGE_PLOT_TITLE),
+            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_PLOT_TITLE),
                 "```" +
                 DiscordPS.getMessagesLang().get(PlotInformation.SHOWCASE_TITLE)
                     .replace("{owner}", owner)
@@ -73,26 +76,26 @@ public abstract class AbstractPlotShowcaseCommand
                 + "```"
                 , false)
             // Showcase Owner Name
-            .addField(getLang(PlotShowcaseCommand.MESSAGE_OWNER),
+            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_OWNER),
                 owner, false)
             // Showcase Owner Avatar
-            .addField(getLang(PlotShowcaseCommand.MESSAGE_OWNER_AVATAR),
+            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_OWNER_AVATAR),
                 plotData.getAvatarAttachmentOrURL(), false)
             // Attached Image File(s)
-            .addField(getLang(PlotShowcaseCommand.MESSAGE_IMAGE_FILES),
+            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_IMAGE_FILES),
                 mediaFiles, false)
             // Display coordinate location
-            .addField(getLang(PlotShowcaseCommand.MESSAGE_LOCATION),
+            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_LOCATION),
                 plotData.getDisplayCords(), false)
             // Google Map Link (via button)
-            .addField(getLang(PlotShowcaseCommand.MESSAGE_GOOGLE_MAP_LINK),
+            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_GOOGLE_MAP_LINK),
                 "https://www.google.com/maps/place/" + plotData.getGeoCoordinates(), false)
             .build();
     }
 
     protected MessageEmbed formatSuccessfulEmbed(@NotNull MessageReference message) {
         return new EmbedBuilder()
-            .setTitle(getLang(PlotShowcaseCommand.MESSAGE_SHOWCASED_TO)
+            .setTitle(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_SHOWCASED_TO)
                 .replace(Format.THREAD_ID, message.getMessageId()))
             .addField(getLang(PlotShowcaseCommand.MESSAGE_THREAD_ID),
                 "```" + message.getMessageId() + "```",

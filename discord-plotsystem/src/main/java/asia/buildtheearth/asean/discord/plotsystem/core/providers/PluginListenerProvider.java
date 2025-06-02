@@ -36,6 +36,11 @@ public abstract class PluginListenerProvider extends PluginProvider {
         super(plugin);
     }
 
+    /**
+     * Is the listener subscribed.
+     *
+     * @return Whether all the event listener is initialized
+     */
     public boolean hasSubscribed() {
         return this.eventListener != null && this.pluginSlashCommand != null;
     }

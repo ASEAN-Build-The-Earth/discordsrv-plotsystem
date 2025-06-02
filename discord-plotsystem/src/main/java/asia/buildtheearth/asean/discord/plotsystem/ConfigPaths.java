@@ -1,5 +1,8 @@
 package asia.buildtheearth.asean.discord.plotsystem;
 
+/**
+ * Config file {@code config.yml} yaml path constants
+ */
 public abstract class ConfigPaths {
     // Database
     private static final String DATABASE = "database.";

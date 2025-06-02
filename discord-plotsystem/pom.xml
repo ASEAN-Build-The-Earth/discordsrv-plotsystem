@@ -5,21 +5,17 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
+        <groupId>asia.buildtheearth.asean.discord</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.0.1</version>
+        <version>1.1.0</version>
     </parent>
 
-    <name>[DEPRECATED] Discord Plot-System Plugin</name>
+    <name>Discord Plot-System Plugin</name>
     <description>
-    [DEPRECATED] This artifact has moved to a new Maven groupId.
-
-    New coordinates (starting from version 1.1.0):
-    groupId: asia.buildtheearth.asean.discord
-    artifactId: discord-plotsystem
-
-    Please update your dependencies accordingly. No further updates will be published under 'asia.buildtheearth.asean.discord.plotsystem'.
+    Minecraft server plugin for Discord Plot-System integration via DiscordSRV;
+    use the discord-plotsystem-api module for external integration.
     </description>
+    <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/</url>
     <artifactId>discord-plotsystem</artifactId>
     <packaging>jar</packaging>
 
@@ -136,6 +132,13 @@
             <version>1.29.0</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Bridge for connecting to DiscordSRV -->
+        <dependency>
+            <groupId>asia.buildtheearth.asean.discord</groupId>
+            <artifactId>discordsrv-bridge</artifactId>
+            <version>1.1.0</version>
+            <scope>provided</scope>
+        </dependency>
         <!-- Jetbrains Annotations -->
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -173,7 +176,7 @@
         </dependency>
         <!-- This Plugin's API -->
         <dependency>
-            <groupId>asia.buildtheearth.asean.discord.plotsystem</groupId>
+            <groupId>asia.buildtheearth.asean.discord</groupId>
             <artifactId>discord-plotsystem-api</artifactId>
             <version>${project.parent.version}</version>
             <scope>compile</scope>

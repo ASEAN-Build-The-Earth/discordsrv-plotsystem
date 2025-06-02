@@ -1,5 +1,6 @@
-package asia.buildtheearth.asean.discord.plotsystem.commands.providers;
+package asia.buildtheearth.asean.discord.plotsystem.commands;
 
+import asia.buildtheearth.asean.discord.plotsystem.commands.providers.PlotCommandProvider;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectionMenu;
@@ -11,7 +12,11 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotDeleteCommand;
 import org.jetbrains.annotations.NotNull;
 
-public abstract class AbstractPlotDeleteCommand extends AbstractPlotCommand<OnPlotDelete, PlotDeleteCommand> implements PlotDeleteEvent {
+abstract sealed class AbstractPlotDeleteCommand
+        extends PlotCommandProvider<OnPlotDelete, PlotDeleteCommand>
+        implements PlotDeleteEvent
+        permits asia.buildtheearth.asean.discord.plotsystem.commands.PlotDeleteCommand {
+
     public AbstractPlotDeleteCommand(@NotNull String name) {
         super(name);
     }

@@ -1,4 +1,4 @@
-package asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.handlers;
+package asia.buildtheearth.asean.discord.plotsystem.core.system.buttons;
 
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
@@ -8,9 +8,9 @@ import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.PluginButton;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.PluginButtonHandler;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.SimpleButtonHandler;
+import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
+import asia.buildtheearth.asean.discord.components.buttons.PluginButtonHandler;
+import asia.buildtheearth.asean.discord.components.buttons.SimpleButtonHandler;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInteraction;
 import org.jetbrains.annotations.NotNull;
 

@@ -11,8 +11,10 @@ import asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotFetchEven
 import asia.buildtheearth.asean.discord.plotsystem.commands.events.SetupWebhookEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
-import asia.buildtheearth.asean.discord.plotsystem.core.providers.DiscordCommandProvider;
+import asia.buildtheearth.asean.discord.providers.DiscordCommandProvider;
 import asia.buildtheearth.asean.discord.plotsystem.commands.SetupCommand;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.restaction.interactions.ReplyAction;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.*;
@@ -34,19 +36,30 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
     private static final String SLASH_PLOT_DELETE =  PlotCommand.PLOT + "/" + PlotCommand.DELETE;
     private static final String SLASH_PLOT_SHOWCASE =  PlotCommand.PLOT + "/" + PlotCommand.SHOWCASE;
 
+    private final DiscordPS plugin;
+
     public DiscordCommandListener(DiscordPS plugin) {
-        super(plugin);
+        this.plugin = plugin;
     }
 
     /**
      * Remove command data from getting listen to
      * including its interactions.
-     * {@inheritDoc}
      */
     @Override
     public void clearCommands() {
         super.clearCommands();
         super.clearInteractions();
+    }
+
+    @Override
+    protected boolean ifUnknownChannel(@NotNull ReplyAction replyAction) {
+        return false;
+    }
+
+    @Override
+    public @NotNull Plugin getPlugin() {
+        return this.plugin;
     }
 
     /**

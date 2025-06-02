@@ -1,5 +1,6 @@
-package asia.buildtheearth.asean.discord.plotsystem.commands.providers;
+package asia.buildtheearth.asean.discord.plotsystem.commands;
 
+import asia.buildtheearth.asean.discord.plotsystem.commands.providers.SystemCommandProvider;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
@@ -23,9 +24,11 @@ import java.nio.file.Path;
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.WEBHOOK_AVATAR_FILE;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.SetupWebhookCommand.*;
 
-public abstract class AbstractSetupWebhookCommand
-    extends SystemCommandProvider<OnSetupWebhook, SetupWebhookCommand>
-    implements SetupWebhookEvent {
+abstract sealed class AbstractSetupWebhookCommand
+        extends SystemCommandProvider<OnSetupWebhook, SetupWebhookCommand>
+        implements SetupWebhookEvent
+        permits asia.buildtheearth.asean.discord.plotsystem.commands.SetupWebhookCommand {
+
     protected String outputFile;
 
     public AbstractSetupWebhookCommand(@NotNull String name, @NotNull String outputFile) {

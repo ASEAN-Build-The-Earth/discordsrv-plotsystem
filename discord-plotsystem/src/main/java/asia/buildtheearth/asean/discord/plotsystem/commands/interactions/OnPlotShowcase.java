@@ -1,12 +1,17 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands.interactions;
 
-import asia.buildtheearth.asean.discord.plotsystem.core.database.PlotEntry;
+import asia.buildtheearth.asean.discord.commands.interactions.Interaction;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotData;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class OnPlotShowcase extends Interaction implements PlotInteraction {
+/**
+ * Payload for the command {@code /plot showcase}
+ *
+ * @see asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotShowcaseEvent
+ */
+public final class OnPlotShowcase extends Interaction implements PlotInteraction {
     /**
      * The plot ID to be deleted
      */

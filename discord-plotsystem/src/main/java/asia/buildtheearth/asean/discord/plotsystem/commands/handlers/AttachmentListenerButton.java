@@ -1,4 +1,4 @@
-package asia.buildtheearth.asean.discord.plotsystem.commands.providers;
+package asia.buildtheearth.asean.discord.plotsystem.commands.handlers;
 
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
@@ -8,9 +8,9 @@ import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonCl
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.InteractionEvent;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.PluginButton;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.components.buttons.InteractiveButtonHandler;
+import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
+import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
+import asia.buildtheearth.asean.discord.components.buttons.InteractiveButtonHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,7 +18,7 @@ import java.util.function.Function;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.CommandInteractions.EMBED_ATTACH_IMAGE_FAILED;
 
-public class AttachmentProviderButton implements InteractiveButtonHandler {
+class AttachmentListenerButton implements InteractiveButtonHandler {
     private final Function<Message, InteractiveButtonHandler> sender;
 
     /**
@@ -26,7 +26,7 @@ public class AttachmentProviderButton implements InteractiveButtonHandler {
      *
      * @param sender The interaction sender that will be triggered when the provider successfully resolved message data.
      */
-    public AttachmentProviderButton(Function<Message, InteractiveButtonHandler> sender) {
+    public AttachmentListenerButton(Function<Message, InteractiveButtonHandler> sender) {
         this.sender = sender;
     }
 

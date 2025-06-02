@@ -7,10 +7,9 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.Optio
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotArchiveEvent;
-import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.InteractionEvent;
+import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotArchive;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotShowcase;
-import asia.buildtheearth.asean.discord.plotsystem.commands.providers.AbstractPlotArchiveCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.PlotEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
@@ -37,7 +36,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystem
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotArchiveCommand.*;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.CommandMessage;
 
-class PlotArchiveCommand extends AbstractPlotArchiveCommand {
+final class PlotArchiveCommand extends AbstractPlotArchiveCommand {
 
     public PlotArchiveCommand(@NotNull String name, @NotNull String plotID, @NotNull String override) {
         super(name);

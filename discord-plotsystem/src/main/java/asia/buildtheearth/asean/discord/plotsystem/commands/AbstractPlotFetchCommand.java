@@ -1,5 +1,6 @@
-package asia.buildtheearth.asean.discord.plotsystem.commands.providers;
+package asia.buildtheearth.asean.discord.plotsystem.commands;
 
+import asia.buildtheearth.asean.discord.plotsystem.commands.providers.PlotCommandProvider;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
@@ -22,9 +23,10 @@ import org.jetbrains.annotations.Nullable;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotFetchCommand.*;
 
-public abstract class AbstractPlotFetchCommand
-        extends AbstractPlotCommand<OnPlotFetch, PlotFetchCommand>
-        implements PlotFetchEvent {
+abstract sealed class AbstractPlotFetchCommand
+        extends PlotCommandProvider<OnPlotFetch, PlotFetchCommand>
+        implements PlotFetchEvent
+        permits asia.buildtheearth.asean.discord.plotsystem.commands.PlotFetchCommand {
 
     public AbstractPlotFetchCommand(@NotNull String name) {
         super(name);

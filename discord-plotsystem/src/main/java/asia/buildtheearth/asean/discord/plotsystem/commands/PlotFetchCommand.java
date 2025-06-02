@@ -11,7 +11,6 @@ import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotEvent;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotUndoReviewEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotFetch;
-import asia.buildtheearth.asean.discord.plotsystem.commands.providers.AbstractPlotFetchCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.PlotEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
@@ -34,7 +33,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.Constants.RED;
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.GREEN;
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.ORANGE;
 
-class PlotFetchCommand extends AbstractPlotFetchCommand {
+final class PlotFetchCommand extends AbstractPlotFetchCommand {
 
     public PlotFetchCommand(@NotNull String name, @NotNull String plotID, @NotNull String override) {
         super(name);
@@ -90,7 +89,7 @@ class PlotFetchCommand extends AbstractPlotFetchCommand {
         this.queueEmbed(hook, options, embed);
     }
 
-    public void onConfirmCreation(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction) {
+    public void onConfirmFetch(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction) {
         try {
             List<WebhookEntry> entries = WebhookEntry.getByPlotID(interaction.getPlotID());
 
