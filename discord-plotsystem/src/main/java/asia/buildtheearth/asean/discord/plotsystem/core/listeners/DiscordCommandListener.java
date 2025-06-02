@@ -1,5 +1,9 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
+import asia.buildtheearth.asean.discord.plotsystem.Constants;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.CommandInteractions;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotFetchCommand;
 import github.scarsz.discordsrv.api.commands.SlashCommand;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.SlashCommandEvent;
@@ -7,7 +11,6 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHoo
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.OptionMapping;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.commands.PlotCommand;
-import asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotFetchEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.events.SetupWebhookEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
@@ -17,7 +20,6 @@ import github.scarsz.discordsrv.dependencies.jda.api.requests.restaction.interac
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
-import java.awt.*;
 import java.util.EventListener;
 import java.util.Objects;
 
@@ -38,6 +40,11 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
 
     private final DiscordPS plugin;
 
+    /**
+     * Initialize discord command listener with the plugin.
+     *
+     * @param plugin The plugin instance to register the listener with.
+     */
     public DiscordCommandListener(DiscordPS plugin) {
         this.plugin = plugin;
     }
@@ -52,11 +59,17 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
         super.clearInteractions();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     protected boolean ifUnknownChannel(@NotNull ReplyAction replyAction) {
         return false;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public @NotNull Plugin getPlugin() {
         return this.plugin;
@@ -76,7 +89,7 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
                 event.getIdLong(),
                 Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_NAME)).getAsString(),
                 Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_CHANNEL)).getAsLong(),
-                "webhook.yml"
+                SetupCommand.WEBHOOK_YML
             )
         );
     }
@@ -95,7 +108,7 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
                 event.getIdLong(),
                 Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_NAME)).getAsString(),
                 Objects.requireNonNull(event.getOption(SetupCommand.WEBHOOK_CHANNEL)).getAsLong(),
-                "showcase.yml"
+                SetupCommand.SHOWCASE_YML
             )
         );
     }
@@ -186,8 +199,17 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
 
                 if(option == null) continue;
 
+                // Send warning message if more than one status is picked
                 if(initialStatus != null) {
-                    PlotFetchEvent.onManyStatusPicked(event.getHook(), initialStatus.name());
+                    String pickedStatus = initialStatus.name();
+                    EmbedBuilder embed =  DiscordPS.getSystemLang().getEmbedBuilder(
+                        PlotFetchCommand.EMBED_PICKED_MORE_STATUS,
+                        description -> description.replace(Format.LABEL, pickedStatus));
+
+                    event.getHook()
+                        .sendMessageEmbeds(embed.setColor(Constants.ORANGE).build())
+                        .setEphemeral(true)
+                        .queue();
                     break;
                 }
                 initialStatus = status;
@@ -214,14 +236,9 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
      */
     public boolean requiredReady(SlashCommandEvent event) {
         if(!DiscordPS.getPlugin().isReady()) {
-            event.deferReply(true).addEmbeds(new EmbedBuilder()
-                .setTitle("Discord Plot-System is **NOT** Ready")
-                .setDescription("Cannot use plugin related command, "
-                        + "please set up the plugin first with `/setup webhook` (`/setup help` for more info)")
-                .setColor(Color.RED)
-                .build())
-            .queue();
-
+            EmbedBuilder embed =  DiscordPS.getSystemLang()
+                .getEmbedBuilder(CommandInteractions.EMBED_PLUGIN_NOT_READY);
+            event.deferReply(true).addEmbeds(embed.setColor(Constants.RED).build()).queue();
             return true;
         }
         else return false;

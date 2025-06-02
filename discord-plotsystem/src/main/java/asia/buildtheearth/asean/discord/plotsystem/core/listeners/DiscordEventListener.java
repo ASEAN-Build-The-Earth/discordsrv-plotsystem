@@ -24,10 +24,10 @@ import java.util.List;
  * (DiscordSRV on disconnect does not call any API event so we have to handle it our own)</p>
  *
  * @see ListenerAdapter
- * @see ButtonClickEvent
- * @see SelectionMenuEvent
- * @see DisconnectEvent
- * @see ShutdownEvent
+ * @see #onButtonClick(ButtonClickEvent)
+ * @see #onSelectionMenu(SelectionMenuEvent)
+ * @see #onDisconnect(DisconnectEvent)
+ * @see #onShutdown(ShutdownEvent)
  */
 final public class DiscordEventListener extends ListenerAdapter {
 

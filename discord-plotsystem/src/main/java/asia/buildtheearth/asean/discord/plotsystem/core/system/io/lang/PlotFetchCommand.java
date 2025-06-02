@@ -12,6 +12,7 @@ public enum PlotFetchCommand implements SystemLang {
 
     EMBED_CANNOT_MAKE_ARCHIVE("embeds.cannot-fetch-archive"),
     EMBED_STATUS_NOT_SET(     "embeds.status-not-set"),
+    EMBED_PICKED_MORE_STATUS( "embeds.picked-more-status"),
     EMBED_ALREADY_REGISTERED( "embeds.already-registered"),
     EMBED_FETCH_SUCCESS(      "embeds.fetch-success"),
     EMBED_OVERRIDE_OPTIONS(   "embeds.override-options"),
@@ -19,15 +20,15 @@ public enum PlotFetchCommand implements SystemLang {
     EMBED_ON_CREATE(          "embeds.on-create"),
     EMBED_ON_CREATE_SUCCESS(  "embeds.on-create-successful"),
 
-    MESSAGE_CONFIRM_FETCH("messages.confirm-fetch"),
-    MESSAGE_PLOT_ID("messages.plot-id"),
-    MESSAGE_OVERRIDE("messages.override"),
-    MESSAGE_STATUS("messages.primary-status"),
-    MESSAGE_OVERRIDE_ENABLED("messages.override-enabled"),
-    MESSAGE_OVERRIDE_DISABLED("messages.override-disabled"),
-    MESSAGE_SQL_GET_ERROR("messages.sql-get-error"),
-    MESSAGE_SQL_PLOT_ERROR("messages.sql-plot-error"),
-    MESSAGE_VALIDATION_ERROR("messages.error-override-validation");
+    MESSAGE_CONFIRM_FETCH(     "messages.confirm-fetch"),
+    MESSAGE_PLOT_ID(           "messages.plot-id"),
+    MESSAGE_OVERRIDE(          "messages.override"),
+    MESSAGE_STATUS(            "messages.primary-status"),
+    MESSAGE_OVERRIDE_ENABLED(  "messages.override-enabled"),
+    MESSAGE_OVERRIDE_DISABLED( "messages.override-disabled"),
+    MESSAGE_SQL_GET_ERROR(     "messages.sql-get-error"),
+    MESSAGE_SQL_PLOT_ERROR(    "messages.sql-plot-error"),
+    MESSAGE_VALIDATION_ERROR(  "messages.error-override-validation");
 
     private final String path;
 

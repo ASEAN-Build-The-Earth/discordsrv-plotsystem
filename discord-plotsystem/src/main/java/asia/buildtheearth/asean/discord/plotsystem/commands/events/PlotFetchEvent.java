@@ -50,20 +50,4 @@ public interface PlotFetchEvent {
      * @param interaction The {@link OnPlotFetch} interaction payload of this event.
      */
     void onCreateUntracked(InteractionHook hook, OnPlotFetch interaction);
-
-    /**
-     * Special message to send when fetch status is picked more than one
-     *
-     * @param hook The interaction hook to reply to
-     * @param pickedStatus The first picked status that will be applied to this command
-     */
-    static void onManyStatusPicked(@NotNull InteractionHook hook, @NotNull String pickedStatus) {
-        hook.sendMessageEmbeds(new EmbedBuilder()
-                .setColor(Color.ORANGE)
-                .setTitle("Picked more than one status!")
-                .setDescription("The plot will be create only with the first picked status: `" + pickedStatus + "`")
-                .build())
-            .setEphemeral(true)
-            .queue();
-    }
 }

@@ -161,6 +161,11 @@ slash-commands:
       provide-image-interaction:
         - ":open_file_folder: Provide an image"
         - "Please upload an image named `{filename}` in your plugin data folder: ```{path}```"
+      plugin-not-ready:
+        - "Discord Plot-System is **NOT** Ready"
+        - >
+          Cannot use plugin related command, 
+          please set up the plugin first with `/setup webhook` (`/setup help` for more info)"
 
   # ------------------------
   # Plot Management Commands
@@ -247,6 +252,9 @@ slash-commands:
       status-not-set:
         - "Status not set"
         - "Confirming this will fetch the current plot-system status of this plot ID as the primary status."
+      picked-more-status:
+        - "Picked more than one status!"
+        - "The plot will be create only with the first picked status: `{label}"`"
       already-registered:
         - "Plot already registered in the database"
         - "Found {count} entries of this plot ID in the database. "
