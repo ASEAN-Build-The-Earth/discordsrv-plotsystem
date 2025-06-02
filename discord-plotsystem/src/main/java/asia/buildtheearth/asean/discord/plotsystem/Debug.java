@@ -28,7 +28,7 @@ public final class Debug {
     }
 
     public enum Warning {
-
+        DISCORD_SRV_VERSION_NOT_MATCHED("Detected DiscordSRV with unmatched version"),
         WEBHOOK_NOT_REGISTERED_DETECTED(
                 "Detected un-registered webhook created by this bot."),
         SHOWCASE_WEBHOOK_NOT_CONFIGURED("Showcase webhook is not configured! use the command `/setup showcase` to set it up."),

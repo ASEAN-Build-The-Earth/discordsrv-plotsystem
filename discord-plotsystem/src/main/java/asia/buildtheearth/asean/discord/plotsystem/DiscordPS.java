@@ -47,7 +47,7 @@ import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Compone
  * Main class and implementations for this plugin.
  */
 public final class DiscordPS extends DiscordPlotSystemAPI {
-    private static final String VERSION = "1.0.1";
+    private static final String VERSION = "1.1.0";
     private static final String DISCORD_SRV_VERSION = "1.29.0";
 
     /**
@@ -324,6 +324,14 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
                 "Already subscribed to DiscordSRV. Did the server reload?"
             );
             return;
+        }
+
+        if(!plugin.getDescription().getVersion().equalsIgnoreCase(DISCORD_SRV_VERSION)) {
+            DiscordPS.warning(Debug.Warning.DISCORD_SRV_VERSION_NOT_MATCHED,
+                "Detected DiscordSRV version unmatched the plugin's API version. "
+                + "Expected: " + DISCORD_SRV_VERSION + ", Got: " + plugin.getDescription().getVersion()
+                + ". Error may occur if the API is different from expected version."
+            );
         }
 
         DiscordSRV.api.subscribe(discordSrvHook = new DiscordSRVListener(this));
