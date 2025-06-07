@@ -1,5 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang;
 
+import asia.buildtheearth.asean.discord.plotsystem.api.events.AbandonType;
+import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.NotificationLang;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.SystemLang;
 import org.jetbrains.annotations.Contract;
@@ -17,6 +19,9 @@ import static asia.buildtheearth.asean.discord.plotsystem.Constants.YELLOW;
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.ORANGE;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format.*;
 
+/**
+ * Language for System-Related notification messages.
+ */
 public class Notification {
 
     public static final SystemLang SYSTEM_ERROR = () -> LangPaths.SYSTEM_NOTIFICATION + "system-error.error-title";
@@ -76,10 +81,12 @@ public class Notification {
     }
 
     public enum CommandMessage implements CommandNotification {
-        PLOT_FETCH(BLUE, "plot-commands.plot-fetch", LABEL, USER_ID, PLOT_ID),
-        PLOT_DELETE(RED, "plot-commands.plot-delete", MESSAGE_ID, THREAD_ID, USER_ID),
-        PLOT_ARCHIVE(BLUE, "plot-commands.plot-archive", PLOT_ID, USER_ID, THREAD_ID),
-        PLOT_SHOWCASE(GREEN, "plot-commands.plot-showcase", USER_ID, THREAD_ID);
+        PLOT_FETCH(BLUE, "plot-commands.plot-control-fetch", LABEL, USER_ID, PLOT_ID),
+        PLOT_DELETE(RED, "plot-commands.plot-control-delete", MESSAGE_ID, THREAD_ID, USER_ID),
+        PLOT_ARCHIVE(BLUE, "plot-commands.plot-control-archive", PLOT_ID, USER_ID, THREAD_ID),
+        PLOT_SHOWCASE(GREEN, "plot-commands.plot-control-showcase", USER_ID, THREAD_ID),
+        PLOT_REVIEW_EDIT(GREEN, "plot-commands.plot-review-edit", PLOT_ID, USER_ID, THREAD_ID),
+        PLOT_REVIEW_SEND(GREEN, "plot-commands.plot-review-send", PLOT_ID, USER_ID, THREAD_ID);
 
         private final @NotNull String path;
         private final @NotNull Color accentColor;
@@ -120,7 +127,9 @@ public class Notification {
         PLOT_APPROVED(GREEN, "plot-status.plot-approved"),
         PLOT_REJECTED(RED, "plot-status.plot-rejected", OWNER),
         PLOT_INACTIVE_ABANDONED(PURPLE, "plot-status.plot-inactive-abandoned"),
-        PLOT_MANUALLY_ABANDONED(PURPLE, "plot-status.plot-manually-abandoned");
+        PLOT_MANUALLY_ABANDONED(PURPLE, "plot-status.plot-manually-abandoned"),
+        PLOT_COMMANDS_ABANDONED(PURPLE, "plot-status.plot-commands-abandoned"),
+        PLOT_SYSTEM_ABANDONED(PURPLE, "plot-status.plot-system-abandoned");
 
         private final @NotNull String path;
         private final @NotNull Color accentColor;
@@ -136,6 +145,37 @@ public class Notification {
             this.accentColor = accentColor;
             this.path = path;
             this.langArgs = new String[] { THREAD_ID, PLOT_ID, format };
+        }
+
+        /**
+         * Get the abandon message for each abandon type.
+         *
+         * @param type The possible abandon type
+         * @return An enum definition for {@link NotificationLang}
+         */
+        public static PlotMessage getAbandonMessage(AbandonType type) {
+            return switch (type) {
+                case INACTIVE -> PLOT_INACTIVE_ABANDONED;
+                case MANUALLY -> PLOT_MANUALLY_ABANDONED;
+                case COMMANDS -> PLOT_COMMANDS_ABANDONED;
+                case null, default -> PLOT_SYSTEM_ABANDONED;
+            };
+        }
+
+        /**
+         * Get the general plot message for each notification type.
+         *
+         * @param type The notification type to map to a message
+         * @return An enum definition for {@link NotificationLang}
+         */
+        public static PlotMessage getPlotMessage(NotificationType type) {
+            return switch (type) {
+                case ON_CREATED -> PLOT_CREATED;
+                case ON_SUBMITTED -> PLOT_SUBMITTED;
+                case ON_APPROVED -> PLOT_APPROVED;
+                case ON_REJECTED -> PLOT_REJECTED;
+                case null, default -> throw new IllegalArgumentException("Invalid notification type");
+            };
         }
 
         /** {@inheritDoc} */
@@ -174,6 +214,7 @@ public class Notification {
         FAILED_THREAD_EDIT("system-error.failed-thread-edit"),
         FAILED_MESSAGE_EDIT("system-error.failed-message-edit"),
         FAILED_LAYOUT_EDIT("system-error.failed-layout-edit"),
+        FAILED_EDIT_MEMBER("system-error.failed-edit-member"),
 
         // Unknown Errors
         PLOT_UPDATE_UNKNOWN_EXCEPTION("system-error.plot-update-unknown-exception"),

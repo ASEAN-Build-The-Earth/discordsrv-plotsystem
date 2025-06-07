@@ -1,5 +1,8 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
+import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
+import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
@@ -10,7 +13,6 @@ import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotArchiveEvent;
 import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotArchive;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotShowcase;
-import asia.buildtheearth.asean.discord.plotsystem.core.database.PlotEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.*;
@@ -25,6 +27,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -36,7 +39,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystem
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotArchiveCommand.*;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.CommandMessage;
 
-final class PlotArchiveCommand extends AbstractPlotArchiveCommand {
+sealed class PlotArchiveCommand extends AbstractPlotArchiveCommand permits ReviewArchiveCommand {
 
     public PlotArchiveCommand(@NotNull String name, @NotNull String plotID, @NotNull String override) {
         super(name);
@@ -305,23 +308,32 @@ final class PlotArchiveCommand extends AbstractPlotArchiveCommand {
     }
 
 
-    private void archiveAsNewThread(@NotNull Function<PlotSystemThread, CompletableFuture<Void>> creator,
+    private void archiveAsNewThread(@NotNull BiFunction<PlotSystemThread, PlotCreateData, CompletableFuture<Void>> creator,
                                     @NotNull PlotArchiveEvent event,
                                     @NotNull Consumer<Void> onSuccess,
                                     @NotNull Consumer<Throwable> onFailure) {
-        PlotEntry plot = PlotEntry.getByID(event.getPlotID());
+        PlotSystemThread thread;
+        PlotCreateData plot;
 
-        if(plot == null) {
-            onFailure.accept(Error.PLOT_FETCH_RETURNED_NULL.get());
-            return;
-        } else if (plot.ownerUUID() == null) {
-            onFailure.accept(Error.PLOT_FETCH_UNKNOWN_OWNER.get());
+        try {
+            plot = DiscordPlotSystemAPI.getDataProvider().getData(event.getPlotID());
+
+            if(plot == null) {
+                onFailure.accept(Error.PLOT_FETCH_RETURNED_NULL.get());
+                return;
+            } else if (plot.ownerUUID() == null) {
+                onFailure.accept(Error.PLOT_FETCH_UNKNOWN_OWNER.get());
+                return;
+            }
+
+            thread = makeArchiveThread(event, plot);
+        }
+        catch (IllegalArgumentException ex) {
+            onFailure.accept(ex);
             return;
         }
 
-        PlotSystemThread thread = makeArchiveThread(event, plot);
-
-        CompletableFuture<Void> createAction =  creator.apply(thread);
+        CompletableFuture<Void> createAction =  creator.apply(thread, plot);
 
         if(createAction == null) onFailure.accept(Error.PLOT_CREATE_RETURNED_NULL.get());
         else createAction.whenComplete((ok, error) -> {
@@ -330,7 +342,7 @@ final class PlotArchiveCommand extends AbstractPlotArchiveCommand {
         });
     }
 
-    private @NotNull PlotSystemThread makeArchiveThread(PlotArchiveEvent event, PlotEntry plot) {
+    private @NotNull PlotSystemThread makeArchiveThread(@NotNull PlotArchiveEvent event, @NotNull PlotCreateData plot) {
         PlotSystemThread thread = new PlotSystemThread(event.getPlotID());
 
         thread.setProvider(data -> {
@@ -339,7 +351,9 @@ final class PlotArchiveCommand extends AbstractPlotArchiveCommand {
             return plotData;
         });
 
-        thread.setApplier(owner -> getLangManager().get(LangPaths.ARCHIVED_PREFIX)
+        String prefix = getLangManager().get(LangPaths.ARCHIVED_PREFIX);
+
+        if(!StringUtils.isBlank(prefix)) thread.setApplier(owner -> prefix
             + " " + THREAD_NAME.apply(event.getPlotID(), owner.formatOwnerName()));
 
         thread.setModifier((owner, info) -> info.addHistory(event));

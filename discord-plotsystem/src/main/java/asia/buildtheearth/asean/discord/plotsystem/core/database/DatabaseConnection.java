@@ -19,6 +19,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static asia.buildtheearth.asean.discord.plotsystem.Debug.Error.DATABASE_NOT_INITIALIZED;
+import static asia.buildtheearth.asean.discord.plotsystem.Debug.Warning.DATABASE_STRUCTURE_NOT_MATCH;
 
 public class DatabaseConnection {
 
@@ -159,7 +160,7 @@ public class DatabaseConnection {
         try (Connection connection = dataSource.getConnection()) {
             if (SQLUtil.checkIfTableExists(connection, table)) {
                 if (!SQLUtil.checkIfTableMatchesStructure(connection, table, StatementBuilder.WebhookTable.getExpected(), true)) {
-                    throw new SQLException("JDBC table " + table + " does not match expected structure. reconfigure it in config.yml");
+                    DiscordPS.warning(DATABASE_STRUCTURE_NOT_MATCH,"JDBC table " + table + " does not match expected structure. Required manual validation.");
                 }
             } else {
                 DiscordPS.info("Initializing new database table '" + table + "' for webhook management.");
@@ -172,32 +173,6 @@ public class DatabaseConnection {
         } catch (SQLException ex) {
             DiscordPS.error("An error occurred while creating database table!", ex);
             throw ex;
-        }
-    }
-    /**
-     * Returns a missing auto increment id
-     *
-     * @param table in the database
-     * @return smallest missing auto increment id in the table
-     */
-    public static int getTableID(String table) {
-        try {
-            String query = "SELECT id + 1 available_id FROM $table t WHERE NOT EXISTS (SELECT * FROM $table WHERE $table.id = t.id + 1) ORDER BY id LIMIT 1"
-                    .replace("$table", table);
-            try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
-                ResultSet rs = statement.executeQuery();
-                if (rs.next()) {
-                    int i = rs.getInt(1);
-                    DatabaseConnection.closeResultSet(rs);
-                    return i;
-                }
-
-                DatabaseConnection.closeResultSet(rs);
-                return 1;
-            }
-        } catch (SQLException ex) {
-            DiscordPS.error("A SQL error occurred!", ex);
-            return 1;
         }
     }
 

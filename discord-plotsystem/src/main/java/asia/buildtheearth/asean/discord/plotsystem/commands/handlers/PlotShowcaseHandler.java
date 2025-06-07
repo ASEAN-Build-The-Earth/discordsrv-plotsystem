@@ -11,6 +11,11 @@ import asia.buildtheearth.asean.discord.components.buttons.InteractiveButtonHand
 import asia.buildtheearth.asean.discord.components.buttons.PluginButtonHandler;
 import asia.buildtheearth.asean.discord.components.buttons.SimpleButtonHandler;
 
+/**
+ * Interaction handler for the command {@code /plotctl showcase}
+ *
+ * @see PlotShowcaseEvent
+ */
 public enum PlotShowcaseHandler implements AvailableButtonHandler {
     ON_SHOWCASE_CONFIRM(new EventForwarder(event -> event::onShowcaseConfirm)),
     ON_SHOWCASE_DISMISS(new ExitButton());

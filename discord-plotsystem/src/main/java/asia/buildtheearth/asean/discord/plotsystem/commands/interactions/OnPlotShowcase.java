@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Payload for the command {@code /plot showcase}
+ * Payload for the command {@code /plotctl showcase}
  *
  * @see asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotShowcaseEvent
  */

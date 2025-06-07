@@ -104,7 +104,8 @@ abstract sealed class AbstractPlotArchiveCommand
 
     protected Consumer<File> getCacheDeleter(MessageChannel channel) {
         return file -> {
-            if (file.delete()) channel.sendMessage(
+            if(!file.getName().startsWith(Constants.PLOT_IMAGE_FILE)) return;
+            if(file.delete()) channel.sendMessage(
                 getLang(MESSAGE_MEDIA_CACHE_DELETED)
                 .replace(Format.FILENAME, file.getName()))
                 .queue();

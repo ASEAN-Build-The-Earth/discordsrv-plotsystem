@@ -7,11 +7,22 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-
+/**
+ * Internal API manager.
+ *
+ * @see #subscribe(Object)
+ * @see #unsubscribe(Object)
+ * @see #callEvent(ApiEvent)
+ */
 final class ApiManager {
 
     private final List<Object> apiListeners = new CopyOnWriteArrayList<>();
 
+    /**
+     * Subscribe a class with annotated method to the listener.
+     *
+     * @param listener The listener class.
+     */
     public void subscribe(Object listener) {
         // ensure at least one method available in given object that is annotated with Subscribe
         int methodsAnnotatedSubscribe = 0;
@@ -20,20 +31,33 @@ final class ApiManager {
         if (methodsAnnotatedSubscribe == 0)
             throw new IllegalArgumentException(listener.getClass().getName()
                     + " attempted DiscordPlotSystem API registration but no public methods inside of it"
-                    + " were annotated @ApiSubscribe (github.tintinkung.discordps.api.ApiSubscribe)");
+                    + " were annotated @ApiSubscribe (asia.buildtheearth.asean.discord.plotsystem.api.ApiSubscribe)");
 
-        if (!listener.getClass().getPackage().getName().contains("github.tintinkung")) {
+        if (!listener.getClass().getPackage().getName().contains("asia.buildtheearth.asean.discord")) {
             DiscordPlotSystemAPI.info("Subscribed to external listener: " + listener.getClass().getName()
                     + " (" + String.valueOf(methodsAnnotatedSubscribe) + " methods)");
         }
         apiListeners.add(listener);
     }
 
+    /**
+     * Unsubscribe a listener from this API.
+     *
+     * @param listener The listener class
+     * @return True if the listener is successfully removed
+     */
     public boolean unsubscribe(Object listener) {
         DiscordPlotSystemAPI.info("Unsubscribed from class " + listener.getClass().getName());
         return apiListeners.remove(listener);
     }
 
+    /**
+     * Call an event to all subscribed method.
+     *
+     * @param event The event to call
+     * @return The same event for chaining
+     * @param <E> Event type that will be called
+     */
     public <E extends ApiEvent> E callEvent(E event) {
         for (Object apiListener : apiListeners) {
             for (Method method : apiListener.getClass().getMethods()) {

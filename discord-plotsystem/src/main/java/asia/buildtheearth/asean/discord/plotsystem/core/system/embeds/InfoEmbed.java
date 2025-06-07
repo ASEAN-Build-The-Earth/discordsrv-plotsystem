@@ -25,7 +25,7 @@ import java.util.List;
  * <b>☰ Plot History</b>
  * <p>◆︎ @user created yesterday</p>
  */
-@Deprecated
+@Deprecated(since = "1.2.0")
 public class InfoEmbed implements PlotDataEmbed {
     public static final String HISTORY_FIELD_NAME = ":bookmark: Plot History";
 
@@ -37,7 +37,7 @@ public class InfoEmbed implements PlotDataEmbed {
     public InfoEmbed(@NotNull PlotData data) {
         // Setup fields
         this.embed = new EmbedBuilder();
-        this.title = makeTitle(data.getPlot().plotID(), data.getPlot().cityName(), data.getPlot().countryName());
+        this.title = makeTitle(data.getPlot().plotID(), data.getPlot().cityProjectID(), data.getPlot().countryCode());
         this.description = makeDescription(data.getDisplayCords());
         this.histories = new StringBuilder();
 

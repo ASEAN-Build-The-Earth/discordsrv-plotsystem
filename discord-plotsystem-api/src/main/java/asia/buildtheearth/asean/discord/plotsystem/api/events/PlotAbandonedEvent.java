@@ -1,5 +1,8 @@
 package asia.buildtheearth.asean.discord.plotsystem.api.events;
 
+/**
+ * Abandon a plot and close it by {@link AbandonType}.
+ */
 public final class PlotAbandonedEvent extends PlotClosureEvent {
     private final AbandonType type;
 
@@ -15,13 +18,13 @@ public final class PlotAbandonedEvent extends PlotClosureEvent {
     }
 
     /**
-     * Create a new plot abandon event with default type to {@link AbandonType#INACTIVE}
+     * Create a new plot abandon event with default type to {@link AbandonType#SYSTEM}
      *
      * @param plotID The plot ID that is being abandoned
      */
     public PlotAbandonedEvent(int plotID) {
         super(plotID);
-        this.type = AbandonType.INACTIVE;
+        this.type = AbandonType.SYSTEM;
     }
 
     /**

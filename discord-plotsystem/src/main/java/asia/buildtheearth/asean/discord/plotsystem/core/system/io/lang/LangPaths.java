@@ -21,7 +21,7 @@ public class LangPaths {
      *
      * @see asia.buildtheearth.asean.discord.plotsystem.commands.SetupCommand
      */
-    public static final SystemLang SETUP_COMMAND = () -> SLASH_COMMANDS + "setup-command.";
+    public static final SystemLang SETUP_COMMAND = () -> SLASH_COMMANDS + "setup-command.description";
 
     /**
      * Setup-showcase command, this is used as standalone description field
@@ -30,12 +30,17 @@ public class LangPaths {
     public static final SystemLang SETUP_SHOWCASE = () ->  SLASH_COMMANDS + "setup-showcase.description";
 
     /**
+     * Review command parent's description message.
+     */
+    public static final String REVIEW_COMMAND = SLASH_COMMANDS + "review-command.";
+
+    /**
      * Plot command
      *
      * @see PlotCommand
      * @see asia.buildtheearth.asean.discord.plotsystem.commands.PlotCommand
      */
-    static final String PLOT_COMMAND = SLASH_COMMANDS + "plot-command.";
+    static final String PLOT_CONTROL_COMMAND = SLASH_COMMANDS + "plot-control-command.";
 
     /**
      * @see CommandInteractions
@@ -55,22 +60,27 @@ public class LangPaths {
     /**
      * @see PlotFetchCommand
      */
-    static final String PLOT_FETCH = SLASH_COMMANDS + "plot-fetch.";
+    static final String PLOT_FETCH = SLASH_COMMANDS + "plot-control-fetch.";
 
     /**
      * @see PlotDeleteCommand
      */
-    static final String PLOT_DELETE = SLASH_COMMANDS + "plot-delete.";
+    static final String PLOT_DELETE = SLASH_COMMANDS + "plot-control-delete.";
 
     /**
      * @see PlotArchiveCommand
      */
-    static final String PLOT_ARCHIVE = SLASH_COMMANDS + "plot-archive.";
+    static final String PLOT_ARCHIVE = SLASH_COMMANDS + "plot-control-archive.";
 
     /**
      * @see PlotShowcaseCommand
      */
-    static final String PLOT_SHOWCASE = SLASH_COMMANDS + "plot-showcase.";
+    static final String PLOT_SHOWCASE = SLASH_COMMANDS + "plot-control-showcase.";
+
+    /**
+     * @see ReviewEditCommand
+     */
+    static final String REVIEW_EDIT = SLASH_COMMANDS + "review-edit.";
 
     /**
      * @see Notification

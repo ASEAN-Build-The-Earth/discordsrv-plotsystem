@@ -6,7 +6,7 @@ import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotA
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Slash command events for the command {@code /plot archive}
+ * Slash command events for the command {@code /plotctl archive} and {@code /review archive}
  *
  * @see #onImagesAttached(Message, OnPlotArchive)
  * @see #onImagesProvided(InteractionHook, OnPlotArchive)
@@ -21,7 +21,7 @@ public interface PlotArchiveEvent {
      * @param message The latest message where an attachment is provided by the user.
      * @param interaction The {@link OnPlotArchive} interaction payload of this event.
      */
-    void onImagesAttached(Message message, OnPlotArchive interaction);
+    void onImagesAttached(@NotNull Message message, @NotNull OnPlotArchive interaction);
 
     /**
      * 1st interaction when user clicked the {@code Already Provided} button
@@ -29,7 +29,7 @@ public interface PlotArchiveEvent {
      * @param hook The event's hook
      * @param interaction The {@link OnPlotArchive} interaction payload of this event.
      */
-    void onImagesProvided(InteractionHook hook, OnPlotArchive interaction);
+    void onImagesProvided(@NotNull InteractionHook hook, @NotNull OnPlotArchive interaction);
 
     /**
      * Interacted when user confirmed to archive the plot.
@@ -37,7 +37,7 @@ public interface PlotArchiveEvent {
      * @param hook The event's hook
      * @param interaction The {@link OnPlotArchive} interaction payload of this event.
      */
-    void onConfirmArchive(InteractionHook hook, @NotNull OnPlotArchive interaction);
+    void onConfirmArchive(@NotNull InteractionHook hook, @NotNull OnPlotArchive interaction);
 
     /**
      * Interacted after the archival process is completed and a prompted to showcase this plot pop up.
@@ -45,5 +45,5 @@ public interface PlotArchiveEvent {
      * @param hook The event's hook
      * @param interaction The {@link OnPlotArchive} interaction payload of this event.
      */
-    void onShowcaseConfirmed(InteractionHook hook, OnPlotArchive interaction);
+    void onShowcaseConfirmed(@NotNull InteractionHook hook, @NotNull OnPlotArchive interaction);
 }

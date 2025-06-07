@@ -1,6 +1,9 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
+import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
+import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotNotificationEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginProvider;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
@@ -63,6 +66,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
             DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_FEEDBACK_LABEL),
             DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_NO_FEEDBACK_LABEL),
             DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_NO_FEEDBACK_LABEL),
+            DiscordPS.getMessagesLang().get(PlotInformation.NEW_FEEDBACK_NOTIFICATION),
             Button.link(
                 DiscordPS.getMessagesLang().get(PlotInformation.DOCS_URL),
                 DiscordPS.getMessagesLang().get(PlotInformation.DOCS_LABEL)
@@ -118,16 +122,18 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
 
     /**
      * Create new thread for the given plot ID,
-     * will fall back to {@link AbstractPlotSystemWebhook#addNewExistingPlot(WebhookEntry, boolean)}
+     * will fall back to {@link AbstractPlotSystemWebhook#addNewExistingPlot(WebhookEntry, PlotCreateData, boolean)}
      * if an entry already existed indication a re-claim plot.
      *
      * @param thread   The plot ID to be created
+     * @param plot     The initial plot data to create the thread with
      * @param register If true, will register this plot in database entry.
      * @param force    By default, will check if the plot already exist in the database or not and it will override that plot entry if existed.
      *                 By setting this to {@code true}, will ignore the checks and create new thread forcefully.
      * @return Null only if plot entry does not exist per plot-system database, else a handled completable future.
      */
     protected abstract CompletableFuture<Void> newThreadForPlotID(@NotNull PlotSystemThread thread,
+                                                                  @NotNull PlotCreateData plot,
                                                                   boolean register,
                                                                   boolean force);
 
@@ -165,11 +171,15 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      * Suppose that a plot entry exist, fetch it with a new plot-system data as a new plot entry.
      *
      * @param thread The thread provider to get data from
+     * @param plot The new plot creation data to be edited to this existing plot
+     * @param removeMemberID Optionally remove the previous owner if exist
      * @param onSuccess Action invoked on success with the plot's information
      * @return The handled future that completed when all queued action is done
      */
     @Nullable
     protected abstract CompletableFuture<Void> addNewExistingPlot(@NotNull PlotSystemThread thread,
+                                                                  @NotNull PlotCreateData plot,
+                                                                  @Nullable String removeMemberID,
                                                                   @Nullable Consumer<PlotData> onSuccess);
 
     /**
@@ -182,11 +192,13 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      * @return The handled future that completed when all queued action is done
      */
     @Nullable
-    protected CompletableFuture<Void> addNewExistingPlot(@NotNull WebhookEntry entry, boolean register) {
+    protected CompletableFuture<Void> addNewExistingPlot(@NotNull WebhookEntry entry,
+                                                         @NotNull PlotCreateData plot,
+                                                         boolean register) {
         final Consumer<PlotData> registerNewPlot = plotData -> this.registerNewPlot(plotData, entry.plotID(), entry.threadID());
         final PlotSystemThread thread = new PlotSystemThread(entry.plotID(), entry.threadID());
-
-        return this.addNewExistingPlot(thread, register? registerNewPlot : null);
+        final Optional<String> removeMemberID = Optional.ofNullable(entry.ownerID());
+        return this.addNewExistingPlot(thread, plot, removeMemberID.orElse(null), register? registerNewPlot : null);
     }
 
     /**
@@ -308,11 +320,73 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     }
 
     /**
-     * Send a plot notification message to a thread
+     * Dispatches a plot notification event and handles message display logic if not cancelled.
+     *
+     * <p>Conventionally using the sender for forwarding to one of {@link #sendNotification(PlotNotification, String, Function)}
+     * and using the received {@link asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage PlotMessage}
+     * To send {@link Notification} to the system channel</p>
+     *
+     * @param type     The {@link NotificationType} representing the notification to send
+     * @param plotID   The ID of the plot this notification is related to
+     * @param message  A function to resolve the localized message content to display,
+     *                 given the {@link NotificationType}
+     * @param sender   A bi-consumer to handle the delivery logic of the notification,
+     *                 accepting the {@link PlotNotification} and its resolved {@code PlotMessage}
+     *
+     * @see PlotNotificationEvent
+     * @see NotificationType
+     * @see asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage
+     */
+    public void onNotification(@NotNull NotificationType type,
+                               int plotID,
+                               @NotNull Function<@NotNull NotificationType, asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage> message,
+                               @NotNull BiConsumer<@NotNull PlotNotification, asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage> sender) {
+        PlotNotificationEvent notification = DiscordPS.getPlugin().callEvent(
+            new PlotNotificationEvent(plotID, type)
+        );
+
+        if(notification == null || notification.isCancelled()) return;
+
+        sender.accept(PlotNotification.from(type), message.apply(type));
+    }
+
+    /**
+     * Dispatches a plot notification event and handles delivery if not cancelled.
+     *
+     * <p>Conventionally using the sender for forwarding to one of {@link #sendNotification(PlotNotification, String, Function)}
+     * and optionally send {@link Notification} to the system channel</p>
+     *
+     * @param type     The {@link NotificationType} representing the notification to send
+     * @param plotID   The ID of the plot this notification is related to
+     * @param sender   A consumer to handle the delivery logic of the notification,
+     *                 accepting the {@link PlotNotification} instance
+     *
+     * @see PlotNotificationEvent
+     * @see NotificationType
+     */
+    public void onNotification(@NotNull NotificationType type,
+                               int plotID,
+                               @NotNull Consumer<@NotNull PlotNotification> sender) {
+        PlotNotificationEvent notification = DiscordPS.getPlugin().callEvent(
+            new PlotNotificationEvent(plotID, type)
+        );
+
+        if(notification == null || notification.isCancelled()) return;
+
+        sender.accept(PlotNotification.from(type));
+    }
+
+    /**
+     * Implementation for sending a plot notification message to a thread.
+     * This is skipped if the configured notification by {@link PlotNotification} is set to {@code false}.
      *
      * @param type The notification message to send to
      * @param threadID The thread ID to send notification to
      * @param content The content of the notification as a modifier function
+     *
+     * @see #sendNotification(PlotNotification, String)
+     * @see #sendNotification(PlotNotification, String, String)
+     * @see #sendNotification(PlotNotification, String, String, String)
      */
     protected abstract void sendNotification(@NotNull PlotNotification type,
                                              @NotNull String threadID,
@@ -347,20 +421,22 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     }
 
     /**
-     * Special notification {@link PlotNotification#ON_REVIEWED} that notifies the review button label.
+     * Special notification that notifies the review button label.
      *
+     * @param type The notification message to send to
      * @param threadID The thread ID to send notification to
      * @param owner  Owner ID to apply to this notification message
      *               <i>(placeholder: {@code {owner}})</i>
      * @param label  Button label apply to this notification message
      *               <i>(placeholder: {@code {label}})</i>
      */
-    protected void sendNotification(@NotNull String threadID,
-                                    @NotNull String owner,
-                                    @NotNull String label) {
-        this.sendNotification(PlotNotification.ON_REVIEWED, threadID, content -> content
-                .replace(Format.USER_ID, owner)
-                .replace(Format.LABEL, label));
+    protected void sendNotification(@NotNull PlotNotification type,
+                                    @NotNull String label,
+                                    @NotNull String threadID,
+                                    @Nullable String owner) {
+        this.sendNotification(type, threadID, content -> content
+                .replace(Format.LABEL, label)
+                .replace(Format.OWNER, owner == null? LanguageFile.NULL_LANG : owner));
     }
 
     /** Create a plot's help button by owner and message. */
@@ -452,6 +528,18 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     };
 
     /**
+     * Consumer to handle for plot's previous owner removal.
+     *
+     * @see CompletableFuture#whenComplete(BiConsumer)
+     */
+    protected static final BiConsumer<Void, ? super Throwable> HANDLE_EDIT_MEMBER_ERROR = (success, failure) -> {
+        if(failure != null) {
+            DiscordPS.error("A thread member edit action returned an exception", failure);
+            Notification.sendErrorEmbed(ErrorMessage.FAILED_EDIT_MEMBER, failure.toString());
+        }
+    };
+
+    /**
      * Plot Metadata from messages language file, mostly button label data.
      * <p>Below are the default label of each buttons</p>
      *
@@ -468,6 +556,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
             String approvedFeedbackLabel,
             String rejectedNoFeedbackLabel,
             String approvedNoFeedbackLabel,
+            String newFeedbackNotification,
             Button documentationButton
     ) { }
 }

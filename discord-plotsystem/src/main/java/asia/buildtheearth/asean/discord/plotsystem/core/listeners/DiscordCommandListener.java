@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
+import asia.buildtheearth.asean.discord.plotsystem.commands.ReviewCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.CommandInteractions;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotFetchCommand;
@@ -33,10 +34,14 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
     private static final String SLASH_SETUP_SHOWCASE =  SetupCommand.SETUP + "/" + SetupCommand.SHOWCASE;
     private static final String SLASH_SETUP_CHECKLIST =  SetupCommand.SETUP + "/" + SetupCommand.HELP;
 
-    private static final String SLASH_PLOT_ARCHIVE =  PlotCommand.PLOT + "/" + PlotCommand.ARCHIVE;
-    private static final String SLASH_PLOT_FETCH =  PlotCommand.PLOT + "/" + PlotCommand.FETCH;
-    private static final String SLASH_PLOT_DELETE =  PlotCommand.PLOT + "/" + PlotCommand.DELETE;
-    private static final String SLASH_PLOT_SHOWCASE =  PlotCommand.PLOT + "/" + PlotCommand.SHOWCASE;
+    private static final String SLASH_PLOT_ARCHIVE =  PlotCommand.PLOT_CTL + "/" + PlotCommand.ARCHIVE;
+    private static final String SLASH_PLOT_FETCH =  PlotCommand.PLOT_CTL + "/" + PlotCommand.FETCH;
+    private static final String SLASH_PLOT_DELETE =  PlotCommand.PLOT_CTL + "/" + PlotCommand.DELETE;
+    private static final String SLASH_PLOT_SHOWCASE =  PlotCommand.PLOT_CTL + "/" + PlotCommand.SHOWCASE;
+
+    private static final String SLASH_REVIEW_EDIT =  ReviewCommand.REVIEW + "/" + ReviewCommand.EDIT;
+    private static final String SLASH_REVIEW_SEND =  ReviewCommand.REVIEW + "/" + ReviewCommand.SEND;
+    private static final String SLASH_REVIEW_ARCHIVE =  ReviewCommand.REVIEW + "/" + ReviewCommand.ARCHIVE;
 
     private final DiscordPS plugin;
 
@@ -121,6 +126,61 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
     @SlashCommand(path = SLASH_SETUP_CHECKLIST)
     public void onSetupHelp(@NotNull SlashCommandEvent event) {
         this.onSlashCommand(event, true, SetupCommand.class, SetupCommand::getHelpCommand);
+    }
+
+    /**
+     * Entry point for {@code /review edit} command
+     *
+     * @param event Slash command event activated by JDA
+     */
+    @SlashCommand(path = SLASH_REVIEW_EDIT)
+    public void onReviewEdit(@NotNull SlashCommandEvent event) {
+        if(requiredReady(event)) return;
+
+        this.onSlashCommand(event, true, ReviewCommand.class, ReviewCommand::getEditCommand,
+            () -> new OnReview(
+                event.getUser().getIdLong(),
+                event.getIdLong(),
+                Objects.requireNonNull(event.getOption(ReviewCommand.PLOT_ID)).getAsLong()
+            )
+        );
+    }
+
+    /**
+     * Entry point for {@code /review send} command
+     *
+     * @param event Slash command event activated by JDA
+     */
+    @SlashCommand(path = SLASH_REVIEW_SEND)
+    public void onReviewSend(@NotNull SlashCommandEvent event) {
+        if(requiredReady(event)) return;
+
+        this.onSlashCommand(event, true, ReviewCommand.class, ReviewCommand::getSendCommand,
+            () -> new OnReview(
+                event.getUser().getIdLong(),
+                event.getIdLong(),
+                Objects.requireNonNull(event.getOption(ReviewCommand.PLOT_ID)).getAsLong()
+            )
+        );
+    }
+
+    /**
+     * Entry point for {@code /review archive} command
+     *
+     * @param event Slash command event activated by JDA
+     */
+    @SlashCommand(path = SLASH_REVIEW_ARCHIVE)
+    public void onReviewArchive(@NotNull SlashCommandEvent event) {
+        if(requiredReady(event)) return;
+
+        this.onSlashCommand(event, false, ReviewCommand.class, ReviewCommand::getArchiveCommand,
+            () -> new OnPlotArchive(
+                event.getUser().getIdLong(),
+                event.getIdLong(),
+                Objects.requireNonNull(event.getOption(PlotCommand.PLOT_ID)).getAsLong(),
+                Objects.requireNonNull(event.getOption(PlotCommand.PLOT_OVERRIDE)).getAsBoolean()
+            )
+        );
     }
 
     /**

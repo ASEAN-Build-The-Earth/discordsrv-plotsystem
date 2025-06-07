@@ -14,7 +14,25 @@ import asia.buildtheearth.asean.discord.commands.SlashCommand;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotCommand.DESC;
 
 /**
- * Plot command data, parent command of all plot-related commands.
+ * Plot Control command's data, parent command of all plot controls related commands.
+ *
+ * <p>This command contains dangerous operations and is intended to be privately usable in the discord server,
+ * do not expose this command to un-trusted roles.</p>
+ *
+ * <p>For archiving and showcasing a plot, please refer to the command {@link ReviewCommand}
+ * as it expose command {@code /review archive} to safely archive the plot.</p>
+ *
+ * <p>Subcommands include the following:</p>
+ * <ul>
+ *     <li>{@link PlotArchiveEvent} {@code /plotctl archive <plot_id> <override>}<br/>
+ *     Interactively archive a plot.</li>
+ *     <li>{@link PlotFetchEvent} {@code /plotctl fetch <plot_id> <override>}<br/>
+ *     Interactively update/fetch a plot to new status.</li>
+ *     <li>{@link PlotDeleteEvent} {@code /plotctl delete <plot_id>}<br/>
+ *     Delete a plot from being tracked by the system, does not delete thread.</li>
+ *     <li>{@link PlotShowcaseEvent} {@code /plotctl showcase <plot_id>}<br/>
+ *     Showcase an archived plot to configured showcase webhook.</li>
+ * </ul>
  *
  * @see PlotArchiveEvent
  * @see PlotFetchEvent
@@ -22,12 +40,8 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Pl
  * @see PlotShowcaseEvent
  */
 public final class PlotCommand extends CommandData {
-
-    /// Common parameters
-    /// TODO: rename to /plotctl as for plot controls commands
-
-    /** Plot command signature: {@code plot} */
-    public static final String PLOT = "plot";
+    /** Plot command signature: {@code plotctl} */
+    public static final String PLOT_CTL = "plotctl";
 
     /** Plot command's parameter signature: {@code id} */
     public static final String PLOT_ID = "id";
@@ -56,7 +70,7 @@ public final class PlotCommand extends CommandData {
      * Initialize plot command data creating all of its subcommands.
      */
     public PlotCommand() {
-        super(PLOT, DiscordPS.getSystemLang().get(DESC));
+        super(PLOT_CTL, DiscordPS.getSystemLang().get(DESC));
         this.addSubcommands(
                 plotArchiveCommand = new PlotArchiveCommand(ARCHIVE, PLOT_ID, PLOT_OVERRIDE),
                 plotFetchCommand = new PlotFetchCommand(FETCH, PLOT_ID, PLOT_OVERRIDE),

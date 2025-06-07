@@ -1,8 +1,8 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
+import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotEvent;
-import asia.buildtheearth.asean.discord.plotsystem.core.database.PlotEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.HistoryMessage;
@@ -60,7 +60,7 @@ public class PlotSystemThread {
     public static final PlotInfoModifier DEFAULT_THREAD_CREATED_STATUS = (owner, info) -> info.addHistory(INITIAL_HISTORY.apply(owner.getOwnerMentionOrName()));
 
     /**
-     * The plot data provider (usually {@link PlotData#PlotData(PlotEntry)}) but can be modified before passing the instance.
+     * The plot data provider (usually {@link PlotData#PlotData(PlotCreateData)}) but can be modified before passing the instance.
      */
     private @Nullable PlotDataProvider provider;
 
@@ -156,15 +156,15 @@ public class PlotSystemThread {
      * Provider for all {@link PlotData} usage.
      */
     @FunctionalInterface
-    public interface PlotDataProvider extends Function<PlotEntry, PlotData> {
+    public interface PlotDataProvider extends Function<PlotCreateData, PlotData> {
         /**
          * Apply the provider for plot data.
          *
-         * @param plotEntry Plot information to be applied to the provider that provides the instance
+         * @param plotData Plot information to be applied to the provider that provides the instance
          * @return A new plot data instance constructed from the provider
          */
         @Override
-        PlotData apply(PlotEntry plotEntry);
+        PlotData apply(PlotCreateData plotData);
     }
 
     /**

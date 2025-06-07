@@ -88,6 +88,7 @@ final public class DiscordEventListener extends ListenerAdapter {
             switch(AvailableButton.valueOf(menu.getType())) {
                 case PLOT_FETCH_SELECTION -> onEntryMenuSelect(event, interactions.getAs(OnPlotFetch.class, menu.getIDLong()));
                 case PLOT_DELETE_SELECTION -> onEntryMenuSelect(event, interactions.getAs(OnPlotDelete.class, menu.getIDLong()));
+                case REVIEW_EDIT_SELECTION -> onEntryMenuSelect(event, interactions.getAs(OnReview.class, menu.getIDLong()));
             }
         });
     }

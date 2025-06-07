@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Payload for the command {@code /plot delete}
+ * Payload for the command {@code /plotctl delete}
  *
  * @see asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotDeleteEvent
  */

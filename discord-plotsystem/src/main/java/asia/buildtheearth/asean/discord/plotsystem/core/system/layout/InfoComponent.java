@@ -1,5 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.layout;
 
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.BuildTeamLang;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
@@ -45,7 +46,7 @@ public final class InfoComponent
     private record Metadata(String titleFormat,
                             String historyTitle,
                             String historyPrefix,
-                            String googleMapLabel) {};
+                            String googleMapLabel) {}
 
     // Cache metadata statically
     private static final Metadata METADATA = new Metadata(
@@ -75,7 +76,7 @@ public final class InfoComponent
 
         // Prepare component data
         this.register(INFO_TITLE, id -> new TextDisplay(id,
-            makeTitle(data.getPlot().plotID(), data.getPlot().cityName(), data.getPlot().countryName())
+            makeTitle(data.getPlot().plotID(), data.getPlot().cityProjectID(), data.getPlot().countryCode())
         ));
         this.register(INFO_LOCATION, id -> {
             Button plotLinkButton = Button.link("https://www.google.com/maps/place/" + data.getGeoCoordinates(), METADATA.googleMapLabel());
@@ -109,7 +110,11 @@ public final class InfoComponent
         return new InfoComponent(id, layout, color, components);
     }
 
-    public @NotNull String makeTitle(int plotID, @NotNull String city, @NotNull String country) {
+    public @NotNull String makeTitle(int plotID, @NotNull String cityProjectID, @NotNull String countryCode) {
+
+        String country = DiscordPS.getMessagesLang().get(BuildTeamLang.getCountry().getName(countryCode), countryCode);
+        String city = DiscordPS.getMessagesLang().get(BuildTeamLang.getCityProject().getName(cityProjectID), cityProjectID);
+
         return METADATA.titleFormat()
             .replace("{plotID}", String.valueOf(plotID))
             .replace("{country}", country)
@@ -233,24 +238,18 @@ public final class InfoComponent
      */
     protected void rebuildComponent(int packedID, @NotNull DataObject component) throws ParsingException, IllegalArgumentException {
         switch(AvailableComponent.InfoComponent.get(AvailableComponent.unpackSubComponent(packedID))) {
-            case INFO_TITLE -> {
-                this.register(INFO_TITLE, id -> new TextDisplay(id, component.getString("content")));
-            }
-            case INFO_LOCATION -> {
-                this.register(INFO_LOCATION, id -> {
-                    Button button = Button.link(component.getObject("accessory").getString("url"), METADATA.googleMapLabel());
-                    TextButtonSection field = new TextButtonSection(id, button);
-                    field.addTextDisplay(new TextDisplay(component.getArray("components").getObject(0).getString("content")));
-                    return field;
-                });
-            }
+            case INFO_TITLE -> this.register(INFO_TITLE, id -> new TextDisplay(id, component.getString("content")));
+            case INFO_LOCATION -> this.register(INFO_LOCATION, id -> {
+                Button button = Button.link(component.getObject("accessory").getString("url"), METADATA.googleMapLabel());
+                TextButtonSection field = new TextButtonSection(id, button);
+                field.addTextDisplay(new TextDisplay(component.getArray("components").getObject(0).getString("content")));
+                return field;
+            });
             case INFO_HISTORY -> {
                 this.histories = new StringBuilder(component.getString("content"));
                 this.register(INFO_HISTORY, id -> new TextDisplay(id, this.histories.toString()));
             }
-            case INFO_SEPARATOR -> {
-                this.register(INFO_SEPARATOR, id -> new Separator(id, true));
-            }
+            case INFO_SEPARATOR -> this.register(INFO_SEPARATOR, id -> new Separator(id, true));
             case INFO_GALLERY -> {
                 DataArray items = component.getArray("items");
 

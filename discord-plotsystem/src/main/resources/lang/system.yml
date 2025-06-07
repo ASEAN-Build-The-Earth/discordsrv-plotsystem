@@ -6,6 +6,7 @@
 # 🛠 Archived thread prefix
 # The prefix that will be applied to thread name when archiving this plot
 # This field is safe to edit
+# Set the blank string to disable the prefix
 # ------------------------
 archive-prefix: "[Archived]"
 
@@ -45,20 +46,26 @@ system-notification:
       - ":broken_heart: Plot #{plotID} is now abandoned by the builder"
       - "Tracker: <#{threadID}>"
   plot-commands:
-    plot-fetch:
+    plot-control-fetch:
       - "A thread as been fetched to the status `{label}`"
       - "Updated by <@{userID}> (Plot ID: {plotID})"
-    plot-delete:
+    plot-control-delete:
       - "An Entry has been deleted from the database"
       - |
         A Manual deletion event has been triggered by <@{userID}> to delete a webhook entry from the database.
         The entry from message ID `{messageID}` at <#{threadID}> will no longer be tracked by the system.
-    plot-archive:
+    plot-control-archive:
       - "Plot #{plotID} has been archived!"
       - "<@{userID}> Archived the plot in <#{threadID}>"
-    plot-showcase:
+    plot-control-showcase:
       - ":sparkles: Plot Showcased!"
       - "Thread: <#{threadID}> Showcased by: <@{userID}>"
+    plot-review-edit:
+      - "Private review has just edited for Plot #{plotID}"
+      - "Edited by <@{userID}> in <#{threadID}>"
+    plot-review-send:
+      - "New review sent to Plot #{plotID}"
+      - "Reviewed by <@{userID}> in <#{threadID}>"
   # System error messages
   system-error:
     # Error title applied to all system related error notifications
@@ -111,7 +118,9 @@ system-notification:
     failed-layout-edit:
       - ~
       - "Failed to update thread layout."
-
+    failed-edit-thread-member:
+      - ~
+      - "Failed to edit thread member."
     # Unknown exception in plot processing stages
     plot-update-unknown-exception:
       - ~
@@ -146,6 +155,10 @@ slash-commands:
       create-register: "Create & Register"
       create-untracked: "Create & Make un-tracked"
       create-webhook: "Create Webhook"
+      continue: "Continue"
+      clear: "Clear"
+      add: "Add"
+      edit: "Edit"
     labels:
       latest: "Latest"
       error: "Error"
@@ -170,7 +183,7 @@ slash-commands:
   # ------------------------
   # Plot Management Commands
   # ------------------------
-  plot-command:
+  plot-control-command:
     description: "Manually manage Discord Plot-System"
     messages:
       empty-action-exception: |
@@ -182,7 +195,7 @@ slash-commands:
       null-action-exception: |
         Failed to fetch plot data from plot-system database, possibly sql exception has occurred. 
         please debug this process for more info.
-  plot-delete:
+  plot-control-delete:
     description:
       command: "Delete a plot from being tracked by the system"
       plot-id: "The plot ID to be deleted"
@@ -203,9 +216,9 @@ slash-commands:
           The entry from message ID `{messageID}` at <#{threadID}> will no longer be tracked by the system.
     messages:
       sql-get-error: "The system failed get data for this plot ID, cannot delete the entry."
-      sql-delete-error: "The system failed delete entry data."
+      sql-delete-error: "The system failed to delete entry data."
       validation-error: "The system failed to verify selected plot to delete."
-  plot-showcase:
+  plot-control-showcase:
     description:
       command: "Showcase a completed plot by ID"
       plot-id: "The plot ID in integer to showcase"
@@ -239,7 +252,7 @@ slash-commands:
       error-failed-to-showcase: "Failed to showcase this plot."
       plot-data-returned-null: "Failed to retrieve plot data"
       plot-data-no-owner: "Plot data to showcase invalid"
-  plot-fetch:
+  plot-control-fetch:
     description:
       command: "Manually fetch a plot tracking thread to a new status"
       plot-id: "The plot ID to fetch"
@@ -254,7 +267,7 @@ slash-commands:
         - "Confirming this will fetch the current plot-system status of this plot ID as the primary status."
       picked-more-status:
         - "Picked more than one status!"
-        - "The plot will be create only with the first picked status: `{label}"`"
+        - "The plot will be create only with the first picked status: `{label}`"
       already-registered:
         - "Plot already registered in the database"
         - "Found {count} entries of this plot ID in the database. "
@@ -285,7 +298,7 @@ slash-commands:
       sql-plot-error: "The system failed to verify if the plot ID exist in the database or not, proceed with cautions."
       sql-get-error: "The system failed to get entry data."
       error-override-validation: "The system failed to verify selected plot to override."
-  plot-archive:
+  plot-control-archive:
     description:
       command: "Archive a plot"
       plot-id: "The plot ID in integer to be archived"
@@ -348,12 +361,80 @@ slash-commands:
       cannot-showcase: "Internal error occurred triggering showcase command. Instead try /plot showcase"
       interaction-empty: "The system failed to process this archive information."
       media-folder-not-exist: "The system failed to find plot's media folder"
-      media-cache-deleted: "Deleted pending cached file (\"{filename}\") to archive plot images"
+      media-cache-deleted: "-# Deleted cached file (`{filename}`) to archive plot images"
       media-saved: "Saved {count} image(s)"
       confirm-archive: "Confirm Archive"
       detected-files: "Detected Files"
       archive-override-enabled: "**Overriding enabled**, the existing plot's thread will be edited to archived status."
       archive-override-disabled: "Override **disabled**, the system will create a new non-tracked thread to archive this plot."
+
+  # ------------------------
+  # Review Commands
+  # ------------------------
+  review-command:
+    description:
+      command: "Manage plot's review data"
+      plot-id: "The plot ID to be edited"
+      command-edit: "Edit a plot's private review feedback"
+      command-send: "Send a review feedback publicly in the plot's thread"
+      command-archive: "Archived an approved reviewed plot"
+  review-edit:
+    embeds:
+      review-info:
+        - "Review Options"
+        - "Found plot to edit the review, please choose what entry to edit (you can only choose one)."
+      nothing-to-edit:
+        - "Nothing to Review!"
+        - "There are no entry found for this plot ID."
+      edit-instruction:
+        - ":pencil: Review for {owner} (<#{threadID}>)"
+        - |
+          Please send a message with text content below, and click the confirm button to submit your edits.
+          
+          Available formatting are:
+          - All markdown format is supported
+          - Image attachment(s) up to 10MB in the message
+          - Writing these keyword as a single line will display a separator line:
+            - `___` as a *hidden* separator line
+            - `---` as a normal separator line
+            - `===` as a separator line with expanded padding
+          -# Attached image(s) will be displayed as an image gallery at the end of the message content
+      selected-no-discord:
+        - "Selected entry's owner data has no Discord account linked!"
+        - |
+          There are no way for the owner to interact with the feedback button, 
+          do you want to send the review message straight to the thread channel **publicly** instead?
+      previous-media-found:
+        - "Detected previous reviewing media file(s)"
+        - "Please decide what to do with it"
+      provided-message-error:
+        - "Please send a message with text content"
+        - "And make sure it is the latest message before confirming."
+      media-folder-created:
+        - ":open_file_folder: Created media folder to archive plot"
+        - ~
+      media-folder-failed:
+        - ":warning: Failed to create plot media folder"
+        - "Images may not be save correctly, please create the media folder manually instead."
+      review-edit-success:
+        - ":package: Successfully saved the edits"
+        - "Thread: <#{threadID}>"
+      review-send-success:
+        - ":package: Successfully sent the review"
+        - "Thread: <#{threadID}>"
+    messages:
+      review-confirmation: "-# Make sure the feedback preview is up to what you expected"
+      new-review-preview: "New Review Preview:"
+      previous-review: "Previous Review:"
+      saved-attachments: "Saved Attachments"
+      previous-media-deleted: "Deleted previous media: `{filename}`"
+      preview-error: |
+        Error occurred when trying to preview your feedback edits.
+        Confirming this may produce future error when user is asking for the review feedback.
+      sql-get-error: "The system failed get data for this plot ID, cannot edit the entry."
+      sql-save-error: "The system failed to save new review data."
+      validation-error: "The system failed to verify selected plot to process."
+      feedback-send-error: "The system failed to send feedback to the thread."
 
   # ------------------------
   # System Setup Commands
@@ -446,7 +527,7 @@ slash-commands:
       debugging-notice:
         - ":warning: Notices"
         - |
-          The configuration and control commands `/setup` and `/plot` are **publicly accessible by default**.
+          The configuration and control commands `/setup`, `/plot` and `/review` are **publicly accessible by default**.
           To secure these commands:
           - Open the bot’s **Slash Command Permissions** in the Server integration settings.  
           - **Disable access for `@everyone`**.

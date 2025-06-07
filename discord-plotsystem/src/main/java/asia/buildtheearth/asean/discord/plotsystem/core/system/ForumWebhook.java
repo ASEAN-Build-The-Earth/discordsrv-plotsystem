@@ -85,6 +85,14 @@ public interface ForumWebhook {
             boolean withComponents,
             boolean allowSecondAttempt);
 
+    @NotNull
+    RestAction<Void> removeThreadMember(@NotNull String threadID,
+                                        @NotNull String memberID);
+
+    @NotNull
+    RestAction<Void> addThreadMember(@NotNull String threadID,
+                                     @NotNull String memberID);
+
     /**
      * Queue a rest action followed by another rest action
      *

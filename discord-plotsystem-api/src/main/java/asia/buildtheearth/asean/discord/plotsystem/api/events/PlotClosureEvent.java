@@ -10,6 +10,11 @@ package asia.buildtheearth.asean.discord.plotsystem.api.events;
 public abstract sealed class PlotClosureEvent extends PlotEvent
     permits PlotAbandonedEvent, PlotArchiveEvent {
 
+    /**
+     * Create a new plot event by plot ID
+     *
+     * @param plotID The plot ID in integer
+     */
     public PlotClosureEvent(int plotID) {
         super(plotID);
     }

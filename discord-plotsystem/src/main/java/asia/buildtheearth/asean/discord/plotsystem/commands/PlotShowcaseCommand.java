@@ -1,5 +1,8 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
+import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
+import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
@@ -8,7 +11,6 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Act
 import github.scarsz.discordsrv.dependencies.jda.api.requests.restaction.WebhookMessageAction;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotShowcase;
-import asia.buildtheearth.asean.discord.plotsystem.core.database.PlotEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
@@ -41,19 +43,30 @@ final class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
                 return;
             }
 
-            // Fetch plot information from plot-system database
-            PlotEntry plot = PlotEntry.getByID(interaction.getPlotID());
+            // Fetch plot information from plot-system provider
+            PlotCreateData plot;
 
-            if(plot == null) {
+            try {
+                plot = DiscordPlotSystemAPI.getDataProvider().getData(interaction.getPlotID());
+
+                if(plot == null) {
+                    this.queueEmbed(hook, errorEmbed(
+                        MESSAGE_DATA_RETURNED_NULL,
+                        Error.PLOT_FETCH_RETURNED_NULL.getMessage())
+                    );
+                    return;
+                } else if (plot.ownerUUID() == null) {
+                    this.queueEmbed(hook, errorEmbed(
+                        MESSAGE_DATA_RETURNED_NULL,
+                        Error.PLOT_FETCH_UNKNOWN_OWNER.getMessage())
+                    );
+                    return;
+                }
+            }
+            catch (IllegalArgumentException ex) {
                 this.queueEmbed(hook, errorEmbed(
                     MESSAGE_DATA_RETURNED_NULL,
                     Error.PLOT_FETCH_RETURNED_NULL.getMessage())
-                );
-                return;
-            } else if (plot.ownerUUID() == null) {
-                this.queueEmbed(hook, errorEmbed(
-                    MESSAGE_DATA_RETURNED_NULL,
-                    Error.PLOT_FETCH_UNKNOWN_OWNER.getMessage())
                 );
                 return;
             }
@@ -100,31 +113,23 @@ final class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
         Consumer<Message> onShowcase = defer -> showcaseAction.whenComplete((optMessage, error) -> {
             if(error != null) defer.editMessageEmbeds(errorEmbed(MESSAGE_SHOWCASE_FAILED, error.toString())).queue();
             else optMessage.ifPresentOrElse(
-                message -> handleSuccessful(hook, defer, message),
+                message -> {
+                    // Response to the user and notify the plot owner
+                    defer.editMessageEmbeds(this.formatSuccessfulEmbed(message)).queue();
+                    DiscordPS.getPlugin().getWebhook().onNotification(NotificationType.ON_SHOWCASED, payload.getPlotID(), notification -> {
+                        final String ownerMention = payload.getPlotData().getOwnerMentionOrName();
+                        String threadID = Long.toUnsignedString(payload.getPlotEntry().threadID());
+
+                        DiscordPS.getPlugin().getWebhook().sendNotification(notification, threadID, ownerMention);
+
+                        Notification.notify(CommandMessage.PLOT_SHOWCASE, message.getMessageId(), String.valueOf(payload.getPlotID()));
+                    });
+                },
                 () -> defer.editMessageEmbeds(errorEmbed(MESSAGE_SHOWCASE_FAILED,
                     "Requested API call returned empty")).queue()
             );
         });
 
         hook.sendMessageEmbeds(getEmbed(ORANGE, EMBED_ON_SHOWCASE)).setEphemeral(true).queue(onShowcase);
-    }
-
-    /**
-     * Response to successful showcase event and send info to notification channel.
-     *
-     * @param hook The interaction hook
-     * @param defer Defer processing message to be updated as successful
-     * @param message The showcased message
-     */
-    private void handleSuccessful(@NotNull InteractionHook hook,
-                                  @NotNull Message defer,
-                                  MessageReference message) {
-
-        defer.editMessageEmbeds(this.formatSuccessfulEmbed(message)).queue();
-
-        Notification.notify(CommandMessage.PLOT_SHOWCASE,
-            hook.getInteraction().getUser().getId(),
-            message.getMessageId()
-        );
     }
 }

@@ -11,8 +11,11 @@ import java.util.List;
  *
  * @see OnPlotFetch
  * @see OnPlotDelete
+ * @see OnReview
  */
-public sealed interface PlotFetchInteraction extends PlotInteraction permits OnPlotFetch, OnPlotDelete {
+public sealed interface PlotFetchInteraction
+        extends PlotInteraction
+        permits OnPlotFetch, OnPlotDelete, OnReview {
 
     /**
      * Set the selectable plot options to fetch the specific plot ID.

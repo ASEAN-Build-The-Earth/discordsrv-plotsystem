@@ -1,14 +1,11 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands.events;
 
-import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotFetch;
 import org.jetbrains.annotations.NotNull;
 
-import java.awt.Color;
-
 /**
- * Slash command events for the command {@code /plot fetch}
+ * Slash command events for the command {@code /plotctl fetch}
  *
  * @see #onConfirmOverride(InteractionHook, OnPlotFetch)
  * @see #onCreateRegister(InteractionHook, OnPlotFetch)
@@ -23,7 +20,7 @@ public interface PlotFetchEvent {
      * @param hook The event's hook
      * @param interaction The {@link OnPlotFetch} interaction payload of this event.
      */
-    void onConfirmOverride(InteractionHook hook, OnPlotFetch interaction);
+    void onConfirmOverride(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction);
 
     /**
      * Interacted when user confirm to fetch the plot with their slash command inputs.
@@ -31,7 +28,7 @@ public interface PlotFetchEvent {
      * @param hook The event's hook
      * @param interaction The {@link OnPlotFetch} interaction payload of this event.
      */
-    void onConfirmFetch(InteractionHook hook, OnPlotFetch interaction);
+    void onConfirmFetch(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction);
 
     /**
      * If the fetch process is creating a new plot thread,
@@ -40,7 +37,7 @@ public interface PlotFetchEvent {
      * @param hook The event's hook
      * @param interaction The {@link OnPlotFetch} interaction payload of this event.
      */
-    void onCreateRegister(InteractionHook hook, OnPlotFetch interaction);
+    void onCreateRegister(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction);
 
     /**
      * If the fetch process is creating a new plot thread,
@@ -49,5 +46,5 @@ public interface PlotFetchEvent {
      * @param hook The event's hook
      * @param interaction The {@link OnPlotFetch} interaction payload of this event.
      */
-    void onCreateUntracked(InteractionHook hook, OnPlotFetch interaction);
+    void onCreateUntracked(@NotNull InteractionHook hook, @NotNull OnPlotFetch interaction);
 }

@@ -12,7 +12,7 @@ public class LanguageFile<T extends LangConfig> extends YamlConfiguration implem
 
     public static final String NULL_LANG = "undefined";
 
-    public record EmbedLang(String title, String description) {};
+    public record EmbedLang(String title, String description) {}
 
     public @NotNull String get(@NotNull String key) {
         return this.getString(key, NULL_LANG);
@@ -20,6 +20,10 @@ public class LanguageFile<T extends LangConfig> extends YamlConfiguration implem
 
     public @NotNull String get(@NotNull T config) {
         return this.getString(config.getKey(), NULL_LANG);
+    }
+
+    public @NotNull String get(@NotNull T config, @NotNull String defaultValue) {
+        return this.getString(config.getKey(), defaultValue);
     }
 
     public @NotNull EmbedLang getEmbed(@NotNull String key, @Nullable String defaultValue) {

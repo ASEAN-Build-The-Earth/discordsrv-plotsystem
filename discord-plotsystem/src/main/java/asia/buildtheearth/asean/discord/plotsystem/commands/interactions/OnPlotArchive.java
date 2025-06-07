@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Payload for the command {@code /plot archive}
+ * Payload for the command {@code /plotctl archive} and {@code /review archive}
  *
  * @see asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotArchiveEvent
  */

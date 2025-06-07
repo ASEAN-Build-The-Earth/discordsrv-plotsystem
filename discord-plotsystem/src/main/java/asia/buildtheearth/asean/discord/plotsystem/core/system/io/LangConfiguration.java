@@ -59,7 +59,6 @@ public class LangConfiguration extends PluginProvider {
         if (!systemLang.exists()) {
             if(!systemLang.getParentFile().exists())
                 systemLang.getParentFile().mkdirs();
-            systemLang.getParentFile().mkdirs();
             this.plugin.saveResource("lang/system.yml", false);
         }
 

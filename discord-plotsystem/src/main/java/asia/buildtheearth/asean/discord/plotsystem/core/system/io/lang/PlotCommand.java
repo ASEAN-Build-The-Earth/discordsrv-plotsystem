@@ -18,6 +18,6 @@ public enum PlotCommand implements SystemLang {
     @Override
     @Contract(pure = true)
     public @NotNull String getKey() {
-        return LangPaths.PLOT_COMMAND + this.path;
+        return LangPaths.PLOT_CONTROL_COMMAND + this.path;
     }
 }

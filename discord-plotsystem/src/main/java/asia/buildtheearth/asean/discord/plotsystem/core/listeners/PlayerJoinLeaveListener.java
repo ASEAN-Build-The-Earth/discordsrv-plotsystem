@@ -1,37 +1,27 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnection;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
 public class PlayerJoinLeaveListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
         Bukkit.getScheduler().runTaskAsynchronously(DiscordPS.getPlugin(), () -> {
-            String uuid = player.getUniqueId().toString();
-            try (ResultSet rsUser = DatabaseConnection.createStatement("SELECT uuid, lang FROM langUsers WHERE uuid = ?").setValue(uuid).executeQuery()) {
-                // if (!rsUser.next()) LangLibAPI.setPlayerLang(player,"en_GB");
-                // else LangLibAPI.setPlayerLang(player,rsUser.getString(2));
-                DatabaseConnection.closeResultSet(rsUser);
-            } catch (SQLException e) {
-                DiscordPS.error("A SQL error occurred!", e);
-            }
+
+            // TODO: Notify if the joined player have un-reviewed plot
+
         });
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDisconnect(PlayerQuitEvent event) {
-        // LangLibAPI.removePlayerLang(event.getPlayer());
+
+        // TODO: Notify if player left the game with new submitted plot
     }
 }
 

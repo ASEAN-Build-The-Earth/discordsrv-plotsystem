@@ -4,7 +4,7 @@
 
 # ========================
 # Available Format Tokens
-# ⚠️ Important: For default messages, only the formatter tokens included in
+# ⚠ Important: For default messages, only the formatter tokens included in
 # the message text are guaranteed to be available during runtime.
 # ========================
 
@@ -16,7 +16,7 @@
 # {timestamp} - A Discord snowflake representing the time of the event.
 # {filename} - The name of a file (e.g., an attachment or export).
 # {path} - The absolute path to a file, if relevant.
-# {label} - A custom-defined label or button name related to the message.
+# {label} - A custom-defined label or name related to the message.
 # {event} - The simple name of the event class triggering this message.
 # {count} - A dynamic, incrementing number (e.g., for listing or tracking).
 
@@ -54,8 +54,7 @@ plot:
   # Plot interactions:
   # google-map:    The link to google map button
   # documentation: The link a documentation website in each plot
-  # help:          The help button that can be interacted with
-  #                to display content
+  # help:          The help button that can be interacted with to display content
   # feedback-label: The feedback button that is attached when plot is reviewed
   # ----------------------------------------------------
   google-map: "Google Map"
@@ -63,13 +62,43 @@ plot:
     label: "Documentation"
     url: "https://asean.buildtheearth.asia/intro/getting-started/building-first-build/plot-system"
   help:
-    label: "Help"
+    label: "Help" # The header title
     content: "Click the documentation link above to take a look at a detailed guide on how to build your plot!"
   feedback-label:
     rejected-feedback: "Show Reason"
     approved-feedback: "View Feedback"
     rejected-no-feedback: "No Reason Yet"
     approved-no-feedback: "No Feedback Yet"
+    feedback-notification: "## {owner} new feedback for your plot:"
+
+# ============================================
+# Build team specific messages
+# ============================================
+build-team:
+  country:
+    ID:
+      name: 'Indonesia'
+    KH:
+      name: 'Cambodia'
+    MY:
+      name: 'Malaysia'
+    PH:
+      name: 'Philippines'
+    SG:
+      name: 'Singapore'
+    TH:
+      name: 'Thailand'
+    VN:
+      name: 'Vietnam'
+    XA:
+      name: 'ASEAN'
+  city-project:
+    MY-KLANG:
+      name: "Klang"
+      description: "pss"
+    PH-DAVAO:
+      name: "Davao"
+      description: "pss"
 
 # ============================================
 # Interaction Messages
@@ -84,7 +113,12 @@ interactions:
   plot-feedback-get-failed:
     - "Error :("
     - |
-      Sorry an error occurred trying to get your feedback data. 
+      Sorry an error occurred trying to get your feedback message. 
+      Please message our staff to ask for it instead.
+  plot-help-get-failed:
+    - "Error :("
+    - |
+      Sorry an error occurred trying to get your help message. 
       Please message our staff to ask for it instead.
 
 # ============================================
@@ -93,27 +127,38 @@ interactions:
 # Can be disabled separately in config.yml set enabled to false
 # ============================================
 plot-notification:
+  on-plot-created: |
+    ## :house: Plot claimed by {owner}
+    You may use this thread to ask questions about your plot.
   on-plot-submitted: |
-      ### :yellow_circle: Plot Submitted
-      -# Staff will review this plot as soon as possible.
+    ### :file_folder: Plot Submitted! {owner}
+    You may run the command `/plot undoSubmit {label}` in the server if you wish to make some final touch.
+    -# Staff will review this plot as soon as possible.
   on-plot-reviewed: |
-      ## :pencil: Your plot has been reviewed!
-      {owner}, click the **{label}** button above to view the your feedback.
+    ## :pencil: Your plot has been reviewed!
+    {owner}, click the **{label}** button above to view the your feedback.
   on-plot-approved: |
-      ## :tada: Your plot has been **approved**!
-      {owner}, we will notify your review feedback by the button above.
+    ## :tada: Your plot has been **approved**!
+    {owner}, we will notify your review feedback by the button above.
   on-plot-rejected: |
-      ## :broken_heart: Your plot has been *rejected*
-      {owner}, we will notify the rejected reason by the button above, you can re-submit your plot again to get an approval.
+    ## :broken_heart: Your plot has been *rejected*
+    {owner}, we will notify the rejected reason by the button above, you can re-submit your plot again to get an approval.
   on-undo-review: |
-      ### :recycle: Review has been revoked
-      -# The review has been undone — it may be under reconsideration. Please wait for updates.
+    ### :recycle: Review has been revoked
+    -# The review has been undone — it may be under reconsideration. Please wait for updates.
   on-undo-submit: |
-      ### :recycle: Submission withdrawn
-      -# The builder chose to keep working on the plot for now.
+    ### :recycle: Submission withdrawn
+    -# The builder chose to keep working on the plot for now.
   on-plot-showcased: |
-      ## :loudspeaker: Your plot has been showcased!
-      {owner}, your build is now featured publicly. Check it out in <#{threadID}>!
+    ## :loudspeaker: Your plot has been showcased!
+    {owner}, your build is now featured publicly. Check it out in <#{threadID}>!
+  on-plot-abandoned: |
+    ### :broken_heart: *Plot Abandoned*
+    -# Plot has been marked as abandoned due to inactivity or manual action.
+    -# {owner}, if this was a mistake, please contact a staff member or reclaim it if allowed.
+  on-plot-inactivity: |
+    ## :warning: {owner} Your plot is getting abandoned in <t:{timestamp}:R>
+    -# Plot is detected inactive, please join your plot world to extend this.
 
 history-messages:
   # Triggered on the initial claim of each plot

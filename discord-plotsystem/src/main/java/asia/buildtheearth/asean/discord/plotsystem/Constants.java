@@ -38,6 +38,11 @@ public abstract class Constants {
      */
     public static final String PLOT_IMAGE_FILE = "plot-image";
 
+    /**
+     * Per-Plot review feedback files stored in: <pre>plugin/media/plot-xx/plot-review-xx-xx.xxx</pre>
+     */
+    public static final String PLOT_REVIEW_IMAGE_FILE = "plot-review";
+
     /** Red accent color (HEX: #{@code DD2E44FF})*/
     public static final Color RED    = new Color(14495300);
 

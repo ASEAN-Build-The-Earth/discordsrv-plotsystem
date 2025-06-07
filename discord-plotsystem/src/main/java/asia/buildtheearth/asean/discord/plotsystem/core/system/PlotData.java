@@ -1,9 +1,9 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
+import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.core.database.PlotEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.ImageEmbed;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.InfoEmbed;
@@ -25,24 +25,19 @@ public class PlotData extends MemberOwnable {
     private final Map<String, File> imageFiles;
     private final File imagesFolder;
 
-    private final PlotEntry plot;
+    private final PlotCreateData plot;
     private final String geoCoordinates;
     private final String displayCords;
 
     private @NotNull ThreadStatus primaryStatus;
     private final @NotNull Set<Long> statusTags;
 
-    public PlotData(@NotNull PlotEntry plot) {
+    public PlotData(@NotNull PlotCreateData plot) {
         super(plot.ownerUUID());
         this.plot = plot;
 
         // Plot location
-        String[] mcLocation = plot.mcCoordinates().split(",");
-
-        double xCords = Double.parseDouble(mcLocation[0].trim());
-        double zCords = Double.parseDouble(mcLocation[2].trim());
-        double[] geoCords = CoordinatesUtil.convertToGeo(xCords, zCords);
-
+        double[] geoCords = plot.geoCoordinates() == null? new double[] {0, 0} : plot.geoCoordinates();
         this.geoCoordinates = CoordinatesUtil.formatGeoCoordinatesNumeric(geoCords);
         this.displayCords = CoordinatesUtil.formatGeoCoordinatesNSEW(geoCords);
 
@@ -52,14 +47,9 @@ public class PlotData extends MemberOwnable {
         this.fetchMediaFolder();
 
         // Plot Status
-        this.primaryStatus = ThreadStatus.fromPlotStatus(plot.status());
+        this.primaryStatus = ThreadStatus.valueOf(plot.status().getName());
         this.statusTags = new HashSet<>(Collections.singletonList(primaryStatus.toTag().getTag().getIDLong()));
     }
-
-//    @Contract("-> new")
-//    public PlotDataEmbedBuilder prepareEmbed() {
-//        return new PlotDataEmbedBuilder(new InfoEmbed(this), new StatusEmbed((this.primaryStatus)));
-//    }
 
     public @NotNull ThreadStatus getPrimaryStatus() {
         return this.primaryStatus;
@@ -90,7 +80,7 @@ public class PlotData extends MemberOwnable {
         return geoCoordinates;
     }
 
-    public PlotEntry getPlot() {
+    public PlotCreateData getPlot() {
         return plot;
     }
 

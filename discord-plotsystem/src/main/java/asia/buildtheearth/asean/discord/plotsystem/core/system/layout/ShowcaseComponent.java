@@ -1,5 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.layout;
 
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.BuildTeamLang;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
@@ -40,15 +42,19 @@ public final class ShowcaseComponent
 
     public static @NotNull String makeShowcaseMessage(int plotID,
                                                       @NotNull String threadID,
-                                                      @NotNull String city,
-                                                      @NotNull String country,
+                                                      @NotNull String cityProjectID,
+                                                      @NotNull String countryCode,
                                                       @NotNull String ownerName) {
+
+        String country = DiscordPS.getMessagesLang().get(BuildTeamLang.getCountry().getName(countryCode), countryCode);
+        String city = DiscordPS.getMessagesLang().get(BuildTeamLang.getCityProject().getName(cityProjectID), cityProjectID);
+
         return DiscordPS.getMessagesLang().get(PlotInformation.SHOWCASE_TITLE)
-            .replace("{owner}", ownerName)
-            .replace("{plotID}", String.valueOf(plotID))
-            .replace("{country}", country)
-            .replace("{city}", city)
-            .replace("{threadID}", threadID);
+            .replace(Format.OWNER, ownerName)
+            .replace(Format.PLOT_ID, String.valueOf(plotID))
+            .replace(Format.COUNTRY, country)
+            .replace(Format.CITY, city)
+            .replace(Format.THREAD_ID, threadID);
     }
 
     /**
@@ -82,8 +88,8 @@ public final class ShowcaseComponent
         this.showcaseMessage = makeShowcaseMessage(
                 data.getPlot().plotID(),
                 threadID,
-                data.getPlot().cityName(),
-                data.getPlot().countryName(),
+                data.getPlot().cityProjectID(),
+                data.getPlot().countryCode(),
                 this.ownerName
         );
 

@@ -66,9 +66,10 @@ final class PlotDeleteCommand extends AbstractPlotDeleteCommand {
 
             DiscordPS.info("Deleting by slash command event (entry ID: " + selected + ")");
 
-            Checks.isSnowflake(selected);
 
             try {
+                Checks.isSnowflake(selected);
+
                 WebhookEntry entry = WebhookEntry.getByMessageID(Long.parseUnsignedLong(selected));
 
                 if(entry == null) throw new SQLException("Entry does not exist for selected id: " + selected);
@@ -90,7 +91,7 @@ final class PlotDeleteCommand extends AbstractPlotDeleteCommand {
                     threadID)
                 );
             }
-            catch (SQLException ex) {
+            catch (SQLException | IllegalArgumentException ex) {
                 this.queueEmbed(hook, sqlErrorEmbed(MESSAGE_SQL_DELETE_ERROR, ex.toString()));
             }
         }

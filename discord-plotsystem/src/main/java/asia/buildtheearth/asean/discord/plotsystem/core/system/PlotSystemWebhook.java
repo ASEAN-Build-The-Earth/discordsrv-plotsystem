@@ -2,16 +2,23 @@ package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.components.PluginComponent;
 import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
+import asia.buildtheearth.asean.discord.plotsystem.Constants;
+import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
+import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Emoji;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.ISnowflake;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ButtonStyle;
+import github.scarsz.discordsrv.dependencies.jda.api.utils.concurrent.DelayedCompletableFuture;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.*;
-import asia.buildtheearth.asean.discord.plotsystem.core.database.PlotEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponentProvider;
@@ -27,7 +34,6 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.StatusComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.StatusEmbed;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -77,22 +83,17 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     protected CompletableFuture<Void> newThreadForPlotID(@NotNull PlotSystemThread thread,
+                                                         @Nullable PlotCreateData plot,
                                                          boolean register,
                                                          boolean force) {
 
+        if(plot == null) return CompletableFuture.failedFuture(
+            new RuntimeException("Received null data to create plot.")
+        );
+
         if(!force) {
             Optional<WebhookEntry> existingPlot = WebhookEntry.ifPlotExisted(thread.getPlotID());
-            if(existingPlot.isPresent()) return this.addNewExistingPlot(existingPlot.get(), register);
-        }
-
-        PlotEntry plot = PlotEntry.getByID(thread.getPlotID());
-
-        if(plot == null) {
-            Notification.notify(
-                ErrorMessage.PLOT_REGISTER_ENTRY_EXCEPTION,
-                String.valueOf(thread.getPlotID())
-            );
-            return null;
+            if(existingPlot.isPresent()) return this.addNewExistingPlot(existingPlot.get(), plot, register);
         }
 
         // Prepare plot data
@@ -123,30 +124,36 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * Create a new plot as forum thread with default values and register it to {@link WebhookEntry}.
      *
      * @param plotID A plot ID to be created
+     * @param plotData initial plot data to create
      */
     @Nullable
-    public CompletableFuture<Void> createAndRegisterNewPlot(int plotID) {
-        return this.createAndRegisterNewPlot(new PlotSystemThread(plotID));
+    public CompletableFuture<Void> createAndRegisterNewPlot(int plotID,
+                                                            @NotNull PlotCreateData plotData) {
+        return this.createAndRegisterNewPlot(new PlotSystemThread(plotID), plotData);
     }
 
     /**
      * Create a new plot as forum thread and register it to {@link WebhookEntry}.
      *
      * @param thread The thread provider to get data from
+     * @param plotData initial plot data to create
      */
     @Nullable
-    public CompletableFuture<Void> forceRegisterNewPlot(@NotNull PlotSystemThread thread) {
-        return this.newThreadForPlotID(thread, true, true);
+    public CompletableFuture<Void> forceRegisterNewPlot(@NotNull PlotSystemThread thread,
+                                                        @NotNull PlotCreateData plotData) {
+        return this.newThreadForPlotID(thread, plotData, true, true);
     }
 
     /**
      * Create a new plot as forum thread and register it to {@link WebhookEntry}.
      *
      * @param thread The thread provider to get data from
+     * @param plotData initial plot data to create
      */
     @Nullable
-    public CompletableFuture<Void> createAndRegisterNewPlot(@NotNull PlotSystemThread thread) {
-        return this.newThreadForPlotID(thread, true, false);
+    public CompletableFuture<Void> createAndRegisterNewPlot(@NotNull PlotSystemThread thread,
+                                                            @NotNull PlotCreateData plotData) {
+        return this.newThreadForPlotID(thread, plotData, true, false);
     }
 
     /**
@@ -154,10 +161,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * this thread will not be able to be updated by the system after created.
      *
      * @param thread The thread provider to get data from
+     * @param plotData initial plot data to create
      */
     @Nullable
-    public CompletableFuture<Void> createNewUntrackedPlot(@NotNull PlotSystemThread thread) {
-        return this.newThreadForPlotID(thread, false, true);
+    public CompletableFuture<Void> createNewUntrackedPlot(@NotNull PlotSystemThread thread,
+                                                          @NotNull PlotCreateData plotData) {
+        return this.newThreadForPlotID(thread, plotData, false, true);
     }
 
     /**
@@ -165,12 +174,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     protected CompletableFuture<Void> addNewExistingPlot(@NotNull PlotSystemThread thread,
+                                                         @NotNull PlotCreateData plot,
+                                                         @Nullable String removeMemberID,
                                                          @Nullable Consumer<PlotData> onSuccess) {
-
-        PlotEntry plot = PlotEntry.getByID(thread.getPlotID());
         Optional<String> threadID = thread.getOptID().map(Long::toUnsignedString);
 
-        if(plot == null || threadID.isEmpty()) {
+        if(threadID.isEmpty()) {
             Notification.notify(
                 ErrorMessage.PLOT_REGISTER_ENTRY_EXCEPTION,
                 String.valueOf(thread.getPlotID())
@@ -181,7 +190,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // Prepare plot data
         PlotData plotData = thread.getProvider().apply(plot);
 
-        AvailableTag tag = ThreadStatus.fromPlotStatus(plot.status()).toTag();
+        AvailableTag tag = ThreadStatus.valueOf(plot.status().getName()).toTag();
         long tagID = tag.getTag().getIDLong();
         String threadName = thread.getApplier().apply(plotData);
         PlotReclaimEvent event = new PlotReclaimEvent(thread.getPlotID(), plotData.getOwnerMentionOrName());
@@ -197,9 +206,19 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 .modifyThreadChannel(threadID.get(), threadName, Set.of(tagID), null, null, null, true)
                 .submit();
 
+        CompletableFuture<Void> removeMemberAction = (removeMemberID == null)
+                ? CompletableFuture.completedFuture(null)
+                : this.webhook.removeThreadMember(threadID.get(), removeMemberID).submit();
+
+        CompletableFuture<Void> addMemberAction = plotData.getOwnerDiscord().map(ISnowflake::getId)
+            .map(newOwner -> this.webhook.addThreadMember(threadID.get(), newOwner).submit())
+            .orElseGet(() -> CompletableFuture.completedFuture(null));
+
         CompletableFuture<Void> allAction = CompletableFuture.allOf(
             updateThreadLayoutAction.whenComplete(HANDLE_LAYOUT_EDIT_ERROR),
-            editThreadAction.whenComplete(HANDLE_THREAD_EDIT_ERROR)
+            editThreadAction.whenComplete(HANDLE_THREAD_EDIT_ERROR),
+            removeMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
+            addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR)
         );
 
         return allAction.whenComplete((ok, error) -> {
@@ -220,7 +239,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 .build();
 
         // When status message is sent: this is the actual message we use to track per ID,
-        // this is truly unique which as put as primary key in database.
+        // this is truly unique which is put as primary key in database.
         // Therefore: we attach interactions component using its message ID as the component ID.
         Consumer<MessageReference> onMessageEntrySent = message -> {
             // Save message data as new webhook entry
@@ -242,11 +261,40 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
             // Attach interaction row to message
             List<ActionRow> interactions = this.createInitialInteraction(plotID, message.getMessageIdLong(), plotData.getPrimaryStatus(), plotData);
-
             WebhookData interactionData = new WebhookDataBuilder().setComponents(interactions).build();
 
-            webhook.editThreadMessage(threadID, message.getMessageId(), interactionData, true)
-                    .submitAfter(100, TimeUnit.MILLISECONDS).whenComplete(HANDLE_BUTTON_ATTACH_ERROR);
+            // Add owner to the thread if not already added by mentions
+            CompletableFuture<Void> addMemberAction = plotData.getOwnerDiscord().map(ISnowflake::getId)
+                    .map(newOwner -> this.webhook.addThreadMember(threadID, newOwner).submit())
+                    .orElseGet(() -> CompletableFuture.completedFuture(null));
+
+            // Add interaction data to the status message after it is sent
+            DelayedCompletableFuture<Optional<MessageReference>> addInteractionAction = this.webhook
+                    .editThreadMessage(threadID, message.getMessageId(), interactionData, true)
+                    .submitAfter(100, TimeUnit.MILLISECONDS);
+
+            CompletableFuture.allOf(
+                addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
+                addInteractionAction.whenComplete(HANDLE_BUTTON_ATTACH_ERROR)
+            ).thenAccept(success -> {
+                // Notify the thread that plot is created
+                this.onNotification(NotificationType.ON_CREATED, plotID, PlotMessage::getPlotMessage,
+                    (notification, notifyMessage) -> {
+                        this.sendNotification(
+                            notification,
+                            threadID,
+                            plotData.getOwnerMentionOrName()
+                        );
+
+                        Notification.notify(
+                            notifyMessage,
+                            threadID,
+                            String.valueOf(plotID),
+                            plotData.getOwnerMentionOrName()
+                        );
+                    }
+                );
+            });
         };
 
         // Send status interaction embed
@@ -254,13 +302,6 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         webhook.sendMessageInThread(threadID, statusData, false, true).queue(optMsg ->
             optMsg.ifPresentOrElse(onMessageEntrySent, () -> Notification.notify(ErrorMessage.PLOT_REGISTER_UNKNOWN_EXCEPTION)),
             error -> ON_PLOT_REGISTER_EXCEPTION.accept(plotID, error)
-        );
-
-        Notification.notify(
-            PlotMessage.PLOT_CREATED,
-            threadID,
-            String.valueOf(plotID),
-            plotData.getOwnerMentionOrName()
         );
     }
 
@@ -277,7 +318,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         AvailableTag tag = status.toTag();
         MemberOwnable owner = new MemberOwnable(action.entry().ownerUUID());
 
-        LayoutUpdater layoutUpdater = component -> fetchLayoutData(event, component, action, owner, tag);
+        LayoutUpdater layoutUpdater = component -> fetchLayoutData(action.plotID(), event, component, owner, tag);
         MessageUpdater messageUpdater = message -> fetchStatusMessage(event, message, owner, status);
 
         // 1st update the thread layout components (the one that display main plot information)
@@ -313,11 +354,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     }
 
     /**
-     * Send ComponentV2 notification to a thread channel
-     *
-     * @param type Notification type to send to
-     * @param threadID The thread ID to send notification to
-     * @param content content supplier
+     * {@inheritDoc}
      */
     protected void sendNotification(@NotNull PlotNotification type,
                                  @NotNull String threadID,
@@ -341,18 +378,56 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         this.webhook.sendMessageInThread(threadID, data, true, true).queue();
     }
 
+    public @NotNull CompletableFuture<?> sendFeedback(int plotID,
+                                                      @NotNull WebhookEntry entry,
+                                                      @NotNull String rawContent,
+                                                      @NotNull String threadID,
+                                                      @Nullable String feedbackID) {
+
+        String title = this.metadata.newFeedbackNotification().replace(Format.OWNER, this.parseOwnerMention(entry));
+        Optional<List<File>> reviewMedia = ReviewComponent.getOptMedia(plotID, feedbackID);
+        ReviewComponent component = new ReviewComponent(rawContent, null, Constants.BLUE, reviewMedia.orElse(null));
+
+        Collection<ComponentV2> components = (StringUtils.isBlank(title))
+                ? Collections.singletonList(component.build())
+                : List.of(new TextDisplay(title), component.build());
+
+        WebhookDataBuilder.WebhookData webhookData = new WebhookDataBuilder()
+                .setComponentsV2(components)
+                .forceComponentV2()
+                .build();
+
+        reviewMedia.ifPresent(files -> files.forEach(webhookData::addFile));
+
+        return this.webhook.sendMessageInThread(threadID, webhookData, true, true).submit();
+    }
+
     /**
      * Update a plot as submitted
      *
      * @param event The submit event containing plot ID to update
      */
     public void onPlotSubmit(@NotNull PlotSubmitEvent event) {
-        this.updatePlot(event, ThreadStatus.finished, plot -> Notification.notify(
-                PlotMessage.PLOT_SUBMITTED,
-                plot.threadID(),
-                String.valueOf(event.getPlotID()),
-                String.valueOf(Instant.now().getEpochSecond())
-        ));
+        this.updatePlot(event, ThreadStatus.finished, plot ->
+            onNotification(NotificationType.ON_SUBMITTED, plot.plotID(), PlotMessage::getPlotMessage,
+                (notification, message) -> {
+                    final String ownerMention = parseOwnerMention(plot.entry());
+                    this.sendNotification(
+                        notification,
+                        String.valueOf(plot.plotID()),
+                        plot.threadID(),
+                        ownerMention
+                    );
+
+                    Notification.notify(
+                        message,
+                        plot.threadID(),
+                        String.valueOf(event.getPlotID()),
+                        String.valueOf(Instant.now().getEpochSecond())
+                    );
+                }
+            )
+        );
     }
 
     /**
@@ -361,14 +436,21 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * @param event The submit event containing plot ID to update
      */
     public void onPlotAbandon(@NotNull PlotAbandonedEvent event) {
-        PlotMessage notification = event.getType() == AbandonType.INACTIVE
-                ? PlotMessage.PLOT_INACTIVE_ABANDONED
-                : PlotMessage.PLOT_MANUALLY_ABANDONED;
+        this.updatePlot(event, ThreadStatus.abandoned, plot ->
+            onNotification(NotificationType.ON_ABANDONED, plot.plotID(), notification -> {
+                final String ownerMention = parseOwnerMention(plot.entry());
 
-        this.updatePlot(event, ThreadStatus.abandoned, plot -> Notification.notify(
-            notification,
-            plot.threadID(),
-            String.valueOf(event.getPlotID())
+                this.sendNotification(notification,
+                    plot.threadID(),
+                    ownerMention
+                );
+
+                Notification.notify(
+                    PlotMessage.getAbandonMessage(event.getType()),
+                    plot.threadID(),
+                    String.valueOf(event.getPlotID())
+                );
+            }
         ));
     }
 
@@ -384,16 +466,18 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     public <T extends PlotUndoEvent> void onPlotUndo(@NotNull T event) {
         switch (event) {
-            case PlotUndoReviewEvent undo: {
+            case PlotUndoReviewEvent undo:
                 this.updatePlot(undo, ThreadStatus.finished,
-                    action -> this.sendNotification(PlotNotification.ON_UNDO_REVIEW, action.threadID()));
+                    action -> onNotification(NotificationType.ON_UNDO_REVIEW, action.plotID(),
+                        notification -> this.sendNotification(notification, action.threadID())
+                    ));
                 return;
-            }
-            case PlotUndoSubmitEvent undo: {
+            case PlotUndoSubmitEvent undo:
                 this.updatePlot(undo, ThreadStatus.on_going,
-                    action -> this.sendNotification(PlotNotification.ON_UNDO_SUBMIT, action.threadID()));
+                    action -> onNotification(NotificationType.ON_UNDO_SUBMIT, action.plotID(),
+                        notification -> this.sendNotification(notification, action.threadID())
+                    ));
                 return;
-            }
             default: throw new IllegalStateException("Illegal PlotUndoEvent: " + event);
         }
     }
@@ -414,17 +498,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             case PlotApprovedEvent approved: {
                 this.updatePlot(approved, ThreadStatus.approved, action -> {
                     // Reply and ping user that their plot got reviewed
-                    if(action.entry().ownerID() != null)
-                        this.sendNotification(PlotNotification.ON_APPROVED, action.threadID(), "<@" + action.entry().ownerID() + '>');
-                    else {
-                        OfflinePlayer player = Bukkit.getOfflinePlayer(UUID.fromString(action.entry().ownerUUID()));
-                        this.sendNotification(PlotNotification.ON_REJECTED, action.threadID(), player.getName());
-                    }
-
-                    Notification.notify(
-                        PlotMessage.PLOT_APPROVED,
-                        action.threadID(),
-                        String.valueOf(action.plotID())
+                    onNotification(NotificationType.ON_APPROVED, action.plotID(), PlotMessage::getPlotMessage,
+                        (notification, message) -> {
+                            final String ownerMention = parseOwnerMention(action.entry());
+                            this.sendNotification(notification, action.threadID(), ownerMention);
+                            Notification.notify(message, action.threadID(), String.valueOf(action.plotID()));
+                        }
                     );
 
                     this.attachFeedbackButton(ButtonStyle.SUCCESS, this.metadata.approvedNoFeedbackLabel(), action);
@@ -434,17 +513,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             case PlotRejectedEvent rejected: {
                 this.updatePlot(rejected, ThreadStatus.rejected, action -> {
                     // Reply and ping user that their plot got reviewed
-                    if(action.entry().ownerID() != null)
-                        this.sendNotification(PlotNotification.ON_REJECTED, action.threadID(), "<@" + action.entry().ownerID() + '>');
-                    else {
-                        OfflinePlayer player = Bukkit.getOfflinePlayer(UUID.fromString(action.entry().ownerUUID()));
-                        this.sendNotification(PlotNotification.ON_REJECTED, action.threadID(), player.getName());
-                    }
-
-                    Notification.notify(
-                        PlotMessage.PLOT_REJECTED,
-                        action.threadID(),
-                        String.valueOf(action.plotID())
+                    onNotification(NotificationType.ON_REJECTED, action.plotID(), PlotMessage::getPlotMessage,
+                        (notification, message) -> {
+                            final String ownerMention = parseOwnerMention(action.entry());
+                            this.sendNotification(notification, action.threadID(), ownerMention);
+                            Notification.notify(message, action.threadID(), String.valueOf(action.plotID()));
+                        }
                     );
 
                     this.attachFeedbackButton(ButtonStyle.DANGER, this.metadata.rejectedNoFeedbackLabel(), action);
@@ -457,6 +531,35 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             }
             default: throw new IllegalStateException("Illegal PlotReviewEvent: " + event);
         }
+    }
+
+    /**
+     * Send notification to a plot for inactivity notice using {@link InactivityNoticeEvent}
+     *
+     * @param event The {@link InactivityNoticeEvent} containing the plot ID and abandonment timestamp
+     */
+    @SuppressWarnings("deprecation")
+    public void onPlotInactivity(@NotNull InactivityNoticeEvent event) {
+        WebhookEntry.ifPlotExisted(event.getPlotID()).ifPresent(entry -> {
+            String threadID = Long.toUnsignedString(entry.threadID());
+            String owner = parseOwnerMention(entry);
+            Instant timestamp = switch (event.getTimestamp()) {
+                case java.time.LocalDate date -> date.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
+                case java.time.LocalDateTime dateTime -> dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant();
+                case java.time.ZonedDateTime zonedDateTime -> zonedDateTime.toInstant();
+                case java.time.OffsetDateTime offsetDateTime -> offsetDateTime.toInstant();
+                default -> throw new IllegalArgumentException(
+                    "Unsupported timestamp given by: " + event.getClass().getSimpleName()
+                    + " type: " + event.getTimestamp().getClass()
+                );
+            };
+
+            onNotification(NotificationType.ON_INACTIVITY, event.getPlotID(), notification ->
+                this.sendNotification(notification, threadID, content -> content
+                    .replace(Format.OWNER, owner)
+                    .replace(Format.TIMESTAMP, String.valueOf(timestamp.getEpochSecond())))
+            );
+        });
     }
 
     /**
@@ -505,11 +608,26 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * @return Message updater for applying the updated data as {@link WebhookData}
      * @see #fetchFeedbackMessage(Message, Consumer)
      */
-    private @NotNull MessageUpdater onFeedbackSet(@NotNull  PlotSystemThread.UpdateAction action) {
-        return message -> this.fetchFeedbackMessage(message, label -> {
-            if(action.entry().ownerID() == null) return;
-            this.sendNotification(action.threadID(), action.entry().ownerID(), label);
-        });
+    private @NotNull MessageUpdater onFeedbackSet(@NotNull PlotSystemThread.UpdateAction action) {
+        return message -> this.fetchFeedbackMessage(message, label ->
+            onNotification(NotificationType.ON_REVIEWED, action.plotID(), notification -> {
+                final String owner = parseOwnerMention(action.entry());
+                this.sendNotification(notification, label, action.threadID(), owner);
+            })
+        );
+    }
+
+    private String parseOwnerMention(@NotNull WebhookEntry entry) {
+        try {
+            UUID ownerUUID = UUID.fromString(entry.ownerUUID());
+
+            return entry.ownerID() != null
+                ? "<@" + entry.ownerID() + '>'
+                : Bukkit.getOfflinePlayer(ownerUUID).getName();
+        }
+        catch (IllegalArgumentException ignored) {
+            return LanguageFile.NULL_LANG;
+        }
     }
 
     /**
@@ -661,9 +779,9 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * Fetch the layout component with new event by the given layout data
      * and return as a new updated webhook data.
      *
+     * @param plotID The plotID to be updated
      * @param event The event
      * @param component The layout component to be updated
-     * @param action The update action to what will be updated
      * @param owner The owner of this layout data
      * @param tag The primary tag to be applied
      * @return The given layout updated and built to webhook data
@@ -671,9 +789,9 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @NotNull
     private <T extends PlotEvent>
-    Optional<WebhookData> fetchLayoutData(@Nullable T event,
+    Optional<WebhookData> fetchLayoutData(int plotID,
+                                          @Nullable T event,
                                           @NotNull Layout component,
-                                          @NotNull PlotSystemThread.UpdateAction action,
                                           @NotNull MemberOwnable owner,
                                           @NotNull AvailableTag tag) {
         boolean modified = false;
@@ -700,21 +818,28 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
                     // Fetch the plot's media every update call,
                     // return as modified if info component successfully registered image gallery
-                    modified = PlotData.fetchMediaFolder(PlotData.checkMediaFolder(action.plotID()), fetcher);
+                    modified = PlotData.fetchMediaFolder(PlotData.checkMediaFolder(plotID), fetcher);
 
                     if(modified) infoComponent.registerImageGallery();
 
                     break;
                 // Check for status and sync it with event type
                 case StatusComponent statusComponent:
-                    // correct owner
-                    if (action.entry().ownerUUID().equals(owner.getOwner().getUniqueId().toString())) {
-                        statusComponent.setAccentColor(tag.getColor());
-                        statusComponent.changeStatusMessage(StatusComponent.DisplayMessage.fromTag(tag));
+                    if(statusComponent.getThumbnailOwner() != null) {
+                        ownerList.add(statusComponent.getThumbnailOwner().toString());
+                        // If owner is confirmed to not be right, skip the process
+                        if(!statusComponent.getThumbnailOwner().equals(owner.getOwner().getUniqueId()))
+                            break;
+                    }
+                    else { // unknown owner
+                        String error = "Cannot verify owner of a status component in the position: "
+                                + statusComponent.getLayoutPosition() + " (Plot ID: " + plotID + ")";
+                        DiscordPS.warning(error);
+                        Notification.sendErrorEmbed(error);
                     }
 
-                    if(statusComponent.getThumbnailOwner() != null)
-                        ownerList.add(statusComponent.getThumbnailOwner().toString());
+                    statusComponent.setAccentColor(tag.getColor());
+                    statusComponent.changeStatusMessage(StatusComponent.DisplayMessage.fromTag(tag));
 
                     break;
                 default:

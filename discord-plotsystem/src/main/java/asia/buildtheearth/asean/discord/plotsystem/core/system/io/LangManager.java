@@ -12,6 +12,9 @@ public interface LangManager<T extends LangConfig> {
     String get(@NotNull T config);
 
     @NotNull
+    String get(@NotNull T config, @NotNull String defaultValue);
+
+    @NotNull
     LanguageFile.EmbedLang getEmbed(@NotNull T config);
 
     @NotNull

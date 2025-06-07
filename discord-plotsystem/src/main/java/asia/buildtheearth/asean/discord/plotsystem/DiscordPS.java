@@ -1,7 +1,5 @@
 package asia.buildtheearth.asean.discord.plotsystem;
 
-import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.google.common.util.concurrent.ThreadFactoryBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
@@ -13,9 +11,11 @@ import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTe
 import github.scarsz.discordsrv.dependencies.okhttp3.MediaType;
 import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
 import github.scarsz.discordsrv.util.SchedulerUtil;
+import github.scarsz.discordsrv.DiscordSRV;
 
 import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.ApiEvent;
+import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordSRVListener;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnection;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginListenerProvider;
@@ -27,7 +27,6 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LangManager;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.SystemLang;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage;
-import asia.buildtheearth.asean.discord.plotsystem.utils.CoordinatesUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.HandlerList;
@@ -36,29 +35,62 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.*;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 
 /**
- * Main class and implementations for this plugin.
+ * Main entry point and implementation class for the Discord Plot-System plugin.
+ *
+ * <p><strong>Note:</strong> This class is the core implementation of the API and should generally not be used directly.
+ * Use {@link DiscordPlotSystemAPI} instead to interact with the plugin externally.</p>
+ *
+ * <p><strong>Package Overview:</strong></p>
+ *
+ * <p><strong>{@code asia.buildtheearth.asean.discord.plotsystem.core}</strong><br/> Core logic and system internals</p>
+ * <ul><li>{@code system} — Handles internal plugin mechanics,
+ *     including Plot-System webhook and event coordination</li>
+ *     <li>{@code providers} — Abstract base providers used across the plugin
+ *     (e.g. for data creation and external integration)</li>
+ *     <li>{@code listeners} — Contains all internal event listeners:
+ *         <ul><li>{@link DiscordSRVListener DiscordSRVListener}
+ *             — Main startup hook; listens for JDA readiness to initialize the plugin</li>
+ *             <li>{@link asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemListener PlotSystemListener}
+ *             — Listens for plot-related API events via {@link DiscordPlotSystemAPI}</li>
+ *             <li>{@link asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordCommandListener DiscordCommandListener}
+ *             — Handles Discord slash command executions</li>
+ *          </ul>
+ *     </li>
+ *     <li>{@code database} — Manages database operations:
+ *     <ul><li>{@link asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnection DatabaseConnection}
+ *         — The main class that initialize database connection</li>
+ *         <li>{@link asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus ThreadStatus}
+ *         — Stores the current status of each plot</li>
+ *         <li>{@link asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry WebhookEntry}
+ *         — Represents a full database record per plot</li>
+ *      </ul>
+ * </li></ul>
+ *
+ * <p><strong>{@code asia.buildtheearth.asean.discord.plotsystem.commands}</strong><br/> Registered commands exposed to Discord</p>
+ * <ul>
+ *     <li>{@link asia.buildtheearth.asean.discord.plotsystem.commands.PlotCommand PlotCommand}
+ *     — User-facing plot control commands</li>
+ *     <li>{@link asia.buildtheearth.asean.discord.plotsystem.commands.ReviewCommand ReviewCommand}
+ *     — Commands for plot reviewing and moderation</li>
+ *     <li>{@link asia.buildtheearth.asean.discord.plotsystem.commands.SetupCommand SetupCommand}
+ *     — Commands to initialize and configure the plugin</li>
+ * </ul>
+ *
+ * <p><strong>{@code asia.buildtheearth.asean.discord.plotsystem.utils}</strong><br/>
+ * General-purpose utilities that support the rest of the system, not critical to core operations</p>
+ *
+ * @see DiscordPlotSystemAPI
  */
 public final class DiscordPS extends DiscordPlotSystemAPI {
-    private static final String VERSION = "1.1.0";
+    private static final String VERSION = "1.2.0";
     private static final String DISCORD_SRV_VERSION = "1.29.0";
 
-    /**
-     * Plot-System plugin Util we referenced to use (CoordinateConversion class)
-     * considering that there are running Plot-System instance the server this bot is running on.
-     * The method we use are convertToGeo else we need to make an api call for it.
-     */
-    private static final String PS_UTIL = "com.alpsbte.plotsystem.utils.conversion.CoordinateConversion";
-    private static final String PS_UTIL_CONVERT_TO_GEO = "convertToGeo";
-
-    public static final String PLOT_SYSTEM_SYMBOL = "Plot-System"; // PlotSystem main class symbol
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
 
     private static final Debug debugger = new Debug();
@@ -237,15 +269,6 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         }
 
         org.bukkit.plugin.Plugin discordSRV = getServer().getPluginManager().getPlugin(DISCORD_SRV_SYMBOL);
-        org.bukkit.plugin.Plugin plotSystem = getServer().getPluginManager().getPlugin(PLOT_SYSTEM_SYMBOL);
-
-        if(plotSystem != null) {
-            DiscordPS.info("Plot-System is loaded");
-
-            subscribeToPlotSystemUtil(plotSystem);
-        }
-        else DiscordPS.warning(Debug.Warning.PLOT_SYSTEM_NOT_DETECTED);
-
 
         if (discordSRV != null) {
             DiscordPS.info("DiscordSRV is loaded");
@@ -330,45 +353,12 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
             DiscordPS.warning(Debug.Warning.DISCORD_SRV_VERSION_NOT_MATCHED,
                 "Detected DiscordSRV version unmatched the plugin's API version. "
                 + "Expected: " + DISCORD_SRV_VERSION + ", Got: " + plugin.getDescription().getVersion()
-                + ". Error may occur if the API is different from expected version."
+                + ". Error may occur if the API contain different implementations from expected version."
             );
         }
 
         DiscordSRV.api.subscribe(discordSrvHook = new DiscordSRVListener(this));
         DiscordPS.info("Subscribed to DiscordSRV: Plot System will be manage by its JDA instance.");
-    }
-
-    /**
-     * Subscribe this plugin to Plot-System instance statically.
-     * Currently using the {@link CoordinatesUtil coordinates conversion} implementation.
-     *
-     * <pre>com.alpsbte.plotsystem.utils.conversion.CoordinateConversion.convertToGeo</pre>
-     *
-     * @param plugin The Plot-System plugin instance
-     */
-    public void subscribeToPlotSystemUtil(@NotNull org.bukkit.plugin.Plugin plugin) {
-        try {
-            // Find class symbol without triggering its static initializer
-            ClassLoader classLoader = plugin.getClass().getClassLoader();
-            Class<?> conversionUtil = Class.forName(PS_UTIL, false, classLoader);
-            Method convertToGeo = conversionUtil.getMethod(PS_UTIL_CONVERT_TO_GEO, double.class, double.class);
-
-            CoordinatesUtil.initCoordinatesFunction((xCords, yCords) -> {
-                try {
-                    if(!plugin.isEnabled()) throw new RuntimeException("Plot-System has not been enabled to use this method");
-                    return (double[]) convertToGeo.invoke(null, xCords, yCords);
-                } catch (IllegalAccessException ex) {
-                    throw new RuntimeException("Access error on method: " + convertToGeo.getName(), ex);
-                } catch (InvocationTargetException ex) {
-                    throw new RuntimeException("Method call failed due to: " + ex.getCause().getMessage(), ex);
-                }
-            });
-
-            DiscordPS.info("Successfully validated Plot-System symbol reference.");
-        }
-        catch (ClassNotFoundException | NoSuchMethodException ex) {
-            DiscordPS.warning(Debug.Warning.PLOT_SYSTEM_SYMBOL_NOT_FOUND, ex.getMessage());
-        }
     }
 
     /**

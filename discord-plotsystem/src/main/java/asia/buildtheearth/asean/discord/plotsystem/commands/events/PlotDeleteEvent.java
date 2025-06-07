@@ -2,9 +2,10 @@ package asia.buildtheearth.asean.discord.plotsystem.commands.events;
 
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotDelete;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Slash command events for the command {@code /plot delete}
+ * Slash command events for the command {@code /plotctl delete}
  *
  * @see #onDeleteConfirm(InteractionHook, OnPlotDelete)
  */
@@ -17,5 +18,5 @@ public interface PlotDeleteEvent {
      * @param hook The event's hook
      * @param interaction The {@link OnPlotDelete} interaction payload of this event.
      */
-    void onDeleteConfirm(InteractionHook hook, OnPlotDelete interaction);
+    void onDeleteConfirm(@NotNull InteractionHook hook, @NotNull OnPlotDelete interaction);
 }

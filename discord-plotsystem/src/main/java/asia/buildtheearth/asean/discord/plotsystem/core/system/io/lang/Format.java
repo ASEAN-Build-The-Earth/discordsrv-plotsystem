@@ -39,4 +39,10 @@ public abstract class Format {
 
     /** Replaced with an incrementing counter or index. */
     public static final String COUNT = "{count}";
+
+    /** Replaced with country name. */
+    public static final String COUNTRY = "{country}";
+
+    /** Replaced with city project name. */
+    public static final String CITY = "{city}";
 }

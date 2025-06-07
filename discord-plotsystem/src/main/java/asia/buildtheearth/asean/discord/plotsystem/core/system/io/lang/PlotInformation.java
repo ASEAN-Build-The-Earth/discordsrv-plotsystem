@@ -24,6 +24,8 @@ public enum PlotInformation implements MessageLang {
     APPROVED_FEEDBACK_LABEL("plot.feedback-label.approved-feedback"),
     REJECTED_NO_FEEDBACK_LABEL("plot.feedback-label.rejected-no-feedback"),
     APPROVED_NO_FEEDBACK_LABEL("plot.feedback-label.approved-no-feedback"),
+    NEW_FEEDBACK_NOTIFICATION("plot.feedback-label.feedback-notification"),
+
     // Help Button
     HELP_LABEL("plot.help.label"),
     HELP_CONTENT("plot.help.content");

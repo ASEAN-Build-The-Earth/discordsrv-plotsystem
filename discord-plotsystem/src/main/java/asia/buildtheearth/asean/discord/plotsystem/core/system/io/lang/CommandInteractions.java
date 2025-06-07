@@ -16,6 +16,10 @@ public enum CommandInteractions implements SystemLang {
     BUTTON_CREATE_REGISTER("buttons.create-register"),
     BUTTON_CREATE_UNTRACKED("buttons.create-untracked"),
     BUTTON_CREATE_WEBHOOK("buttons.create-webhook"),
+    BUTTON_CONTINUE("buttons.continue"),
+    BUTTON_CLEAR("buttons.clear"),
+    BUTTON_ADD("buttons.add"),
+    BUTTON_EDIT("buttons.edit"),
 
     EMBED_PLUGIN_NOT_READY("embeds.plugin-not-ready"),
     EMBED_ATTACH_IMAGE_FAILED("embeds.attach-image-error"),

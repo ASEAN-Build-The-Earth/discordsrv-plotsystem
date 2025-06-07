@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Payload for the command {@code /plot fetch}
+ * Payload for the command {@code /plotctl fetch}
  *
  * @see asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotFetchEvent
  */

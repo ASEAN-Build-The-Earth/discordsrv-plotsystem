@@ -1,5 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
+import asia.buildtheearth.asean.discord.plotsystem.commands.ReviewCommand;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.platform.bukkit.BukkitAudiences;
@@ -83,7 +84,8 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         newSlashCommandListener().register(
             DiscordSRV.getPlugin().getMainGuild().getId(),
             new SetupCommand(),
-            new PlotCommand()
+            new PlotCommand(),
+            new ReviewCommand()
         );
 
         Checks.notNull(this.getPluginSlashCommand(), "Plugin Slash Command Provider");

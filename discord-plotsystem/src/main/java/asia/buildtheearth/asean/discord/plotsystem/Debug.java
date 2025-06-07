@@ -24,22 +24,19 @@ public final class Debug {
         DATABASE_CONNECTION,
         CONFIG_VALIDATION,
         WEBHOOK_REFS_VALIDATION,
-        WEBHOOK_CHANNEL_VALIDATION;
+        WEBHOOK_CHANNEL_VALIDATION
     }
 
+    /**
+     * Non-fatal error that may occur throughout the application.
+     */
     public enum Warning {
         DISCORD_SRV_VERSION_NOT_MATCHED("Detected DiscordSRV with unmatched version"),
-        WEBHOOK_NOT_REGISTERED_DETECTED(
-                "Detected un-registered webhook created by this bot."),
+        WEBHOOK_NOT_REGISTERED_DETECTED("Detected un-registered webhook created by this bot."),
         SHOWCASE_WEBHOOK_NOT_CONFIGURED("Showcase webhook is not configured! use the command `/setup showcase` to set it up."),
         NOTIFICATION_CHANNEL_NOT_SET("Plot-System notification channel is not set"),
         RUNTIME_SQL_EXCEPTION("Unknown SQL Exception Occurred. Please check the log files"),
-
-        PLOT_SYSTEM_NOT_DETECTED("Plot-System plugin is not detected. "
-                + "You can still use this plugin as long as it is connected to the Plot-System database. "
-                + "Plot-System related minecraft events may not be functional."),
-        PLOT_SYSTEM_SYMBOL_NOT_FOUND("Failed to get Plot-System class reference, "
-                + "coordinates conversion will be disabled");
+        DATABASE_STRUCTURE_NOT_MATCH("JDBC table does not match expected structure. Required manual validation.");
 
         private final String defaultMessage;
 
@@ -196,7 +193,6 @@ public final class Debug {
     public boolean hasAnyWarning() {
         return  !this.warning.isEmpty();
     }
-
 
     @Contract(pure = true)
     public @NotNull Set<Map.Entry<Warning, String>> allThrownWarnings() {

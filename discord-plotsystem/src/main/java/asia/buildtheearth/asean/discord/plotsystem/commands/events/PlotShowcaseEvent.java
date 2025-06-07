@@ -2,9 +2,10 @@ package asia.buildtheearth.asean.discord.plotsystem.commands.events;
 
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotShowcase;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Slash command events for the command {@code /plot showcase}
+ * Slash command events for the command {@code /plotctl showcase}
  *
  * @see #onShowcaseConfirm(InteractionHook, OnPlotShowcase)
  */
@@ -16,5 +17,5 @@ public interface PlotShowcaseEvent {
      * @param hook The event's hook
      * @param payload The {@link OnPlotShowcase} interaction payload of this event.
      */
-    void onShowcaseConfirm(InteractionHook hook, OnPlotShowcase payload);
+    void onShowcaseConfirm(@NotNull InteractionHook hook, @NotNull OnPlotShowcase payload);
 }

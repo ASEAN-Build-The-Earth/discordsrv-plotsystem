@@ -39,15 +39,6 @@ public enum ThreadStatus implements WebhookStatusProvider {
         return enumBuilder.toString();
     }
 
-
-    public static @NotNull ThreadStatus fromPlotStatus(@NotNull PlotStatus status) {
-        return switch (status) {
-            case completed, unreviewed -> ThreadStatus.finished;
-            case unfinished -> ThreadStatus.on_going;
-            case unclaimed -> ThreadStatus.abandoned;
-        };
-    }
-
     @Override
     @Contract(value = " -> this", pure = true)
     public @NotNull ThreadStatus toStatus() {

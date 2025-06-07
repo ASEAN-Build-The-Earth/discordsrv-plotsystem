@@ -7,7 +7,7 @@
   <parent>
     <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
   </parent>
 
   <name>Discord Plot-System API</name>
@@ -85,6 +85,25 @@
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <tags>
+            <tag>
+              <name>apiNote</name>
+              <placement>a</placement>
+              <head>API Note:</head>
+            </tag>
+            <tag>
+              <name>implSpec</name>
+              <placement>a</placement>
+              <head>Implementation Requirements:</head>
+            </tag>
+            <tag>
+              <name>implNote</name>
+              <placement>a</placement>
+              <head>Implementation Note:</head>
+            </tag>
+          </tags>
+        </configuration>
       </plugin>
     </plugins>
   </build>

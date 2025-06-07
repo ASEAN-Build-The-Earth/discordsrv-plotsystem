@@ -11,6 +11,11 @@ import asia.buildtheearth.asean.discord.components.buttons.InteractiveButtonHand
 import asia.buildtheearth.asean.discord.components.buttons.PluginButtonHandler;
 import asia.buildtheearth.asean.discord.components.buttons.SimpleButtonHandler;
 
+/**
+ * Interaction handler for the command {@code /plotctl fetch}
+ *
+ * @see PlotFetchEvent
+ */
 public enum PlotFetchHandler implements AvailableButtonHandler {
     ON_FETCH_SELECTION((SimpleButtonHandler) null),
     ON_CONFIRM_FETCH(new EventForwarder(event -> event::onConfirmFetch)),

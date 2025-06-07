@@ -1,7 +1,11 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
 import asia.buildtheearth.asean.discord.plotsystem.commands.providers.PlotCommandProvider;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.CommandInteractions;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.BuildTeamLang;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInformation;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
@@ -13,11 +17,11 @@ import asia.buildtheearth.asean.discord.plotsystem.commands.events.PlotShowcaseE
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotShowcase;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableButton;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotData;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.util.stream.Collectors;
+import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.*;
 
 abstract sealed class AbstractPlotShowcaseCommand
         extends PlotCommandProvider<OnPlotShowcase, PlotShowcaseCommand>
@@ -62,42 +66,48 @@ abstract sealed class AbstractPlotShowcaseCommand
             ? plotData.getOwnerMentionOrName() + " (" + plotData.getOwner().getName() + ")"
             : plotData.formatOwnerName();
 
-        return getLangManager().getEmbedBuilder(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.EMBED_SHOWCASE_INFO)
+        String countryCode = plotData.getPlot().countryCode();
+        String cityProjectID = plotData.getPlot().cityProjectID();
+        String country = DiscordPS.getMessagesLang().get(BuildTeamLang.getCountry().getName(countryCode), countryCode);
+        String city = DiscordPS.getMessagesLang().get(BuildTeamLang.getCityProject().getName(cityProjectID), cityProjectID);
+
+
+        return getLangManager().getEmbedBuilder(EMBED_SHOWCASE_INFO)
             .setColor(Constants.GREEN)
             .setThumbnail(plotData.getAvatarAttachmentOrURL())
             // Showcase Title
-            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_PLOT_TITLE),
+            .addField(getLang(MESSAGE_PLOT_TITLE),
                 "```" +
                 DiscordPS.getMessagesLang().get(PlotInformation.SHOWCASE_TITLE)
-                    .replace("{owner}", owner)
-                    .replace("{plotID}", String.valueOf(plotData.getPlot().plotID()))
-                    .replace("{country}", plotData.getPlot().countryName())
-                    .replace("{city}", plotData.getPlot().cityName())
+                    .replace(Format.OWNER, owner)
+                    .replace(Format.PLOT_ID, String.valueOf(plotData.getPlot().plotID()))
+                    .replace(Format.COUNTRY, country)
+                    .replace(Format.CITY, city)
                 + "```"
                 , false)
             // Showcase Owner Name
-            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_OWNER),
+            .addField(getLang(MESSAGE_OWNER),
                 owner, false)
             // Showcase Owner Avatar
-            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_OWNER_AVATAR),
+            .addField(getLang(MESSAGE_OWNER_AVATAR),
                 plotData.getAvatarAttachmentOrURL(), false)
             // Attached Image File(s)
-            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_IMAGE_FILES),
+            .addField(getLang(MESSAGE_IMAGE_FILES),
                 mediaFiles, false)
             // Display coordinate location
-            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_LOCATION),
+            .addField(getLang(MESSAGE_LOCATION),
                 plotData.getDisplayCords(), false)
             // Google Map Link (via button)
-            .addField(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_GOOGLE_MAP_LINK),
+            .addField(getLang(MESSAGE_GOOGLE_MAP_LINK),
                 "https://www.google.com/maps/place/" + plotData.getGeoCoordinates(), false)
             .build();
     }
 
     protected MessageEmbed formatSuccessfulEmbed(@NotNull MessageReference message) {
         return new EmbedBuilder()
-            .setTitle(getLang(asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotShowcaseCommand.MESSAGE_SHOWCASED_TO)
+            .setTitle(getLang(MESSAGE_SHOWCASED_TO)
                 .replace(Format.THREAD_ID, message.getMessageId()))
-            .addField(getLang(PlotShowcaseCommand.MESSAGE_THREAD_ID),
+            .addField(getLang(MESSAGE_THREAD_ID),
                 "```" + message.getMessageId() + "```",
                 false)
             .setColor(Constants.GREEN)

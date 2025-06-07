@@ -637,6 +637,25 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         });
     }
 
+    @NotNull
+    public RestAction<Void> removeThreadMember(@NotNull String threadID,
+                                               @NotNull String memberID) {
+        // Borrow old endpoint replacing recipients as thread member
+        // /channels/{channel_id}/thread-members/{user_id}
+        String endpoint = Route.Channels.REMOVE_RECIPIENT.getRoute().replace("recipients", "thread-members");
+        Route.CompiledRoute route = Route.delete(endpoint).compile(Long.toUnsignedString(this.channelID));
+        return new RestActionImpl<>(this.getJDA(), route);
+    }
+
+    @NotNull
+    public RestAction<Void> addThreadMember(@NotNull String threadID,
+                                            @NotNull String memberID) {
+        // Borrow old endpoint replacing recipients as thread member
+        // /channels/{channel_id}/thread-members/{user_id}
+        String endpoint = Route.Channels.ADD_RECIPIENT.getRoute().replace("recipients", "thread-members");
+        Route.CompiledRoute route = Route.put(endpoint).compile(Long.toUnsignedString(this.channelID));
+        return new RestActionImpl<>(this.getJDA(), route);
+    }
 
     /**
      * {@inheritDoc}

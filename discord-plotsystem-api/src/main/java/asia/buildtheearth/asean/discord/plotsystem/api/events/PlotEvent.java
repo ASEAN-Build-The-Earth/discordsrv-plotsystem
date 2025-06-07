@@ -1,12 +1,14 @@
 package asia.buildtheearth.asean.discord.plotsystem.api.events;
 
 /**
- * Superclass of all plot-system related events.
+ * Base class for all plot-system-related events.
  *
- * <p>Sub Events (Abstract):</p>
- * <ul><li>{@link PlotReviewEvent}</li>
- * <li>{@link PlotClosureEvent}</li>
- * <li>{@link PlotUndoEvent}</li></ul>
+ * <p>Abstract Subclasses (internal grouping events)</p>
+ * <ul>
+ *     <li>{@link PlotReviewEvent} – events related to reviewing plots.</li>
+ *     <li>{@link PlotClosureEvent} – events indicating that a plot is being closed or finalized.</li>
+ *     <li>{@link PlotUndoEvent} – events triggered when undoing user actions.</li>
+ * </ul>
  *
  * @see PlotCreateEvent
  * @see PlotSubmitEvent
@@ -19,6 +21,7 @@ package asia.buildtheearth.asean.discord.plotsystem.api.events;
  * @see PlotUndoSubmitEvent
  * @see PlotUndoReviewEvent
  * @see PlotArchiveEvent
+ * @see PlotNotificationEvent
  */
 public abstract class PlotEvent extends ApiEvent {
 

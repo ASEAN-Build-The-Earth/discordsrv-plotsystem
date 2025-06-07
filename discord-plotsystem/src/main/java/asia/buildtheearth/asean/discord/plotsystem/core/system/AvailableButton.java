@@ -54,6 +54,26 @@ public enum AvailableButton implements ComponentProvider, AvailableButtonHandler
     PLOT_SHOWCASE_CONFIRM(PlotShowcaseHandler.ON_SHOWCASE_CONFIRM),
     PLOT_SHOWCASE_CANCEL(PlotShowcaseHandler.ON_SHOWCASE_DISMISS),
 
+    // Review Editing
+    REVIEW_EDIT_SELECTION(ReviewCommandHandler.ON_REVIEW_SELECTION),
+    REVIEW_SELECT_CONFIRM(ReviewCommandHandler.ON_SELECTION_CONFIRM),
+    REVIEW_SELECT_CANCEL(ReviewCommandHandler.ON_SELECTION_CANCEL),
+    REVIEW_PUBLIC_CONTINUE(ReviewCommandHandler.ON_CONTINUE_PUBLIC),
+    REVIEW_PUBLIC_CANCEL(ReviewCommandHandler.ON_PUBLIC_CANCEL),
+    REVIEW_MESSAGE_CONFIRM(ReviewCommandHandler.ON_MESSAGE_CONFIRM),
+    REVIEW_MESSAGE_CANCEL(ReviewCommandHandler.ON_MESSAGE_CANCEL),
+    REVIEW_EDIT_CONFIRM(ReviewCommandHandler.ON_EDIT_CONFIRM),
+    REVIEW_EDIT_CANCEL(ReviewCommandHandler.ON_EDIT_CANCEL),
+    REVIEW_EDIT_EDIT(ReviewCommandHandler.ON_EDIT_EDIT),
+    REVIEW_PREV_IMG_CLEAR(ReviewCommandHandler.ON_PREV_IMG_CLEAR),
+    REVIEW_PREV_IMG_ADD(ReviewCommandHandler.ON_PREV_IMG_ADD),
+
+    // Review Sending
+    REVIEW_SEND_SELECTION(ReviewCommandHandler.SEND_SELECTION_CONFIRM),
+    REVIEW_SEND_CONFIRM(ReviewCommandHandler.SEND_CONFIRM),
+    REVIEW_SEND_EDIT(ReviewCommandHandler.SEND_EDIT),
+    REVIEW_MESSAGE_SEND(ReviewCommandHandler.SEND_MESSAGE_CONFIRM),
+
     // Plot-System Forum Buttons
     HELP_BUTTON(new PlotHelp()),
     FEEDBACK_BUTTON(new PlotFeedback());

@@ -76,6 +76,18 @@ public abstract class FileUtil {
     }
 
     /**
+     * Get filename of a {@link File} object ignoring file extension.
+     *
+     * @param file The file object to get name
+     * @return The filename as a string
+     */
+    public static String getFilenameFromFile(@NotNull File file) {
+        // 63: character '.' where extension starts with
+        int dotIndex = file.getName().lastIndexOf(46);
+        return dotIndex == -1 ? file.getName() : file.getName().substring(0, dotIndex);
+    }
+
+    /**
      * List all image files with a prefixed name within a folder.
      *
      * @param filePrefix The filename prefix to look for

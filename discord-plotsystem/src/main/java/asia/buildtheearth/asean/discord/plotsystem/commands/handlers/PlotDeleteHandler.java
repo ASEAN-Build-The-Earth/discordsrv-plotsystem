@@ -11,6 +11,11 @@ import asia.buildtheearth.asean.discord.components.buttons.InteractiveButtonHand
 import asia.buildtheearth.asean.discord.components.buttons.PluginButtonHandler;
 import asia.buildtheearth.asean.discord.components.buttons.SimpleButtonHandler;
 
+/**
+ * Interaction handler for the command {@code /plotctl delete}
+ *
+ * @see PlotDeleteEvent
+ */
 public enum PlotDeleteHandler implements AvailableButtonHandler {
     ON_DELETE_SELECTION((SimpleButtonHandler) null),
     ON_DELETE_CONFIRM(new EventForwarder(new MenuButton(), event -> event::onDeleteConfirm)),
