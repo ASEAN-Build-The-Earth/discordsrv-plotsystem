@@ -24,13 +24,13 @@ plot:
   # -------------------------------------------
   # Plot information title (markdown message)
   # -------------------------------------------
-  plot-info-title: "# :house: Plot #{plotID} ({country}, {city})"
+  plot-info-title: "# :house: Plot #{plotID} ({city}, {country})"
 
   # -------------------------------------------
   # Showcase message format (markdown message)
   # -------------------------------------------
   plot-showcase-title: |
-    # :earth_asia: {country}, {city}
+    # :earth_asia: {city}, {country}
     > ## :house: Plot by {owner}
     > -# Tracked as Plot ID #{plotID} in <#{threadID}>
 
@@ -93,12 +93,9 @@ build-team:
     XA:
       name: 'ASEAN'
   city-project:
-    MY-KLANG:
-      name: "Klang"
-      description: "pss"
-    PH-DAVAO:
-      name: "Davao"
-      description: "pss"
+    example-city:
+      name: 'Example City'
+      description: 'Some description'
 
 # ============================================
 # Interaction Messages
@@ -132,7 +129,8 @@ plot-notification:
     You may use this thread to ask questions about your plot.
   on-plot-submitted: |
     ### :file_folder: Plot Submitted! {owner}
-    You may run the command `/plot undoSubmit {label}` in the server if you wish to make some final touch.
+    If you wish to make some final touch,
+    you may type the command `/plot undoSubmit {label}` in the server
     -# Staff will review this plot as soon as possible.
   on-plot-reviewed: |
     ## :pencil: Your plot has been reviewed!

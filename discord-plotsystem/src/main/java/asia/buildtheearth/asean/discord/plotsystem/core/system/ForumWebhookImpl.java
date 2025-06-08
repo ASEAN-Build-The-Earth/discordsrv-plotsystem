@@ -13,6 +13,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.entities.*;
+import github.scarsz.discordsrv.dependencies.jda.internal.requests.Method;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
@@ -640,20 +641,23 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
     @NotNull
     public RestAction<Void> removeThreadMember(@NotNull String threadID,
                                                @NotNull String memberID) {
-        // Borrow old endpoint replacing recipients as thread member
-        // /channels/{channel_id}/thread-members/{user_id}
-        String endpoint = Route.Channels.REMOVE_RECIPIENT.getRoute().replace("recipients", "thread-members");
-        Route.CompiledRoute route = Route.delete(endpoint).compile(Long.toUnsignedString(this.channelID));
-        return new RestActionImpl<>(this.getJDA(), route);
+        return this.editThreadMember(Method.DELETE, threadID, memberID);
     }
 
     @NotNull
     public RestAction<Void> addThreadMember(@NotNull String threadID,
                                             @NotNull String memberID) {
+        return this.editThreadMember(Method.PUT, threadID, memberID);
+    }
+
+    @NotNull
+    public RestAction<Void> editThreadMember(@NotNull Method method,
+                                             @NotNull String threadID,
+                                             @NotNull String memberID) {
         // Borrow old endpoint replacing recipients as thread member
         // /channels/{channel_id}/thread-members/{user_id}
         String endpoint = Route.Channels.ADD_RECIPIENT.getRoute().replace("recipients", "thread-members");
-        Route.CompiledRoute route = Route.put(endpoint).compile(Long.toUnsignedString(this.channelID));
+        Route.CompiledRoute route = Route.custom(method, endpoint).compile(threadID, memberID);
         return new RestActionImpl<>(this.getJDA(), route);
     }
 

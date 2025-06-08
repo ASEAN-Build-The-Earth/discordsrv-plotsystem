@@ -137,7 +137,14 @@ final public class DiscordSRVListener extends PluginListenerProvider {
                     .validateWebhook(this.plugin.getShowcase().getProvider())
                 : this.plugin.getWebhook().getProvider().validateWebhook();
 
-            validation.orTimeout(5, TimeUnit.SECONDS).thenRun(() -> {
+            validation.orTimeout(60, TimeUnit.SECONDS).whenComplete((ok, error) -> {
+
+                if(error != null) {
+                    DiscordPS.error(Debug.Error.WEBHOOK_VALIDATION_UNKNOWN_EXCEPTION, error);
+                    this.onPluginNotReady();
+                    return;
+                }
+
                 if(this.plugin.isReady()) {
                     DiscordPS.getInstance().subscribe(this.newPlotSystemListener(this.plugin.getWebhook()));
 

@@ -9,12 +9,13 @@ debugging: true
 # name: The database name
 # username: Database account name
 # password: Database password
+# webhook-table: The table name in database to create and use
 database:
   url: ""
   name: ""
   username: ""
   password: ""
-  webhook-table: "plotsystem_discord_webhook"
+  webhook-table: "discord_webhook"
 
 # Forum channel tag
 available-tag:

@@ -6,7 +6,7 @@
 # 🛠 Archived thread prefix
 # The prefix that will be applied to thread name when archiving this plot
 # This field is safe to edit
-# Set the blank string to disable the prefix
+# Set as blank string to disable the prefix
 # ------------------------
 archive-prefix: "[Archived]"
 
@@ -17,11 +17,11 @@ archive-prefix: "[Archived]"
 system-notification:
   # Plugin started embed
   plugin-started:
-    - ":green_circle: Discord-PlotSystem started."
+    - ":green_circle: Discord-PlotSystem started"
     - ~
   # Plugin shutdown embed
   plugin-stopping-graceful:
-    - ":orange_circle: Server is shutting down, Disabling Discord-PlotSystem."
+    - ":orange_circle: **Discord-PlotSystem has stopped**"
     - ~
   plugin-stopping-on-error:
     - ":red_circle: Fatal error occurred! Disabling Discord-PlotSystem."
@@ -411,7 +411,7 @@ slash-commands:
         - "Please send a message with text content"
         - "And make sure it is the latest message before confirming."
       media-folder-created:
-        - ":open_file_folder: Created media folder to archive plot"
+        - ":open_file_folder: Created media folder to review plot"
         - ~
       media-folder-failed:
         - ":warning: Failed to create plot media folder"

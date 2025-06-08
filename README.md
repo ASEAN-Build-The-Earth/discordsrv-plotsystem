@@ -6,8 +6,6 @@
 [![javadoc](https://javadoc.io/badge2/asia.buildtheearth.asean.discord/discordsrv-plotsystem/javadoc.svg)](https://javadoc.io/doc/asia.buildtheearth.asean.discord/discord-plotsystem-api)
 [![GitHub license](https://img.shields.io/github/license/ASEAN-Build-The-Earth/discordsrv-plotsystem)](https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/blob/main/LICENSE)
 
-# DiscordSRV Plot-System Extension
-
 An extension plugin for [DiscordSRV](https://github.com/DiscordSRV/DiscordSRV) designed to integrate with the Build The Earth project's Plot-System.
 
 ---
@@ -56,7 +54,7 @@ Artifacts are published to [Maven Central](https://central.sonatype.com/search?q
     <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discord-plotsystem-api</artifactId>
     <version>1.2.0</version>
-    <scope>compile</scope>
+    <scope>provided</scope>
 </dependency>
 ```
 

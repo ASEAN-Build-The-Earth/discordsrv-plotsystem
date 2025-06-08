@@ -26,7 +26,7 @@ public class DatabaseConnection {
     /**
      * Default database table name which can be configured differently in config.yml
      */
-    private static String webhookTableName = "plotsystem_discord_webhook";
+    private static String webhookTableName = "discord_webhook";
     private final static Properties config = new Properties();
     private static HikariDataSource dataSource;
 

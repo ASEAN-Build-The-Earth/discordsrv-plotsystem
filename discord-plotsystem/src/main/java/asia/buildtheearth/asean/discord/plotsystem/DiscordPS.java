@@ -88,7 +88,7 @@ import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Compone
  * @see DiscordPlotSystemAPI
  */
 public final class DiscordPS extends DiscordPlotSystemAPI {
-    private static final String VERSION = "1.2.0";
+    private static final String VERSION = "1.2.1";
     private static final String DISCORD_SRV_VERSION = "1.29.0";
 
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol

@@ -6,12 +6,12 @@
 
     <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
     <packaging>pom</packaging>
 
     <!-- Build Version -->
     <properties>
-        <build.number>1.2.0</build.number>
+        <build.number>1.2.1</build.number>
     </properties>
 
     <name>DiscordSRV Plot-System Project</name>

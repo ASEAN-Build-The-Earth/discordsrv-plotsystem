@@ -274,8 +274,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     .submitAfter(100, TimeUnit.MILLISECONDS);
 
             CompletableFuture.allOf(
-                addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
-                addInteractionAction.whenComplete(HANDLE_BUTTON_ATTACH_ERROR)
+                addInteractionAction.whenComplete(HANDLE_BUTTON_ATTACH_ERROR),
+                addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR)
             ).thenAccept(success -> {
                 // Notify the thread that plot is created
                 this.onNotification(NotificationType.ON_CREATED, plotID, PlotMessage::getPlotMessage,

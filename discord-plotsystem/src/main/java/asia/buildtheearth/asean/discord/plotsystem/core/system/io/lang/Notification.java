@@ -214,7 +214,7 @@ public class Notification {
         FAILED_THREAD_EDIT("system-error.failed-thread-edit"),
         FAILED_MESSAGE_EDIT("system-error.failed-message-edit"),
         FAILED_LAYOUT_EDIT("system-error.failed-layout-edit"),
-        FAILED_EDIT_MEMBER("system-error.failed-edit-member"),
+        FAILED_EDIT_MEMBER("system-error.failed-edit-thread-member"),
 
         // Unknown Errors
         PLOT_UPDATE_UNKNOWN_EXCEPTION("system-error.plot-update-unknown-exception"),
