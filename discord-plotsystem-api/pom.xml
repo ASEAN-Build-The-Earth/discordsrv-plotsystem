@@ -29,6 +29,7 @@
   <build>
     <!-- IMPORTANT: Plugin Building Path -->
     <sourceDirectory>src/main/java</sourceDirectory>
+    <testSourceDirectory>src/test/java</testSourceDirectory>
 
     <!-- IMPORTANT: Output File Name -->
     <finalName>${project.artifactId}-${project.version}</finalName>
@@ -105,6 +106,28 @@
           </tags>
         </configuration>
       </plugin>
+      <!-- Test Runner -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <dependencies>
+          <dependency>
+            <groupId>me.fabriciorby</groupId>
+            <artifactId>maven-surefire-junit5-tree-reporter</artifactId>
+            <version>1.4.0</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <reportFormat>plain</reportFormat>
+          <consoleOutputReporter>
+            <disable>true</disable>
+          </consoleOutputReporter>
+          <statelessTestsetInfoReporter
+                  implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoTreeReporter">
+            <hideResultsOnSuccess>true</hideResultsOnSuccess>
+          </statelessTestsetInfoReporter>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 
@@ -114,6 +137,10 @@
       <id>spigotmc-repo</id>
       <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
     </repository>
+    <repository>
+      <id>maven-central</id>
+      <url>https://repo1.maven.org/maven2/</url>
+    </repository>
   </repositories>
 
   <dependencies>
@@ -122,6 +149,20 @@
       <artifactId>spigot-api</artifactId>
       <version>1.21.3-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
+    </dependency>
+    <!-- JUnit 5 Test Runner -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>5.11.2</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Jetbrains Annotations -->
+    <dependency>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>26.0.2</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
