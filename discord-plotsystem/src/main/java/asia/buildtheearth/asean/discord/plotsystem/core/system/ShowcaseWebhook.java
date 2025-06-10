@@ -6,20 +6,21 @@ import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookProvider;
 import asia.buildtheearth.asean.discord.components.api.Container;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ShowcaseComponent;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
-import static asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemThread.THREAD_NAME;
-
+/**
+ * Special webhook specifically to showcase a completed plot to a configured forum.
+ *
+ * @see #showcasePlot(PlotData, WebhookEntry)
+ */
 public final class ShowcaseWebhook extends AbstractShowcaseWebhook {
     /**
      * Initialize webhook instance
@@ -50,50 +51,47 @@ public final class ShowcaseWebhook extends AbstractShowcaseWebhook {
      *         to the showcased message if successful
      */
     @NotNull
-    public CompletableFuture<Optional<MessageReference>> showcasePlot(@NotNull PlotData plotData,
-                                                                      @NotNull WebhookEntry plotEntry) {
-
-        Function<MemberOwnable, ShowcaseComponent> showcaseComponent = owner -> new ShowcaseComponent(
-                0,
-                Long.toUnsignedString(plotEntry.threadID()),
-                owner,
-                plotData
-        );
-
-        final Container component;
-        final String owner;
-        final String threadName;
-        final Supplier<Optional<File>> avatarFile;
-
+    public CompletableFuture<Optional<MessageReference>>
+    showcasePlot(@NotNull PlotData plotData, @NotNull WebhookEntry plotEntry) {
         // Safety check if plot entry and webhook entry is as the same owner
-        if(plotData.getOwner().getUniqueId().equals(UUID.fromString(plotEntry.ownerUUID()))) {
-            component = showcaseComponent.apply(plotData).build();
-            owner = plotData.getOwnerMentionOrName();
-            threadName = THREAD_NAME.apply(plotEntry.plotID(), plotData.formatOwnerName());
-            avatarFile = plotData::getAvatarFile;
-        }
-        else {
+        if(!plotData.getOwner().getUniqueId().equals(UUID.fromString(plotEntry.ownerUUID()))) {
             MemberOwnable entryOwner = new MemberOwnable(plotEntry.ownerUUID());
 
             String error = "Showcasing plot with un-sync owner! Expected: "
                     + plotData.getOwner().getName() + "(" + plotData.getOwner().getUniqueId() + ") Got tracked entry: "
                     + entryOwner.getOwner().getName() + "(" + entryOwner.getOwner().getUniqueId() + "), "
-                    + "the system prioritize tracked entry as the data to display.";
+                    + "the system prioritize data from the provider as the data to display.";
 
             Notification.sendErrorEmbed(error);
             DiscordPS.error(error);
-
-            component = showcaseComponent.apply(entryOwner).build();
-            owner = entryOwner.getOwnerMentionOrName();
-            threadName = THREAD_NAME.apply(plotEntry.plotID(), entryOwner.formatOwnerName());
-            avatarFile = entryOwner::getAvatarFile;
         }
 
-        WebhookDataBuilder.WebhookData imageData = new WebhookDataBuilder()
-                .setThreadName(threadName)
-                .build();
-
+        final String threadName = PlotSystemThread.THREAD_NAME.apply(plotEntry.plotID(), plotData.formatOwnerName());
+        WebhookDataBuilder.WebhookData imageData = new WebhookDataBuilder().setThreadName(threadName).build();
         plotData.getImageFiles().forEach(imageData::addFile);
+
+        return this.webhook.queueNewUpdateAction(
+            this.webhook.newThreadFromWebhook(imageData, null, true),
+            message -> this.sendShowcaseInformation(message, plotData, owner -> new ShowcaseComponent(
+                0, Long.toUnsignedString(plotEntry.threadID()), owner, plotData
+            ))
+        );
+    }
+
+    /**
+     * Use the first message of a created showcase thread to send showcase information message.
+     *
+     * @param message The message reference of the created thread
+     * @param plotData The plot data to retrieve showcase information
+     * @param builder A builder function to build a {@link ShowcaseComponent}
+     * @return A rest action that if successful, return a non-empty optional of the message reference parameter
+     */
+    private @NotNull RestAction<Optional<MessageReference>>
+    sendShowcaseInformation(@NotNull MessageReference message,
+                            @NotNull PlotData plotData,
+                            @NotNull Function<MemberOwnable, ShowcaseComponent> builder
+    ) {
+        final Container component = builder.apply(plotData).build();
 
         WebhookDataBuilder.WebhookData infoData = new WebhookDataBuilder()
                 .setComponentsV2(Collections.singletonList(component))
@@ -102,22 +100,9 @@ public final class ShowcaseWebhook extends AbstractShowcaseWebhook {
                 .suppressMentions()
                 .build();
 
-        return this.webhook.queueNewUpdateAction(
-            this.webhook.newThreadFromWebhook(imageData, null, true),
-            message -> {
-                String messageID = message.getMessageId();
-                String threadID = Long.toUnsignedString(plotEntry.threadID());
+        plotData.getAvatarFile().ifPresent(infoData::addFile);
 
-                avatarFile.get().ifPresent(infoData::addFile);
-
-                // Send notification to plot owner
-                // DiscordPS.getPlugin().getWebhook()
-                DiscordPS.getPlugin().getWebhook().sendNotification(PlotNotification.ON_SHOWCASED, threadID, owner);
-
-                // Send showcase information to the showcase thread
-                return this.webhook.sendMessageInThread(messageID, infoData, true, true)
-                        .map(ignored -> Optional.of(message));
-            }
-        );
+        return this.webhook.sendMessageInThread(message.getMessageId(), infoData, true, true)
+                .map(ignored -> Optional.of(message));
     }
 }
