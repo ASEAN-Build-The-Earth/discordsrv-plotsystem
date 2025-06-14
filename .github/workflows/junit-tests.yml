@@ -19,12 +19,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache Local Maven Repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: 21
           distribution: 'temurin'
-          cache: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
 
       - name: Run tests on all modules
         run: mvn test
