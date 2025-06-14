@@ -52,7 +52,7 @@ jobs:
         with:
           check_name: API Module
           report_paths: 'discord-plotsystem-api/**/surefire-reports/TEST-*.xml'
-          check_title_template: '{{CLASS_NAME}} › {{TEST_NAME}}'
+          check_title_template: '{{CLASS_NAME}} <sub><code>‹<b>{{TEST_NAME}}</b>›</code></sub>'
           detailed_summary: true # display detailed summary of the report
           include_passed: true # include passed tests in the results table
           group_suite: false # Group tests by suite name
