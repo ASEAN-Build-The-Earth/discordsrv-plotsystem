@@ -34,14 +34,25 @@ jobs:
       - name: Run tests on all modules
         run: mvn test
 
-      - name: Publish Test Report
+      - name: Report Plugin Module
         uses: mikepenz/action-junit-report@v5
         if: success() || failure() # always run even if the previous step fails
         with:
-          report_paths: '**/target/surefire-reports/*.xml'
-          bread_crumb_delimiter: " › "
-          check_title_template: '{{BREAD_CRUMB}}: {{TEST_NAME}}' # Plugin › Class: Initialization
+          check_name: Plugin Module
+          report_paths: 'discord-plotsystem/**/surefire-reports/TEST-*.xml'
+          check_title_template: '<code>{{CLASS_NAME}}</code> › {{TEST_NAME}}'
           detailed_summary: true # display detailed summary of the report
           include_passed: true # include passed tests in the results table
           group_suite: true # Group tests by suite name
           comment: true # send comment in pull request
+
+      - name: Report API Module
+        uses: mikepenz/action-junit-report@v5
+        if: success() || failure() # always run even if the previous step fails
+        with:
+          check_name: API Module
+          report_paths: 'discord-plotsystem-api/**/surefire-reports/TEST-*.xml'
+          check_title_template: '{{CLASS_NAME}} › {{TEST_NAME}}'
+          detailed_summary: true # display detailed summary of the report
+          include_passed: true # include passed tests in the results table
+          group_suite: false # Group tests by suite name
