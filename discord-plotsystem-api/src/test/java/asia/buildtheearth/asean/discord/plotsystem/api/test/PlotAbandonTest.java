@@ -9,11 +9,9 @@ import org.junit.jupiter.api.Assertions;
 public abstract class PlotAbandonTest extends PlotEventTest {
     private final @NotNull AbandonType expected;
 
-    public PlotAbandonTest(String type) {
-        super(PlotAbandonedEvent.class, event -> event.onPlotAbandon(
-                Assertions.assertDoesNotThrow(() -> AbandonType.valueOf(type))
-        ));
-        this.expected = AbandonType.valueOf(type);
+    public PlotAbandonTest(@NotNull AbandonType type) {
+        super(PlotAbandonedEvent.class, event -> event.onPlotAbandon(type));
+        this.expected = type;
     }
 
     @Override

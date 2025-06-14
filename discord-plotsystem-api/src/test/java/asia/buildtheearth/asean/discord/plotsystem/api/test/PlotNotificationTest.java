@@ -10,11 +10,9 @@ public abstract class PlotNotificationTest extends PlotEventTest {
     private final @NotNull NotificationType expected;
     private final boolean cancelled;
 
-    public PlotNotificationTest(String type, boolean cancelled) {
-        super(PlotNotificationEvent.class, event -> event.onPlotNotification(
-                Assertions.assertDoesNotThrow(() -> NotificationType.valueOf(type)), cancelled)
-        );
-        this.expected = NotificationType.valueOf(type);
+    public PlotNotificationTest(NotificationType type, boolean cancelled) {
+        super(PlotNotificationEvent.class, event -> event.onPlotNotification(type, cancelled));
+        this.expected = type;
         this.cancelled = cancelled;
     }
 

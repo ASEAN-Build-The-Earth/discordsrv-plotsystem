@@ -5,11 +5,13 @@ import asia.buildtheearth.asean.discord.plotsystem.api.test.*;
 import asia.buildtheearth.asean.discord.plotsystem.api.test.mock.MockDiscordPlotSystemAPI;
 import asia.buildtheearth.asean.discord.plotsystem.api.test.mock.MockDiscordPlotSystemPlugin;
 import asia.buildtheearth.asean.discord.plotsystem.api.test.mock.MockEventListener;
-import asia.buildtheearth.asean.discord.plotsystem.api.test.utils.DisplayNameResolver;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.extension.*;
+import org.junit.jupiter.params.Parameter;
+import org.junit.jupiter.params.ParameterizedClass;
+import org.junit.jupiter.params.provider.*;
 
+import javax.annotation.concurrent.NotThreadSafe;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -23,7 +25,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemI
  * Main test runner for the Discord Plot-System API.
  *
  * <p>This suite begins with 3 core test cases that validate general API functionality,
- * followed by 12 targeted test cases covering each {@link PlotEvent} subclass.</p>
+ * followed by 14 targeted test cases covering each {@link PlotEvent} subclass.</p>
  *
  * <p>All plot event tests extend {@link PlotEventTest}, which performs the following steps:</p>
  * <ol>
@@ -239,123 +241,77 @@ class DiscordPlotSystemTest extends MockDiscordPlotSystemPlugin {
         }
     }
 
+
     @Nested @Order(3)
-    @DisplayName("Notify:")
-    @TestClassOrder(ClassOrderer.OrderAnnotation.class)
-    class PlotNotification {
-        @ExtendWith(DisplayNameResolver.class)
-        abstract static class Notification {
-            protected final String type;
-            Notification(String type) { this.type = type; }
+    @DisplayName("Inactivity notice with current time")
+    class InactivityNotice extends PlotEventTest {
+        static final LocalDate timestamp = LocalDate.now();
+
+        InactivityNotice() {
+            super(InactivityNoticeEvent.class, event -> event.onPlotInactivity(timestamp));
         }
 
-        @TestClassOrder(ClassOrderer.OrderAnnotation.class)
-        abstract static class Test extends Notification {
-            Test(String type) { super(type); }
-
-            @Nested @DisplayName("-> Call Event") @Order(1)
-            class TestNotify extends PlotNotificationTest { TestNotify() { super(Test.this.type, false); } }
-
-            @Nested @DisplayName("-> Cancel Event") @Order(2)
-            class TestCancelled extends PlotNotificationTest { TestCancelled() { super(Test.this.type, true); } }
-        }
-
-        @Nested @Order(0)
-        @DisplayName("Inactivity notice with current time")
-        class InactivityNotice extends PlotEventTest {
-            static final LocalDate timestamp = LocalDate.now();
-
-            InactivityNotice() {
-                super(InactivityNoticeEvent.class, event -> event.onPlotInactivity(timestamp));
-            }
-
-            @Override public <T extends PlotEvent>
-            void retrieveEvent(@NotNull T event) { testInactivityNotice(event, timestamp); }
-        }
-
-        @Nested @DisplayName("ON_CREATED")
-        class Create extends Test { Create(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_SUBMITTED")
-        class Submit extends Test { Submit(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_REVIEWED")
-        class Review extends Test { Review(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_APPROVED")
-        class Approve extends Test { Approve(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_REJECTED")
-        class Reject extends Test { Reject(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_SHOWCASED")
-        class Showcase extends Test { Showcase(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_UNDO_REVIEW")
-        class UndoReview extends Test { UndoReview(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_UNDO_SUBMIT")
-        class UndoSubmit extends Test { UndoSubmit(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_ABANDONED")
-        class Abandon extends Test { Abandon(String type) { super(type); } }
-
-        @Nested @DisplayName("ON_INACTIVITY")
-        class Inactive extends Test { Inactive(String type) { super(type); } }
+        @Override public <T extends PlotEvent>
+        void retrieveEvent(@NotNull T event) { testInactivityNotice(event, timestamp); }
     }
 
+    @NotThreadSafe
     @Nested @Order(4)
+    @ParameterizedClass
+    @EnumSource(NotificationType.class)
+    @TestClassOrder(ClassOrderer.OrderAnnotation.class)
+    @DisplayName("Notify plot")
+    class NotificationTest  {
+        @Parameter
+        NotificationType type;
+
+        @Nested @DisplayName("Call Event") @Order(1)
+        class TestNotify extends PlotNotificationTest { TestNotify() { super(NotificationTest.this.type, false); } }
+
+        @Nested @DisplayName("Cancel Event") @Order(2)
+        class TestCancel extends PlotNotificationTest { TestCancel() { super(NotificationTest.this.type, true); } }
+    }
+
+    @Nested @Order(5)
     @DisplayName("Submitting a plot")
     class PlotSubmit extends PlotEventTest {
         PlotSubmit() { super(PlotSubmitEvent.class, PlotEventAction::onPlotSubmit); }
     }
 
-    @Nested @Order(5)
-    @DisplayName("Abandoning a plot for: ")
-    @ExtendWith(DisplayNameResolver.class)
-    class PlotAbandon {
-        static final String NONE = "N/A", COMMANDS = "COMMANDS", MANUALLY = "MANUALLY", INACTIVE = "INACTIVE", SYSTEM = "SYSTEM";
+    @Nested @Order(6)
+    @DisplayName("Abandon a plot")
+    class PlotAbandonNone extends PlotEventTest {
+        PlotAbandonNone() { super(PlotAbandonedEvent.class, PlotEventAction::onPlotAbandon); }
 
-        @Nested @DisplayName(NONE)
-        class None extends PlotEventTest {
-            None() { super(PlotAbandonedEvent.class, PlotEventAction::onPlotAbandon); }
-
-            @Override public <T extends PlotEvent>
-            void retrieveEvent(@NotNull T retrieved) { testAbandonEvent(retrieved, AbandonType.SYSTEM); }
-        }
-
-        @Nested @DisplayName(COMMANDS)
-        class Commands extends PlotAbandonTest { Commands(String type) { super(type); } }
-
-        @Nested @DisplayName(MANUALLY)
-        class Manually extends PlotAbandonTest { Manually(String type) { super(type); } }
-
-        @Nested @DisplayName(SYSTEM)
-        class System extends PlotAbandonTest { System(String type) { super(type); } }
-
-        @Nested @DisplayName(INACTIVE)
-        class Inactive extends PlotAbandonTest { Inactive(String type) { super(type); } }
+        @Override public <T extends PlotEvent>
+        void retrieveEvent(@NotNull T retrieved) { testAbandonEvent(retrieved, AbandonType.SYSTEM); }
     }
 
-    @Nested @Order(6)
+    @Nested @Order(7)
+    @ParameterizedClass
+    @EnumSource(AbandonType.class)
+    @DisplayName("Abandon a plot by type")
+    class PlotAbandon extends PlotAbandonTest { PlotAbandon(AbandonType type) { super(type); } }
+
+    @Nested @Order(8)
     @DisplayName("Reclaiming abandoned plot")
     class PlotReclaim extends ScopedPlotEventTest {
         PlotReclaim() { super(PlotReclaimEvent.class, PlotEventAction::onPlotReclaim); }
     }
 
-    @Nested @Order(7)
+    @Nested @Order(9)
     @DisplayName("Approving a plot")
     class PlotApprove extends PlotEventTest {
         PlotApprove() { super(PlotApprovedEvent.class, PlotEventAction::onPlotApprove); }
     }
 
-    @Nested @Order(8)
+    @Nested @Order(10)
     @DisplayName("Rejecting a plot")
     class PlotReject extends PlotEventTest {
         PlotReject() { super(PlotRejectedEvent.class, PlotEventAction::onPlotReject); }
     }
 
-    @Nested @Order(9)
+    @Nested @Order(11)
     @DisplayName("Sending feedback to a plot")
     class PlotFeedback extends ScopedPlotEventTest {
         private static final String TEST_FEEDBACK = "This is a test feedback message.";
@@ -367,19 +323,19 @@ class DiscordPlotSystemTest extends MockDiscordPlotSystemPlugin {
         }
     }
 
-    @Nested @Order(10)
+    @Nested @Order(12)
     @DisplayName("Undoing review of a plot")
     class PlotUndoReview extends PlotEventTest {
         PlotUndoReview() { super(PlotUndoReviewEvent.class, PlotEventAction::onPlotUndoReview); }
     }
 
-    @Nested @Order(11)
+    @Nested @Order(13)
     @DisplayName("Undoing submission of a plot")
     class PlotUndoSubmit extends PlotEventTest {
         PlotUndoSubmit() { super(PlotUndoSubmitEvent.class, PlotEventAction::onPlotUndoSubmit); }
     }
 
-    @Nested @Order(12)
+    @Nested @Order(14)
     @DisplayName("Archiving completed plot")
     class PlotArchive extends ScopedPlotEventTest {
         PlotArchive() { super(PlotArchiveEvent.class, PlotEventAction::onPlotArchive); }
