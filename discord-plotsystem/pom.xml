@@ -7,7 +7,7 @@
     <parent>
         <groupId>asia.buildtheearth.asean.discord</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.2.1</version>
+        <version>1.2.2</version>
     </parent>
 
     <name>Discord Plot-System Plugin</name>
@@ -29,6 +29,7 @@
     <build>
         <!-- IMPORTANT: Plugin Building Path -->
         <sourceDirectory>src/main/java</sourceDirectory>
+        <testSourceDirectory>src/test/java</testSourceDirectory>
 
         <!-- IMPORTANT: Output File Name -->
         <finalName>${project.artifactId}-${project.version}</finalName>
@@ -96,6 +97,44 @@
                     <doclint>none</doclint>
                 </configuration>
             </plugin>
+            <!-- Test Runner -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <dependencies>
+                    <dependency>
+                        <groupId>me.fabriciorby</groupId>
+                        <artifactId>maven-surefire-junit5-tree-reporter</artifactId>
+                        <version>1.4.0</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <reportFormat>plain</reportFormat>
+                    <consoleOutputReporter>
+                        <disable>true</disable>
+                    </consoleOutputReporter>
+                    <statelessTestsetInfoReporter
+                            implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoTreeReporter">
+                        <theme>UNICODE</theme>
+                    </statelessTestsetInfoReporter>
+                    <classpathDependencyExcludes>
+                        <classpathDependencyExclude>org.spigotmc:spigot-api:*</classpathDependencyExclude>
+                    </classpathDependencyExcludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.3</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
@@ -115,9 +154,27 @@
             <id>sonatype</id>
             <url>https://oss.sonatype.org/content/groups/public/</url>
         </repository>
+        <!-- PaperMC -->
+        <repository>
+            <id>papermc</id>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
     </repositories>
 
     <dependencies>
+        <!-- MockBukkit Test -->
+        <dependency>
+            <groupId>org.mockbukkit.mockbukkit</groupId>
+            <artifactId>mockbukkit-v1.21</artifactId>
+            <version>4.50.0</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.jupiter</groupId>
+                    <artifactId>junit-jupiter</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <!-- Spigot API -->
         <dependency>
             <groupId>org.spigotmc</groupId>
@@ -136,7 +193,7 @@
         <dependency>
             <groupId>asia.buildtheearth.asean.discord</groupId>
             <artifactId>discordsrv-bridge</artifactId>
-            <version>1.1.1</version>
+            <version>1.1.2</version>
             <scope>compile</scope>
         </dependency>
         <!-- Jetbrains Annotations -->
@@ -167,6 +224,13 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- SQLite JDBC Driver (Unit Test Only) -->
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.49.1.0</version>
+            <scope>test</scope>
+        </dependency>
         <!-- Hikari-CP (MariaDB) -->
         <dependency>
             <groupId>com.zaxxer</groupId>
@@ -180,6 +244,26 @@
             <artifactId>discord-plotsystem-api</artifactId>
             <version>${project.parent.version}</version>
             <scope>compile</scope>
+        </dependency>
+        <!-- JUnit 5 Test Runner -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.2</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Log4j required for mocking DiscordSRV -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.24.3</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 </project>

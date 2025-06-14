@@ -126,6 +126,7 @@ public class Notification {
         PLOT_SUBMITTED(YELLOW, "plot-status.plot-submitted", TIMESTAMP),
         PLOT_APPROVED(GREEN, "plot-status.plot-approved"),
         PLOT_REJECTED(RED, "plot-status.plot-rejected", OWNER),
+        PLOT_ARCHIVE(BLUE, "plot-status.plot-archived"),
         PLOT_INACTIVE_ABANDONED(PURPLE, "plot-status.plot-inactive-abandoned"),
         PLOT_MANUALLY_ABANDONED(PURPLE, "plot-status.plot-manually-abandoned"),
         PLOT_COMMANDS_ABANDONED(PURPLE, "plot-status.plot-commands-abandoned"),

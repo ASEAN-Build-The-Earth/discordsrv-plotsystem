@@ -13,6 +13,7 @@ import java.time.temporal.TemporalAccessor;
  *
  * @see PlotNotificationEvent
  */
+@SuppressWarnings("deprecation")
 public final class InactivityNoticeEvent extends PlotNotificationEvent {
 
     TemporalAccessor timestamp;
@@ -23,7 +24,6 @@ public final class InactivityNoticeEvent extends PlotNotificationEvent {
      * @param plotID    The ID of the plot this notification relates to
      * @param timestamp The timestamp at which the plot is expected to be marked as abandoned
      */
-    @SuppressWarnings("deprecation")
     public InactivityNoticeEvent(int plotID, TemporalAccessor timestamp) {
         super(plotID, NotificationType.ON_INACTIVITY);
         this.timestamp = timestamp;

@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
+@Deprecated(since = "1.1.2")
 public class MemberUtil {
 
     @Deprecated

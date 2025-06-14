@@ -1,0 +1,9 @@
+# Main Webhook config
+webhook:
+  name:       "Mock Webhook"
+  token:      "0382ac72-c940-490d-92cf-04cf44a25980"
+  # Snowflake value must be the same as MockSnowflake enum
+  # see asia.buildtheearth.asean.discord.plotsystem.test.mock.MockSnowflake
+  id:         "000000000000000003" # MockSnowflake#WEBHOOK_ID
+  channel-id: "000000000000000002" # MockSnowflake#WEBHOOK_CHANNEL_ID
+  guild-id:   "000000000000000001" # MockSnowflake#MAIN_GUID

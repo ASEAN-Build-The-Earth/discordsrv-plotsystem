@@ -6,7 +6,6 @@ import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.utils.AvatarUtil;
 import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
-import asia.buildtheearth.asean.discord.plotsystem.utils.MemberUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.Contract;
@@ -44,7 +43,7 @@ public class MemberOwnable {
         if(memberUUID == null) throw new IllegalArgumentException("Ownable object must have Non-null member UUID");
 
         this.owner = Bukkit.getOfflinePlayer(UUID.fromString(memberUUID));
-        this.ownerDiscord = MemberUtil.getAsDiscordMember(owner);
+        this.ownerDiscord = DiscordPS.getPlugin().getAsDiscordMember(owner);
 
         // Builder avatar image (storing at /media/cache/UUID/avatar-image-UUID.png)
         this.avatarURL = AvatarUtil.getAvatarUrl(memberUUID, AVATAR_SIZE, AVATAR_FORMAT);

@@ -49,7 +49,7 @@ class DiscordPlotSystemTest extends MockDiscordPlotSystemPlugin {
     @BeforeAll
     static void beforeAll() {
         Assertions.assertThrowsExactly(IllegalArgumentException.class, DiscordPlotSystemAPI::getDataProvider,
-                "Getting API Data provider before its initialized should throw utils but no error was thrown"
+                "Getting API Data provider before its initialized should throw exception but no error was thrown"
         );
     }
 
@@ -125,7 +125,7 @@ class DiscordPlotSystemTest extends MockDiscordPlotSystemPlugin {
         Assertions.assertThrowsExactly(
             IllegalArgumentException.class,
             () -> MockDiscordPlotSystemAPI.getInstance().subscribe(new EventListener() { }),
-            "Subscribing empty event listener should throw but no utils has thrown"
+            "Subscribing empty event listener should throw but no exception has thrown"
         );
     }
 

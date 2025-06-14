@@ -1,6 +1,5 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.providers;
 
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
@@ -74,7 +73,7 @@ public abstract class NotificationProvider {
             long channelIDLong = getAndValidateChannelID(channelID);
 
             // Set the notification channel
-            notification = new Notification<>(DiscordSRV.getPlugin().getJda().getTextChannelById(channelIDLong));
+            notification = new Notification<>(DiscordPS.getPlugin().getJDA().getTextChannelById(channelIDLong));
         }
         catch (NumberFormatException ex) {
             DiscordPS.warning(

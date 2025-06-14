@@ -35,7 +35,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.No
  * @see #subscribeAndValidateJDA()
  */
 @SuppressWarnings("unused")
-final public class DiscordSRVListener extends PluginListenerProvider {
+public class DiscordSRVListener extends PluginListenerProvider {
 
     private boolean subscribed = false;
 
@@ -78,11 +78,11 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         this.subscribed = true;
 
         // Subscribe to event listeners
-        DiscordSRV.getPlugin().getJda().addEventListener(this.newEventListener(this));
+        this.plugin.getJDA().addEventListener(this.newEventListener(this));
 
         // Initialize and Add our slash command data in
         newSlashCommandListener().register(
-            DiscordSRV.getPlugin().getMainGuild().getId(),
+            this.plugin.getMainGuild().getId(),
             new SetupCommand(),
             new PlotCommand(),
             new ReviewCommand()
@@ -91,18 +91,18 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         Checks.notNull(this.getPluginSlashCommand(), "Plugin Slash Command Provider");
 
         // Register slash command provider
-        DiscordSRV.api.addSlashCommandProvider(this.getPluginSlashCommand());
+        this.plugin.addSlashCommandProvider(this.getPluginSlashCommand());
 
         // Fetch it so the command appears on our server
         // This resolve to a PUT request to discord API
         // UPDATE_GUILD_COMMANDS = new Route(Method.PUT, "applications/{application_id}/guilds/{guild_id}/commands");
-        DiscordSRV.api.updateSlashCommands();
+        this.plugin.updateSlashCommands();
 
 
         // Initialize main webhook
         try {
             ForumWebhookImpl forumWebhook = new ForumWebhookImpl(
-                DiscordSRV.getPlugin().getJda(),
+                this.plugin.getJDA(),
                 this.plugin.getWebhookConfig(),
                 this.plugin.getConfig()
             );
@@ -118,7 +118,7 @@ final public class DiscordSRVListener extends PluginListenerProvider {
         // Initialize showcase webhook
         try {
             ForumWebhookImpl showcaseWebhook = new ForumWebhookImpl(
-                DiscordSRV.getPlugin().getJda(),
+                this.plugin.getJDA(),
                 this.plugin.getShowcaseConfig(),
                 this.plugin.getConfig()
             );
@@ -146,7 +146,7 @@ final public class DiscordSRVListener extends PluginListenerProvider {
                 }
 
                 if(this.plugin.isReady()) {
-                    DiscordPS.getInstance().subscribe(this.newPlotSystemListener(this.plugin.getWebhook()));
+                    DiscordPS.getPlugin().subscribe(this.newPlotSystemListener(this.plugin.getWebhook()));
 
                     DiscordPS.info("Discord-PlotSystem is fully configured! The application is ready.");
 

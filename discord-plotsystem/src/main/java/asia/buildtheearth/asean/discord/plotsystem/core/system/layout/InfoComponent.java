@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.layout;
 
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.BuildTeamLang;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
@@ -116,9 +117,9 @@ public final class InfoComponent
         String city = DiscordPS.getMessagesLang().get(BuildTeamLang.getCityProject().getName(cityProjectID), cityProjectID);
 
         return METADATA.titleFormat()
-            .replace("{plotID}", String.valueOf(plotID))
-            .replace("{country}", country)
-            .replace("{city}", city);
+            .replace(Format.PLOT_ID, String.valueOf(plotID))
+            .replace(Format.COUNTRY, country)
+            .replace(Format.CITY, city);
     }
 
     @Contract(pure = true)
@@ -176,9 +177,11 @@ public final class InfoComponent
             case PlotSubmitEvent ignored -> formatHistoryMessage(HistoryMessage.ON_SUBMITTED);
             case PlotApprovedEvent ignored -> formatHistoryMessage(HistoryMessage.ON_APPROVED);
             case PlotRejectedEvent ignored -> formatHistoryMessage(HistoryMessage.ON_REJECTED);
-            case PlotAbandonedEvent ignored -> formatHistoryMessage(HistoryMessage.ON_ABANDONED);
+            case PlotUndoSubmitEvent ignored -> formatHistoryMessage(HistoryMessage.ON_UNDO_SUBMIT);
+            case PlotUndoReviewEvent ignored -> formatHistoryMessage(HistoryMessage.ON_UNDO_REVIEW);
+            case PlotAbandonedEvent reason -> formatHistoryMessage(HistoryMessage.getAbandonMessage(reason.getType()));
             case PlotArchiveEvent archive -> formatHistoryMessage(HistoryMessage.ON_ARCHIVED, archive.getOwner());
-            case PlotReclaimEvent reclaim-> formatHistoryMessage(HistoryMessage.ON_RECLAIMED, reclaim.getOwner());
+            case PlotReclaimEvent reclaim -> formatHistoryMessage(HistoryMessage.ON_RECLAIMED, reclaim.getOwner());
             case null, default -> formatHistoryMessage(HistoryMessage.ON_SYSTEM_FETCH);
         };
     }

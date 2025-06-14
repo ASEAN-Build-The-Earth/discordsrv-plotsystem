@@ -1,6 +1,9 @@
 package asia.buildtheearth.asean.discord.plotsystem;
 
+import asia.buildtheearth.asean.discord.DiscordSRVBridge;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import github.scarsz.discordsrv.dependencies.google.common.util.concurrent.ThreadFactoryBuilder;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
@@ -19,15 +22,14 @@ import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordSRVListener;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnection;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginListenerProvider;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.ShowcaseWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LangConfiguration;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LangManager;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.SystemLang;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.Contract;
@@ -39,6 +41,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
+import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage;
 
 /**
  * Main entry point and implementation class for the Discord Plot-System plugin.
@@ -87,9 +90,9 @@ import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Compone
  *
  * @see DiscordPlotSystemAPI
  */
-public final class DiscordPS extends DiscordPlotSystemAPI {
-    private static final String VERSION = "1.2.1";
-    private static final String DISCORD_SRV_VERSION = "1.29.0";
+public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge {
+    public static final String VERSION = "1.2.2";
+    public static final String DISCORD_SRV_VERSION = "1.29.0";
 
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
 
@@ -191,24 +194,29 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
 
                 // Unsubscribe to DiscordSRV
                 if(isDiscordSrvHookEnabled()) {
-                    // Clear DiscordSRV event listener
-                    if(discordSrvHook.hasSubscribed()) {
-                        DiscordSRV
-                            .getPlugin()
-                            .getJda()
-                            .removeEventListener(discordSrvHook.getEventListener());
+                    try {
+                        // Clear DiscordSRV event listener
+                        if(discordSrvHook.hasSubscribed()) {
+                            this.getJDA().removeEventListener(discordSrvHook.getEventListener());
+                        }
+                        // Clear slash command
+                        if(discordSrvHook.getPluginSlashCommand() != null) {
+                            discordSrvHook.getPluginSlashCommand().clearCommands();
+                            this.removeSlashCommandProvider(discordSrvHook.getPluginSlashCommand());
+                        }
+                        this.unsubscribe(discordSrvHook.getPlotSystemListener());
+                        this.unsubscribeSRV(discordSrvHook);
                     }
-                    // Clear slash command
-                    if(discordSrvHook.getPluginSlashCommand() != null) {
-                        discordSrvHook.getPluginSlashCommand().clearCommands();
-                        DiscordSRV.api.removeSlashCommandProvider(discordSrvHook.getPluginSlashCommand());
+                    catch (RuntimeException ex) {
+                        DiscordPS.error("Exception occurred trying to unsubscribe from DiscordSRV", ex);
                     }
-                    DiscordSRV.api.unsubscribe(discordSrvHook);
                 }
+
+                // Close all database connections
+                DatabaseConnection.shutdown();
 
                 // shutdown scheduler tasks
                 SchedulerUtil.cancelTasks(this);
-
 
                 // unregister event listeners because of garbage reloading plugins
                 HandlerList.unregisterAll(this);
@@ -254,7 +262,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         return initThread;
     }
 
-    private void init() {
+    void init() {
         // Initialize database connection
         try {
             if(DatabaseConnection.InitializeDatabase()) {
@@ -280,7 +288,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         }
 
         // If DiscordSRV JDA is ready before this plugin finish initializing
-        if(DiscordSRV.isReady && !discordSrvHook.hasSubscribed()) {
+        if(this.discordIsReady() && !discordSrvHook.hasSubscribed()) {
             DiscordPS.info("JDA Has started, subscribing to its instance");
             discordSrvHook.subscribeAndValidateJDA();
         }
@@ -357,7 +365,7 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
             );
         }
 
-        DiscordSRV.api.subscribe(discordSrvHook = new DiscordSRVListener(this));
+        this.subscribeSRV(this.getListenerHook());
         DiscordPS.info("Subscribed to DiscordSRV: Plot System will be manage by its JDA instance.");
     }
 
@@ -438,6 +446,12 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         return discordSrvHook != null;
     }
 
+    public @NotNull DiscordSRVListener initListenerHook() {
+        if(isDiscordSrvHookEnabled())
+            throw new IllegalArgumentException("[Internal] Trying to re-assign plugin's DiscordSRVListener reference, ignoring.");
+        return new DiscordSRVListener(this);
+    }
+
     public void initWebhook(PlotSystemWebhook webhook) {
         if(this.webhook != null) {
             DiscordPS.error("[Internal] Trying to re-assign plugin's PlotSystemWebhook reference, ignoring.");
@@ -461,12 +475,35 @@ public final class DiscordPS extends DiscordPlotSystemAPI {
         discordSrvHook.getPluginSlashCommand().removeInteraction(interactionID);
     }
 
+    /**
+     * Get the main listener of the plugin as {@link DiscordSRVListener}
+     *
+     * @return The listener instance if subscribed
+     */
+    public DiscordSRVListener getListenerHook() {
+        if(!isDiscordSrvHookEnabled()) return this.discordSrvHook = initListenerHook();
+        return this.discordSrvHook;
+    }
+
     @Override
     public <E extends ApiEvent> @Nullable E callEvent(E event) {
         if(!isReady() || (isReady() && discordSrvHook.getPlotSystemListener() == null))
             return null;
 
         return super.callEvent(event);
+    }
+
+    /**
+     * Safely retrieve player's linked account
+     * and return null if no linked account exist or an error occurred.
+     */
+    @Override
+    public @Nullable Member getAsDiscordMember(@NotNull OfflinePlayer player) {
+        try { return DiscordSRVBridge.super.getAsDiscordMember(player); }
+        catch (IllegalArgumentException ex) {
+            DiscordPS.error("An exception occurred getting linked account for the player name: " + player.getName());
+            return null;
+        }
     }
 
     // Debugging messages

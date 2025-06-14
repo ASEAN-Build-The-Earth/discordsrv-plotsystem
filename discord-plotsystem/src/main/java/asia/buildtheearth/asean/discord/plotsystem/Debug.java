@@ -163,10 +163,18 @@ public final class Debug {
     }
 
     /**
-     * Mark a warning resolved, then this warning will not appear in all thrown list.
+     * Mark a warning resolved, then this warning will not appear in the thrown list.
+     *
      * @param warning The warning to resolve
      */
     void resolveWarning(@NotNull Warning warning) { this.warning.remove(warning); }
+
+    /**
+     * Mark an error resolved, then this error will not appear in the thrown list.
+     *
+     * @param error The error to resolve
+     */
+    void resolveError(@NotNull Error error) { this.error.remove(error); }
 
     @Contract(pure = true)
     public @NotNull Set<Map.Entry<Error, String>> allThrownErrors() {
@@ -180,6 +188,10 @@ public final class Debug {
 
     public boolean hasError(Error error) {
         return this.error.containsKey(error);
+    }
+
+    public boolean hasWarning(Warning warning) {
+        return this.warning.containsKey(warning);
     }
 
     public boolean hasGroup(ErrorGroup group) {

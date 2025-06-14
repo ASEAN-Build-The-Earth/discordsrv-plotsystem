@@ -163,7 +163,8 @@ public record WebhookEntry(
                                       @NotNull ThreadStatus status,
                                       @NotNull String ownerUUID) {
         String query = "INSERT INTO " + DatabaseConnection.getWebhookTableName()
-                + " SET message_id = ?, thread_id = ?, plot_id = ?, status = ?, owner_uuid = ?, version = ?";
+                + " (message_id, thread_id, plot_id, status, owner_uuid, version) "
+                + "VALUES (?, ?, ?, ?, ?, ?)";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
             statement.setValue(messageID);
@@ -206,7 +207,8 @@ public record WebhookEntry(
                                       @NotNull String ownerUUID,
                                       @NotNull String ownerID) {
         String query = "INSERT INTO " + DatabaseConnection.getWebhookTableName()
-                + " SET message_id = ?, thread_id = ?, plot_id = ?, status = ?, owner_uuid = ?, owner_id = ?, version = ?";
+                + " (message_id, thread_id, plot_id, status, owner_uuid, owner_id, version) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try(DatabaseConnection.StatementBuilder statement = DatabaseConnection.createStatement(query)) {
             statement.setValue(messageID);

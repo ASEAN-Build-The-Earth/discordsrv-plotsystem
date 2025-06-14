@@ -5,6 +5,8 @@ import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotNotificationEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginProvider;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.LangPaths;
+import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
@@ -31,6 +33,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 
+import static asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemThread.THREAD_NAME;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage;
 
 /**
@@ -320,6 +323,22 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     }
 
     /**
+     * Optionally get archive thread name if configured a prefix for it.
+     *
+     * @param plotID The plotID to of the thread
+     * @return Optional if the config {@link LangPaths#ARCHIVED_PREFIX} specified a prefix for an archival thread.
+     */
+    public static Optional<PlotSystemThread.ThreadNameApplier> getOptArchiveThreadName(int plotID) {
+        String prefix = DiscordPS.getSystemLang().get(LangPaths.ARCHIVED_PREFIX);
+        PlotSystemThread.ThreadNameApplier threadName = null;
+
+        if(!StringUtils.isBlank(prefix))
+            threadName = owner -> prefix + " " + THREAD_NAME.apply(plotID, owner.formatOwnerName());
+
+        return Optional.ofNullable(threadName);
+    }
+
+    /**
      * Dispatches a plot notification event and handles message display logic if not cancelled.
      *
      * <p>Conventionally using the sender for forwarding to one of {@link #sendNotification(PlotNotification, String, Function)}
@@ -341,6 +360,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
                                int plotID,
                                @NotNull Function<@NotNull NotificationType, asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage> message,
                                @NotNull BiConsumer<@NotNull PlotNotification, asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage> sender) {
+        @SuppressWarnings("deprecation")
         PlotNotificationEvent notification = DiscordPS.getPlugin().callEvent(
             new PlotNotificationEvent(plotID, type)
         );
@@ -367,6 +387,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     public void onNotification(@NotNull NotificationType type,
                                int plotID,
                                @NotNull Consumer<@NotNull PlotNotification> sender) {
+        @SuppressWarnings("deprecation")
         PlotNotificationEvent notification = DiscordPS.getPlugin().callEvent(
             new PlotNotificationEvent(plotID, type)
         );

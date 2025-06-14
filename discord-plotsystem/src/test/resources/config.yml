@@ -1,0 +1,57 @@
+# Debugging is used for error/warning expectation in each test cases
+debugging: true
+# Using in-memory SQLite database as unit tester
+database:
+  url: "jdbc:sqlite://:memory:/"
+  webhook-table: "discord_webhook"
+# These naming values are mocked in the testcase
+# Using the enum ordinal as its snowflake ID
+available-tag:
+  on-going: "on_going"
+  finished: "finished"
+  rejected: "rejected"
+  approved: "approved"
+  archived: "archived"
+  abandoned: "abandoned"
+system-notification:
+  # Notification channel snowflake must be the same as MockSnowflake enum
+  # see asia.buildtheearth.asean.discord.plotsystem.test.mock.MockSnowflake
+  channel-id: "000000000000000006" # MockSnowflake#NOTIFICATION
+  notification-content: ""
+  notify-plugin-states: ENABLED
+  notify-system-errors: ENABLED
+  plot-commands:
+    plot-control-archive: ENABLED
+    plot-control-showcase: ENABLED
+    plot-control-delete: ENABLED
+    plot-control-fetch: ENABLED
+    plot-review-edit: ENABLED
+    plot-review-send: ENABLED
+  plot-status:
+    plot-created: ENABLED
+    plot-submitted: WITH_CONTENT
+    plot-approved: ENABLED
+    plot-rejected: ENABLED
+    plot-archived: ENABLED
+    plot-inactive-abandoned: ENABLED
+    plot-manually-abandoned: ENABLED
+    plot-commands-abandoned: ENABLED
+    plot-system-abandoned: ENABLED
+embed-color:
+  on-going: "#808080" # Gray
+  finished: "#fdcb58" # Yellow
+  rejected: "#dd2e44" # Red
+  approved: "#78b159" # Green
+  archived: "#55acee" # Blue
+  abandoned: "#aa8ed6" # Purple
+plot-notification:
+  on-plot-created: true
+  on-plot-submitted: true
+  on-plot-reviewed: true
+  on-plot-approved: true
+  on-plot-rejected: true
+  on-undo-review: true
+  on-undo-submit: true
+  on-plot-showcased: true
+  on-plot-abandoned: true
+  on-plot-inactivity: true

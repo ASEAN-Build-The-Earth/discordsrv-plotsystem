@@ -27,7 +27,6 @@ import asia.buildtheearth.asean.discord.components.api.Container;
 import asia.buildtheearth.asean.discord.components.api.TextDisplay;
 import asia.buildtheearth.asean.discord.components.api.ComponentV2;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.LangPaths;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.InfoComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
@@ -49,7 +48,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemThread.THREAD_NAME;
 import static asia.buildtheearth.asean.discord.components.WebhookDataBuilder.WebhookData;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage;
@@ -195,6 +193,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         String threadName = thread.getApplier().apply(plotData);
         PlotReclaimEvent event = new PlotReclaimEvent(thread.getPlotID(), plotData.getOwnerMentionOrName());
 
+        // Update thread layout to correct status
         LayoutUpdater layoutUpdater = component -> updateExistingClaim(event, component, plotData, tag);
 
         CompletableFuture<Optional<MessageReference>> updateThreadLayoutAction = this.webhook.queueNewUpdateAction(
@@ -202,17 +201,24 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             data -> this.webhook.editInitialThreadMessage(threadID.get(), data, true)
         );
 
+        // Edit thread's status tag
         CompletableFuture<Optional<DataObject>> editThreadAction = this.webhook
-                .modifyThreadChannel(threadID.get(), threadName, Set.of(tagID), null, null, null, true)
-                .submit();
+            .modifyThreadChannel(threadID.get(), threadName, Set.of(tagID), null, null, null, true)
+            .submit();
 
-        CompletableFuture<Void> removeMemberAction = (removeMemberID == null)
-                ? CompletableFuture.completedFuture(null)
-                : this.webhook.removeThreadMember(threadID.get(), removeMemberID).submit();
+        // Optionally add new owner of exist (and not the same as previous owner)
+        Optional<CompletableFuture<Void>> optAddMemberAction = plotData.getOwnerDiscord().map(ISnowflake::getId)
+            .flatMap(newOwner -> (removeMemberID != null && !removeMemberID.equals(newOwner))
+                ? Optional.of(this.webhook.addThreadMember(threadID.get(), newOwner).submit())
+                : Optional.empty()
+            );
 
-        CompletableFuture<Void> addMemberAction = plotData.getOwnerDiscord().map(ISnowflake::getId)
-            .map(newOwner -> this.webhook.addThreadMember(threadID.get(), newOwner).submit())
-            .orElseGet(() -> CompletableFuture.completedFuture(null));
+        // Remove previous member
+        CompletableFuture<Void> removeMemberAction = optAddMemberAction
+            .map(exist -> this.webhook.removeThreadMember(threadID.get(), removeMemberID).submit())
+            .orElse(CompletableFuture.completedFuture(null));
+
+        CompletableFuture<Void> addMemberAction = optAddMemberAction.orElse(CompletableFuture.completedFuture(null));
 
         CompletableFuture<Void> allAction = CompletableFuture.allOf(
             updateThreadLayoutAction.whenComplete(HANDLE_LAYOUT_EDIT_ERROR),
@@ -617,6 +623,14 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         );
     }
 
+    /**
+     * Figure out owner's mention from plot entry.
+     *
+     * @param entry The plot entry to get
+     * @return Discord mention if the owner has discord account linked,
+     *         else will fetch for the owner's minecraft name from UUID
+     * @see Bukkit#getOfflinePlayer(UUID)
+     */
     private String parseOwnerMention(@NotNull WebhookEntry entry) {
         try {
             UUID ownerUUID = UUID.fromString(entry.ownerUUID());
@@ -766,13 +780,22 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                                                             @NotNull AvailableTag tag) {
         Set<Long> tags = Set.of(tag.getTag().getIDLong());
         if(event instanceof PlotArchiveEvent) {
-            // Archive event will insert archive prefix to thread name and auto close the thread in one day (1440 minutes)
-            String threadName = DiscordPS.getSystemLang().get(LangPaths.ARCHIVED_PREFIX)
-                + " " + THREAD_NAME.apply(event.getPlotID(), owner.formatOwnerName());
+            if(tag != AvailableTag.ARCHIVED) DiscordPS.warning("Expected tag: "
+                + AvailableTag.ARCHIVED.name()
+                + " for " + event.getClass().getSimpleName()
+                + "(Got: " + tag.name() + ")"
+            );
 
+            // Archive event will insert archive prefix to thread name if specified
+            final String threadName = PlotSystemWebhook
+                    .getOptArchiveThreadName(event.getPlotID())
+                    .map(thread -> thread.apply(owner))
+                    .orElse(null);
+
+            // Archived thread will be auto locked in one day (1440 minutes)
             return this.webhook.modifyThreadChannel(threadID, threadName, tags, 1440, null, null, true).submit();
         }
-        else return this.webhook.editThreadChannelTags(threadID, tags, true).submit();
+        return this.webhook.editThreadChannelTags(threadID, tags, true).submit();
     }
 
     /**

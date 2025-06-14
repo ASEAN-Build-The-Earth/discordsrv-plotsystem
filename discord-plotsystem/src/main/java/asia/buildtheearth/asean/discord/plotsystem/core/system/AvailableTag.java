@@ -146,7 +146,6 @@ public enum AvailableTag implements WebhookStatusProvider {
                     }
 
                     this.color = new Color(colorSpace, comp, 1.0f);
-                    DiscordPS.debug("Registered tag '" + tagID + "' with embed color " + (this.color.getRGB() & 0xFFFFFF));
                     return;
                 }
                 else DiscordPS.error("The configured tag embed color '" + tagID + "' is invalid.");
@@ -170,12 +169,8 @@ public enum AvailableTag implements WebhookStatusProvider {
             // If provided tag is snowflake ID
             Checks.isSnowflake(tag.tagID, tag.name());
 
-            if(tagCache.containsKey(tag.tagID)) {
-                String tagName = tagCache.get(tag.tagID);
-                DiscordPS.debug("Registered tag '" + tag.name() + "' for tag: " + tagName);
-
-                tag.apply(new TagReference(tag.tagID, tagName));
-            }
+            if(tagCache.containsKey(tag.tagID))
+                tag.apply(new TagReference(tag.tagID, tagCache.get(tag.tagID)));
             else {
                 DiscordPS.error(error);
                 throw error;
@@ -183,12 +178,8 @@ public enum AvailableTag implements WebhookStatusProvider {
         }
         catch (IllegalArgumentException ex) {
             // If provided tag is a String name
-            if(tagCache.containsValue(tag.tagID)) {
-                String tagID = tagCache.getKey(tag.tagID);
-                DiscordPS.debug("Registered tag '" + tag.name() + "' for tag: " + tag.tagID);
-
-                tag.apply(new TagReference(tagID, tag.tagID));
-            }
+            if(tagCache.containsValue(tag.tagID))
+                tag.apply(new TagReference(tagCache.getKey(tag.tagID), tag.tagID));
             else {
                 DiscordPS.error(error);
                 throw error;

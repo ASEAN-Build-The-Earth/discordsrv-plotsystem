@@ -24,7 +24,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.Debug.Warning.DATABASE
 public class DatabaseConnection {
 
     /**
-     * Default database table name which can be configured differently in config.yml
+     * Default database table name, which can be configured differently in config.yml
      */
     private static String webhookTableName = "discord_webhook";
     private final static Properties config = new Properties();
@@ -70,7 +70,7 @@ public class DatabaseConnection {
         // Decide SQL driver to choose, else HikariDataSource will try to automatically find it
         String engine = matcher.group("engine");
 
-        // Provided by our plugin since Plot-System mainly use mariadb
+        // MariaDB: Provided by our plugin since Plot-System mainly use mariadb
         if(engine.equalsIgnoreCase("mariadb")) {
             Class.forName("org.mariadb.jdbc.MariaDbDataSource");
 
@@ -86,7 +86,7 @@ public class DatabaseConnection {
                 config.setProperty("dataSource.portNumber", matcher.group("port"));
         }
 
-        // Provided by DiscordSRV
+        // MySQL: Provided by DiscordSRV 1.29.0
         if(engine.equalsIgnoreCase("mysql")) {
             // The MySQL DataSource is known to be broken with respect to network timeout support.
             // Use jdbcUrl configuration with a specified driver instead.
@@ -99,6 +99,21 @@ public class DatabaseConnection {
             config.setProperty("dataSource.prepStmtCacheSize", String.valueOf(250));
             config.setProperty("dataSource.prepStmtCacheSqlLimit", String.valueOf(2048));
             config.setProperty("driverClassName", com.mysql.cj.jdbc.Driver.class.getName());
+            config.setProperty("maximumPoolSize", String.valueOf(3));
+        }
+
+        // SQLite: Partial support for unit testing (driver is in test scope)
+        if(engine.equalsIgnoreCase("sqlite")) {
+            Class.forName("org.sqlite.SQLiteDataSource");
+
+            config.setProperty("dataSourceClassName", "org.sqlite.SQLiteDataSource");
+            String filename = matcher.group("host");
+            if(filename != null) {
+                DiscordPS.debug("SQLite detected, treating the host '" + filename + "' as connection file.");
+                config.setProperty("jdbcUrl", "jdbc:sqlite:" + filename);
+            }
+            else DiscordPS.error("No filename detected for SQLite database connection");
+
             config.setProperty("maximumPoolSize", String.valueOf(3));
         }
 
@@ -154,18 +169,26 @@ public class DatabaseConnection {
             DiscordPS.error("There are multiple database connections opened. Please report this issue.");
     }
 
+    public static void shutdown() {
+        dataSource.close();
+    }
+
     static void validateWebhookTable(String table) throws SQLException {
         if(StringUtils.isBlank(table)) throw new SQLException("Configured Database webhook table name is blank");
 
         try (Connection connection = dataSource.getConnection()) {
-            if (SQLUtil.checkIfTableExists(connection, table)) {
-                if (!SQLUtil.checkIfTableMatchesStructure(connection, table, StatementBuilder.WebhookTable.getExpected(), true)) {
-                    DiscordPS.warning(DATABASE_STRUCTURE_NOT_MATCH,"JDBC table " + table + " does not match expected structure. Required manual validation.");
-                }
+           boolean sqlite = ConnectionUtil.checkIfSQLite(connection);
+            if (!sqlite && ConnectionUtil.checkIfTableExists(connection, table)) {
+                if(!ConnectionUtil.checkIfTableMatchesStructure(connection, table, WebhookTable.getExpected()))
+                    DiscordPS.warning(DATABASE_STRUCTURE_NOT_MATCH,"JDBC table " +
+                        table + " does not match expected structure. Required manual validation."
+                    );
             } else {
+                String newTable = sqlite
+                        ? WebhookTable.getCreateStatementSQLite(table)
+                        : WebhookTable.getCreateStatement(table);
                 DiscordPS.info("Initializing new database table '" + table + "' for webhook management.");
-                try (final PreparedStatement statement = connection.prepareStatement(
-                        StatementBuilder.WebhookTable.getCreateStatement(table))) {
+                try (final PreparedStatement statement = connection.prepareStatement(newTable)) {
                     statement.executeUpdate();
                 }
             }
@@ -243,11 +266,12 @@ public class DatabaseConnection {
                 resultSet = null;
             }
         }
+    }
 
-        private static class WebhookTable {
-            private final static String statusEnum = ThreadStatus.constructEnumString();
+    private static abstract class WebhookTable {
+        private final static String statusEnum = ThreadStatus.constructEnumString();
 
-            private final static Map<String, String> expected = Map.of(
+        private final static Map<String, String> expected = Map.of(
                 "message_id", "bigint(20) unsigned",
                 "thread_id", "bigint(20) unsigned",
                 "plot_id", "int(11)",
@@ -256,26 +280,70 @@ public class DatabaseConnection {
                 "owner_id", "varchar(20)",
                 "feedback", "varchar(1024)",
                 "version", "int(11)"
-            );
+        );
 
-            public static Map<String, String> getExpected() {
-                return expected;
+        public static Map<String, String> getExpected() {
+            return expected;
+        }
+
+        @Contract(pure = true)
+        public static @NotNull String getCreateStatementSQLite(@NotNull String tableName) {
+            return "CREATE TABLE IF NOT EXISTS [" + tableName.trim() + "] "
+                    + "([message_id] INT,[thread_id] INT,[plot_id] INT,[status] TEXT,"
+                    + "[owner_uuid] TEXT,[owner_id] INT,[feedback] TEXT,[version] INT);";
+        }
+
+        @Contract(pure = true)
+        public static @NotNull String getCreateStatement(@NotNull String tableName) {
+            return  "CREATE TABLE IF NOT EXISTS `" + tableName.trim() + "` (" +
+                    " `message_id`       BIGINT UNSIGNED NOT NULL," +
+                    " `thread_id`        BIGINT UNSIGNED NOT NULL," +
+                    " `plot_id`          INT NOT NULL," +
+                    " `status`           ENUM " + statusEnum + " NOT NULL," +
+                    " `owner_uuid`       varchar(36) NOT NULL COLLATE 'utf8mb4_general_ci'," +
+                    " `owner_id`         varchar(20) NULL DEFAULT NULL," +
+                    " `feedback`         varchar(1024) NULL DEFAULT NULL," +
+                    " `version`          INT NULL DEFAULT NULL," +
+                    " PRIMARY KEY        (`message_id`)," +
+                    " INDEX              (`plot_id`)" +
+                    ");";
+        }
+    }
+
+    private static abstract class ConnectionUtil {
+        public static boolean checkIfTableExists(@NotNull Connection connection, @NotNull String table) {
+            boolean tableExists = false;
+            try (final PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM " + table + " LIMIT 1")) {
+                statement.executeQuery();
+                tableExists = true;
+            } catch (SQLException ex) {
+                DiscordPS.error("Failed to check if the required SQL table exist", ex);
+            }
+            return tableExists;
+        }
+
+        public static boolean checkIfTableMatchesStructure(Connection connection, String table, Map<String, String> expectedColumns) throws SQLException {
+            final Set<String> found = new HashSet<>();
+            for (Map.Entry<String, String> entry : SQLUtil.getTableColumns(connection, table).entrySet()) {
+                if (!expectedColumns.containsKey(entry.getKey())) continue; // only check columns that we're expecting
+                final String expectedType = expectedColumns.get(entry.getKey());
+                final String actualType = entry.getValue();
+                if (!expectedType.equals(actualType)) {
+                    DiscordPS.error("Expected type " + expectedType + " for column " + entry.getKey() + ", got " + actualType);
+                    return false;
+                }
+                found.add(entry.getKey());
             }
 
-            @Contract(pure = true)
-            public static @NotNull String getCreateStatement(@NotNull String tableName) {
-                return  "CREATE TABLE IF NOT EXISTS `" + tableName.trim() + "` (" +
-                        " `message_id`       BIGINT UNSIGNED NOT NULL," +
-                        " `thread_id`        BIGINT UNSIGNED NOT NULL," +
-                        " `plot_id`          INT NOT NULL," +
-                        " `status`           ENUM " + statusEnum + " NOT NULL," +
-                        " `owner_uuid`       varchar(36) NOT NULL COLLATE 'utf8mb4_general_ci'," +
-                        " `owner_id`         varchar(20) NULL DEFAULT NULL," +
-                        " `feedback`         varchar(1024) NULL DEFAULT NULL," +
-                        " `version`          INT NULL DEFAULT NULL," +
-                        " PRIMARY KEY        (`message_id`)," +
-                        " INDEX              (`plot_id`)" +
-                        ");";
+            return found.containsAll(expectedColumns.keySet());
+        }
+
+        public static boolean checkIfSQLite(@NotNull Connection connection) {
+            try { // SQLite connection require different webhook table
+                return connection.getMetaData().getDatabaseProductName().equalsIgnoreCase("sqlite");
+            } catch (SQLException ex) {
+                DiscordPS.error("Cannot detect database connection engine! initial table creation might throw error.", ex);
+                return false;
             }
         }
     }

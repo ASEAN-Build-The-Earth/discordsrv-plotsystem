@@ -15,11 +15,14 @@ package asia.buildtheearth.asean.discord.plotsystem.api.events;
  * will never be dispatched automatically.
  * Refer to {@link InactivityNoticeEvent} to call this event manually.</p>
  *
+ * @deprecated This event cannot be called directly with {@link asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI#callEvent(ApiEvent) #callEvent}
  * @see NotificationType
  * @see #setCancelled()
  * @see #isCancelled()
  * @see InactivityNoticeEvent
  */
+@Deprecated(since = "1.2.2")
+@SuppressWarnings("DeprecatedIsStillUsed")
 public class PlotNotificationEvent extends PlotEvent {
 
     private final NotificationType type;

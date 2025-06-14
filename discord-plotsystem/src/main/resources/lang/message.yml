@@ -162,11 +162,17 @@ history-messages:
   # Triggered on the initial claim of each plot
   initial-creation: "{owner} created the plot <t:{timestamp}:R>"
   # Triggered only if a system fetch the plot as created
-  on-created:       "<t:{timestamp}:D> • Plot is claimed and under construction."
-  on-submitted:     "<t:{timestamp}:D> • Plot submitted and awaiting review."
+  on-created:       "<t:{timestamp}:D> • Plot is claimed and under construction"
+  on-submitted:     "<t:{timestamp}:D> • Plot submitted and awaiting review"
   on-approved:      "<t:{timestamp}:D> • Plot has been approved"
   on-rejected:      "<t:{timestamp}:D> • Plot has been rejected"
-  on-abandoned:     "<t:{timestamp}:D> • Plot has been abandoned by the builder."
+  on-abandoned:
+    manually:       "<t:{timestamp}:D> • Plot was manually abandoned by the owner"
+    inactive:       "<t:{timestamp}:D> • Plot was abandoned due to inactivity"
+    commands:       "<t:{timestamp}:D> • Plot was abandoned via an external command"
+    system:         "<t:{timestamp}:D> • Plot was abandoned by the system"
+  on-undo-review:   "<t:{timestamp}:D> • Plot review has been revoked"
+  on-undo-submit:   "<t:{timestamp}:D> • Plot submission is withdrawn"
   on-archived:      "<t:{timestamp}:D> • Plot has been archived by {owner}"
   on-reclaimed:     "<t:{timestamp}:D> • Plot is reclaimed by {owner}"
   on-system-fetch:  "<t:{timestamp}:D> • Plot has been fetched by the system"

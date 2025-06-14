@@ -121,7 +121,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         // Fetch database to update webhooks every session
         List<CompletableFuture<?>> validateActions = new ArrayList<>();
 
-        for(Guild guild : DiscordSRV.getPlugin().getJda().getGuilds()) {
+        for(Guild guild : this.getJDA().getGuilds()) {
 
             Member selfMember = guild.getSelfMember();
 
@@ -196,7 +196,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
             .get(Route.Channels.MODIFY_CHANNEL.getRoute())
             .compile(Long.toUnsignedString(this.channelID));
 
-        return new RestActionImpl<>(this.jdaImpl, route, (response, request) -> {
+        return new RestActionImpl<>(this.getJDA(), route, (response, request) -> {
             try {
                 int status = response.code;
                 if (status == 404) {

@@ -2,7 +2,6 @@ package asia.buildtheearth.asean.discord.plotsystem.commands;
 
 import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
 import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
-import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
@@ -16,7 +15,6 @@ import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotS
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.*;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.LangPaths;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.InfoComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
 import org.jetbrains.annotations.NotNull;
@@ -35,7 +33,6 @@ import static asia.buildtheearth.asean.discord.plotsystem.Constants.PLOT_IMAGE_F
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.GREEN;
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.ORANGE;
 
-import static asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemThread.THREAD_NAME;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotArchiveCommand.*;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.CommandMessage;
 
@@ -351,10 +348,7 @@ sealed class PlotArchiveCommand extends AbstractPlotArchiveCommand permits Revie
             return plotData;
         });
 
-        String prefix = getLangManager().get(LangPaths.ARCHIVED_PREFIX);
-
-        if(!StringUtils.isBlank(prefix)) thread.setApplier(owner -> prefix
-            + " " + THREAD_NAME.apply(event.getPlotID(), owner.formatOwnerName()));
+        PlotSystemWebhook.getOptArchiveThreadName(event.getPlotID()).ifPresent(thread::setApplier);
 
         thread.setModifier((owner, info) -> info.addHistory(event));
 

@@ -197,7 +197,7 @@ public class PlotSystemThread {
                 entry = entries.getFirst();
             }
             catch (SQLException ex) {
-                DiscordPS.error("Failed to fetch webhook entry for plot ID: " + event.getPlotID());
+                DiscordPS.error("Failed to fetch webhook entry for plot ID: " + event.getPlotID(), ex);
                 DiscordPS.warning("Skipping plot update event " + event.getClass().getSimpleName());
                 Notification.sendErrorEmbed(PLOT_UPDATE_SQL_EXCEPTION,
                     ex.toString(),

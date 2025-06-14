@@ -53,7 +53,7 @@ Artifacts are published to [Maven Central](https://central.sonatype.com/search?q
 <dependency>
     <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discord-plotsystem-api</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.2</version>
     <scope>provided</scope>
 </dependency>
 ```

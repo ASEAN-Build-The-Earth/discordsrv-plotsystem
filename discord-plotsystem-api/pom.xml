@@ -7,7 +7,7 @@
   <parent>
     <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.2.1</version>
+    <version>1.2.2</version>
   </parent>
 
   <name>Discord Plot-System API</name>

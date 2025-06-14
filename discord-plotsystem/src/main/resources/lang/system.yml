@@ -39,11 +39,20 @@ system-notification:
     plot-rejected:
       - ":broken_heart: Plot #{plotID} has been *rejected*"
       - "Tracker: <#{threadID}>"
+    plot-archived:
+      - ":package: Plot #{plotID} has been **archived**"
+      - "Tracker: <#{threadID}>"
     plot-inactive-abandoned:
-      - ":broken_heart: Plot #{plotID} is now abandoned due to inactivity"
+      - ":broken_heart: Plot #{plotID} was abandoned due to inactivity"
       - "Tracker: <#{threadID}>"
     plot-manually-abandoned:
-      - ":broken_heart: Plot #{plotID} is now abandoned by the builder"
+      - ":broken_heart: Plot #{plotID} was manually abandoned by the owner"
+      - "Tracker: <#{threadID}>"
+    plot-commands-abandoned:
+      - ":broken_heart: Plot #{plotID} was abandoned via an external command"
+      - "Tracker: <#{threadID}>"
+    plot-system-abandoned:
+      - ":broken_heart: Plot #{plotID} Plot was abandoned by the system"
       - "Tracker: <#{threadID}>"
   plot-commands:
     plot-control-fetch:
