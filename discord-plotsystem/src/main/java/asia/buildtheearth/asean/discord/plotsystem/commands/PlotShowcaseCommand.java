@@ -122,7 +122,7 @@ final class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
 
                         DiscordPS.getPlugin().getWebhook().sendNotification(notification, threadID, ownerMention);
 
-                        Notification.notify(CommandMessage.PLOT_SHOWCASE, message.getMessageId(), String.valueOf(payload.getPlotID()));
+                        Notification.notify(CommandMessage.PLOT_SHOWCASE, hook.getInteraction().getUser().getId(), threadID);
                     });
                 },
                 () -> defer.editMessageEmbeds(errorEmbed(MESSAGE_SHOWCASE_FAILED,

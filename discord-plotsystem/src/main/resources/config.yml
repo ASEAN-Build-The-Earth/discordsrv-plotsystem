@@ -37,15 +37,15 @@ embed-color:
 # Plot notification settings
 # Disable what is not preferred
 plot-notification:
-  on-plot-created: true
+  on-plot-created: false
   on-plot-submitted: true
   on-plot-reviewed: true
-  on-plot-approved: true
-  on-plot-rejected: true
+  on-plot-approved: false
+  on-plot-rejected: false
   on-undo-review: true
   on-undo-submit: true
   on-plot-showcased: true
-  on-plot-abandoned: true
+  on-plot-abandoned: false
   on-plot-inactivity: true
 
 # ========================
@@ -100,7 +100,4 @@ system-notification:
     plot-approved: ENABLED
     plot-rejected: ENABLED
     plot-archived: ENABLED
-    plot-inactive-abandoned: ENABLED
-    plot-manually-abandoned: ENABLED
-    plot-commands-abandoned: ENABLED
-    plot-system-abandoned: ENABLED
+    plot-abandoned: ENABLED

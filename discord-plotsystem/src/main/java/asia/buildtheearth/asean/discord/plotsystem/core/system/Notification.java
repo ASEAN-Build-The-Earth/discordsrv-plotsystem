@@ -34,7 +34,7 @@ public abstract class Notification extends NotificationProvider {
                 sendEmbed(METADATA.plugin(), embed.build());
             }
             case PlotNotification plot -> {
-                Config config = parseConfig(plot.getKey(), Config.DISABLED);
+                Config config = parseConfig(plot.getConfig(), Config.DISABLED);
                 if(config == Config.DISABLED) break;
 
                 Function<String, String> applier = argsApplier(plot.getLangArgs(), args);

@@ -122,30 +122,38 @@ public class Notification {
     }
 
     public enum PlotMessage implements PlotNotification {
-        PLOT_CREATED(GREEN, "plot-status.plot-created", OWNER),
-        PLOT_SUBMITTED(YELLOW, "plot-status.plot-submitted", TIMESTAMP),
+        PLOT_CREATED(OWNER, GREEN, "plot-status.plot-created"),
+        PLOT_SUBMITTED(TIMESTAMP, YELLOW, "plot-status.plot-submitted"),
         PLOT_APPROVED(GREEN, "plot-status.plot-approved"),
-        PLOT_REJECTED(RED, "plot-status.plot-rejected", OWNER),
+        PLOT_REJECTED(OWNER, RED, "plot-status.plot-rejected"),
         PLOT_ARCHIVE(BLUE, "plot-status.plot-archived"),
-        PLOT_INACTIVE_ABANDONED(PURPLE, "plot-status.plot-inactive-abandoned"),
-        PLOT_MANUALLY_ABANDONED(PURPLE, "plot-status.plot-manually-abandoned"),
-        PLOT_COMMANDS_ABANDONED(PURPLE, "plot-status.plot-commands-abandoned"),
-        PLOT_SYSTEM_ABANDONED(PURPLE, "plot-status.plot-system-abandoned");
+        PLOT_INACTIVE_ABANDONED(PURPLE, "plot-status.plot-abandoned", ".inactive"),
+        PLOT_MANUALLY_ABANDONED(PURPLE, "plot-status.plot-abandoned", ".manually"),
+        PLOT_COMMANDS_ABANDONED(PURPLE, "plot-status.plot-abandoned", ".commands"),
+        PLOT_SYSTEM_ABANDONED(PURPLE, "plot-status.plot-abandoned", ".system");
 
-        private final @NotNull String path;
+        private @Nullable String path = null;
+        private final @NotNull String parent;
         private final @NotNull Color accentColor;
         private final @NotNull String[] langArgs;
 
-        PlotMessage(@NotNull Color accentColor, @NotNull String path) {
+        PlotMessage(@NotNull Color accentColor, @NotNull String parent) {
             this.accentColor = accentColor;
-            this.path = path;
+            this.parent = parent;
             this.langArgs = new String[] { THREAD_ID, PLOT_ID };
         }
 
-        PlotMessage(@NotNull Color accentColor, @NotNull String path, @NotNull String format) {
+        PlotMessage(@NotNull String format, @NotNull Color accentColor, @NotNull String parent) {
             this.accentColor = accentColor;
-            this.path = path;
+            this.parent = parent;
             this.langArgs = new String[] { THREAD_ID, PLOT_ID, format };
+        }
+
+        PlotMessage( @NotNull Color accentColor, @NotNull String parent, @NotNull String path) {
+            this.accentColor = accentColor;
+            this.parent = parent;
+            this.path = path;
+            this.langArgs = new String[] { THREAD_ID, PLOT_ID };
         }
 
         /**
@@ -183,7 +191,15 @@ public class Notification {
         @Override
         @Contract(pure = true)
         public @NotNull String getKey() {
-            return LangPaths.SYSTEM_NOTIFICATION + this.path;
+            return (this.path != null)
+                ? LangPaths.SYSTEM_NOTIFICATION + this.parent + this.path
+                : LangPaths.SYSTEM_NOTIFICATION + this.parent;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public @NotNull String getConfig() {
+            return LangPaths.SYSTEM_NOTIFICATION + this.parent;
         }
 
         /** {@inheritDoc} */

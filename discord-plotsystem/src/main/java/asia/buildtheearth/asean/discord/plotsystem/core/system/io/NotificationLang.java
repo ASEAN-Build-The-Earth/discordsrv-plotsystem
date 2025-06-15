@@ -12,4 +12,14 @@ public interface NotificationLang extends SystemLang {
      */
     @NotNull
     java.awt.Color getAccentColor();
+
+    /**
+     * System notification message can be enabled or disabled by the config file.
+     *
+     * @return The configuration path, the default value is {@link #getKey()}
+     */
+    @NotNull
+    default String getConfig() {
+        return getKey();
+    }
 }
