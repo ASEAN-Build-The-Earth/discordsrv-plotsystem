@@ -23,6 +23,23 @@ public class MockDiscordPS extends DiscordPS implements MockDiscordSRVBridge {
     };
 
     @Override
+    public void onEnable() {
+        // Initialize plugin reference
+        plugin = this;
+
+        // Create configs
+        createConfig();
+
+        // Initialize plugin
+        Thread initThread = createInitThread();
+        initThread.start();
+
+        // Thread have to be joined to prevent potential interruption from junit
+        try { initThread.join(); }
+        catch (InterruptedException ex) { throw new RuntimeException(ex); }
+    }
+
+    @Override
     public void initWebhook(PlotSystemWebhook webhook) {
         this.mockWebhook = new PlotSystemWebhook(this, PLOT_SYSTEM);
         super.initWebhook(webhook);
