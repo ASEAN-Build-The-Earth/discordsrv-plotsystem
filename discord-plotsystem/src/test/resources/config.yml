@@ -33,10 +33,7 @@ system-notification:
     plot-approved: ENABLED
     plot-rejected: ENABLED
     plot-archived: ENABLED
-    plot-inactive-abandoned: ENABLED
-    plot-manually-abandoned: ENABLED
-    plot-commands-abandoned: ENABLED
-    plot-system-abandoned: ENABLED
+    plot-abandoned: ENABLED
 embed-color:
   on-going: "#808080" # Gray
   finished: "#fdcb58" # Yellow
