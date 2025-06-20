@@ -1,13 +1,11 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
+import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.commands.ReviewCommand;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.platform.bukkit.BukkitAudiences;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component;
-import github.scarsz.discordsrv.dependencies.kyori.adventure.text.TextComponent;
-import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTextColor;
-import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.TextDecoration;
 import asia.buildtheearth.asean.discord.plotsystem.Debug;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import github.scarsz.discordsrv.api.Subscribe;
@@ -16,14 +14,18 @@ import asia.buildtheearth.asean.discord.plotsystem.commands.PlotCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginListenerProvider;
 import asia.buildtheearth.asean.discord.plotsystem.commands.SetupCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.*;
+import github.scarsz.discordsrv.dependencies.okhttp3.*;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
-import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage.PLUGIN_STARTED;
+import static asia.buildtheearth.asean.discord.plotsystem.Constants.REPOSITORY_RELEASE_URL;
+import static asia.buildtheearth.asean.discord.plotsystem.Debug.Warning.UPDATE_CHECKING_FAILED;
+import static asia.buildtheearth.asean.discord.plotsystem.DiscordPS.VERSION;
+import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage.*;
 
 /**
  * Main listener and starting point of the plugin.
@@ -145,17 +147,28 @@ public class DiscordSRVListener extends PluginListenerProvider {
                     return;
                 }
 
-                if(this.plugin.isReady()) {
-                    DiscordPS.getPlugin().subscribe(this.newPlotSystemListener(this.plugin.getWebhook()));
-
-                    DiscordPS.info("Discord-PlotSystem is fully configured! The application is ready.");
-
-                    Notification.notify(PLUGIN_STARTED);
-                }
+                if(this.plugin.isReady()) this.onPluginReady();
                 else this.onPluginNotReady();
             });
         }
         else this.onPluginNotReady();
+    }
+
+    /**
+     * Subscribe the plugin with plot-system listener,
+     * then print blocking message to notify the plugin status.
+     *
+     * @see DiscordPS#subscribe(Object)
+     * @see #notifyPluginReady(String, Throwable)
+     */
+    private void onPluginReady() {
+        DiscordPS.getPlugin().subscribe(this.newPlotSystemListener(this.plugin.getWebhook()));
+
+        Notification.notify(PLUGIN_STARTED);
+
+        this.checkForUpdate()
+            .orTimeout(10, TimeUnit.SECONDS)
+            .whenComplete(this::notifyPluginReady);
     }
 
     /**
@@ -171,48 +184,85 @@ public class DiscordSRVListener extends PluginListenerProvider {
     }
 
     /**
-     * Huge debugging message when the plugin is not ready.
+     * Checks for available plugin updates and logs the result to the console.
      *
-     * @return Formatted message with colors.
+     * <p>Checks {@value Constants#REPOSITORY_RELEASE_URL} to determine the latest version.
+     * If the current version {@link DiscordPS#VERSION} is outdated, it logs a warning.
+     *
+     * @return A nullable string where a non-null value indicates a new version is available.
+     * @throws RuntimeException if the HTTP client fails to fetch update data.
      */
-    private @NotNull Component createDebuggingMessage() {
-        TextComponent LINE = text("!!! ", NamedTextColor.RED);
+    private @NotNull CompletableFuture<@Nullable String> checkForUpdate() {
+        final CompletableFuture<@Nullable String> action = new CompletableFuture<>();
 
-        // Brief title
-        Component notReadyMessage = text("[DiscordPlotSystem]", NamedTextColor.AQUA).appendSpace()
-                .append(text("is NOT ready!", NamedTextColor.RED, TextDecoration.BOLD)).appendNewline()
-                .append(text("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", NamedTextColor.RED)).appendNewline()
-                .append(LINE).append(text("There are unresolved configuration or runtime errors blocking the application process.", NamedTextColor.YELLOW)).appendNewline()
-                .append(LINE).append(text("The plugin will remain running for debugging.", NamedTextColor.GREEN)).appendNewline()
-                .append(LINE).append(text("Use the command '/setup help' in your discord server to see the configuration checklists.", NamedTextColor.GREEN)).appendNewline()
-                .append(LINE).append(text("All Occurred Errors:", NamedTextColor.YELLOW)).appendNewline();
+        try {
+            DiscordPS.getPlugin()
+                .getJDA()
+                .getHttpClient()
+                .newCall(new Request.Builder().url(REPOSITORY_RELEASE_URL).build())
+                .enqueue(new UpdateChecker(action));
+        }
+        catch (RuntimeException ex) { action.completeExceptionally(ex); }
 
-        // Important error: this make the application fails
-        for(Map.Entry<Debug.Error, String> entry : DiscordPS.getDebugger().allThrownErrors()) {
-            notReadyMessage = notReadyMessage.append(LINE)
-                .append(text("[ERROR]", NamedTextColor.RED, TextDecoration.BOLD))
-                .appendSpace()
-                .append(text(entry.getKey().name(), NamedTextColor.GOLD))
-                .append(text(":", NamedTextColor.GRAY))
-                .appendNewline()
-                .append(LINE).append(text("        └─ ", NamedTextColor.DARK_GRAY))
-                .append(text(entry.getValue(), NamedTextColor.DARK_RED))
-                .appendNewline();
+        return action;
+    }
+
+    /**
+     * Response callback to handle update checker request.
+     *
+     * @param action Completable action that will be resolved on the callback of the update checker.
+     */
+    private record UpdateChecker(CompletableFuture<String> action) implements Callback {
+        private void fail(String failure) {
+            DiscordPS.warning(UPDATE_CHECKING_FAILED, failure);
+            this.action.completeExceptionally(new RuntimeException(failure));
         }
 
-        // Occurred warnings
-        for(Map.Entry<Debug.Warning, String> entry : DiscordPS.getDebugger().allThrownWarnings()) {
-            notReadyMessage = notReadyMessage.append(LINE)
-                .append(text("[WARNING]", NamedTextColor.YELLOW))
-                .appendSpace()
-                .append(text(entry.getKey().name(), NamedTextColor.GOLD))
-                .append(text(":", NamedTextColor.GRAY))
-                .appendNewline()
-                .append(LINE).append(text("          └─ ", NamedTextColor.DARK_GRAY))
-                .append(text(entry.getValue(), NamedTextColor.DARK_GREEN))
-                .appendNewline();
+        @Override
+        public void onFailure(Call call, IOException exception) {
+            DiscordPS.error("Update checker returned an IOException", exception);
+            this.fail("Update checker HTTP call execution returned IOException.");
+            call.cancel();
         }
-        notReadyMessage = notReadyMessage.append(text("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", NamedTextColor.RED));
-        return notReadyMessage;
+
+        /**
+         * Expecting the URL to be redirected to the latest tag released,
+         * where the last path endpoint contain the version string.
+         *
+         * @param call The initial http client's call
+         * @param response The http response of said client
+         */
+        @Override
+        public void onResponse(@NotNull Call call, Response response) {
+            if(response == null) {
+                this.fail("Got no response from Update checker URL; cannot determine latest plugin version.");
+                call.cancel();
+                return;
+            }
+            else if(response.priorResponse() == null) this.fail("Update checker response not found; cannot determine latest plugin version.");
+            else if(!response.priorResponse().isRedirect()) this.fail("Update checker URL is not redirected; cannot determine latest plugin version.");
+            else if (!response.isSuccessful()) this.fail("Update checker HTTP call was unsuccessful.");
+
+
+            if(action.isCompletedExceptionally() || action.isCancelled()) {
+                if(response.priorResponse() != null)
+                    response.priorResponse().close();
+                response.close();
+                call.cancel();
+                return;
+            }
+
+            String latestVersion = response.request().url().pathSegments().getLast().trim()
+                    // Trim out potential un-wanted string
+                    .replace("/", "")
+                    .replace("v", "")
+                    .replace("V", "");
+
+            if (latestVersion.equals(VERSION))
+                this.action.complete(null); // Plugin is up-to-date
+            else this.action.complete(latestVersion); // Newer version available
+
+            response.close();
+        }
     }
 }

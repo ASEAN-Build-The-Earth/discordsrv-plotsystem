@@ -36,6 +36,7 @@ public final class Debug {
         SHOWCASE_WEBHOOK_NOT_CONFIGURED("Showcase webhook is not configured! use the command `/setup showcase` to set it up."),
         NOTIFICATION_CHANNEL_NOT_SET("Plot-System notification channel is not set"),
         RUNTIME_SQL_EXCEPTION("Unknown SQL Exception Occurred. Please check the log files"),
+        UPDATE_CHECKING_FAILED("Update checker failed to retrieve latest plugin version"),
         DATABASE_STRUCTURE_NOT_MATCH("JDBC table does not match expected structure. Required manual validation.");
 
         private final String defaultMessage;
