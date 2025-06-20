@@ -40,7 +40,6 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.*;
 
-import static github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component.text;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage;
 
 /**
@@ -248,7 +247,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         );
     }
 
-    private @NotNull Thread createInitThread() {
+    protected @NotNull Thread createInitThread() {
         Thread initThread = new Thread(this::init, "DiscordPlotSystem - Initialization");
         initThread.setUncaughtExceptionHandler((t, e) -> {
             DiscordPS.error("[DiscordPlotSystem - Initialization] ERROR: Uncaught exception");
@@ -262,7 +261,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         return initThread;
     }
 
-    void init() {
+    protected void init() {
         // Initialize database connection
         try {
             if(DatabaseConnection.InitializeDatabase()) {
@@ -294,7 +293,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         }
     }
 
-    private void createConfig() {
+    protected void createConfig() {
         File createConfig = new File(getDataFolder(), "config.yml");
         if (!createConfig.exists()) {
             createConfig.getParentFile().mkdirs();
@@ -391,7 +390,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         RequestBody requestBody = RequestBody.create(MediaType.get("application/json"), jsonObject.toString());
         Route.CompiledRoute route = Route.Channels.CREATE_WEBHOOK.compile(channelID);
 
-        return new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, requestBody, (response, request) -> {
+        return new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody, (response, request) -> {
             if (response.code == 404) {
                 // 404 = Invalid Request (most likely bad permissions)
                 DiscordPS.error(
