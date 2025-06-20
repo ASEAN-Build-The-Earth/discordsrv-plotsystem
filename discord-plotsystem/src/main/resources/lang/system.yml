@@ -42,18 +42,19 @@ system-notification:
     plot-archived:
       - ":package: Plot #{plotID} has been **archived**"
       - "Tracker: <#{threadID}>"
-    plot-inactive-abandoned:
-      - ":broken_heart: Plot #{plotID} was abandoned due to inactivity"
-      - "Tracker: <#{threadID}>"
-    plot-manually-abandoned:
-      - ":broken_heart: Plot #{plotID} was manually abandoned by the owner"
-      - "Tracker: <#{threadID}>"
-    plot-commands-abandoned:
-      - ":broken_heart: Plot #{plotID} was abandoned via an external command"
-      - "Tracker: <#{threadID}>"
-    plot-system-abandoned:
-      - ":broken_heart: Plot #{plotID} Plot was abandoned by the system"
-      - "Tracker: <#{threadID}>"
+    plot-abandoned:
+      inactive:
+        - ":broken_heart: Plot #{plotID} was abandoned due to inactivity"
+        - "Tracker: <#{threadID}>"
+      manually:
+        - ":broken_heart: Plot #{plotID} was manually abandoned by the owner"
+        - "Tracker: <#{threadID}>"
+      commands:
+        - ":broken_heart: Plot #{plotID} was abandoned via an external command"
+        - "Tracker: <#{threadID}>"
+      system:
+        - ":broken_heart: Plot #{plotID} Plot was abandoned by the system"
+        - "Tracker: <#{threadID}>"
   plot-commands:
     plot-control-fetch:
       - "A thread as been fetched to the status `{label}`"
