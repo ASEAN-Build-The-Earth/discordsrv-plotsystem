@@ -9,8 +9,6 @@ import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.RestActionImpl;
 import github.scarsz.discordsrv.dependencies.jda.internal.requests.Route;
 import github.scarsz.discordsrv.dependencies.json.JSONObject;
-import github.scarsz.discordsrv.dependencies.kyori.adventure.platform.bukkit.BukkitAudiences;
-import github.scarsz.discordsrv.dependencies.kyori.adventure.text.format.NamedTextColor;
 import github.scarsz.discordsrv.dependencies.okhttp3.MediaType;
 import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
 import github.scarsz.discordsrv.util.SchedulerUtil;
@@ -163,14 +161,6 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         // Initialize plugin
         Thread initThread = createInitThread();
         initThread.start();
-
-        // Startup Message
-        try(BukkitAudiences bukkit = BukkitAudiences.create(this)) {
-            bukkit.console().sendMessage(text("[", NamedTextColor.GREEN)
-                    .append(text("Discord Plot System", NamedTextColor.AQUA))
-                    .append(text(" v" + VERSION, NamedTextColor.GOLD))
-                    .append(text("] Enabling plugin...", NamedTextColor.GREEN)));
-        }
     }
 
     @Override

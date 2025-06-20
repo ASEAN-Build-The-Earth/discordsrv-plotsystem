@@ -7,6 +7,11 @@ import java.awt.Color;
  */
 public abstract class Constants {
     /**
+     * URL to the latest release of this plugin.
+     */
+    public static final String REPOSITORY_RELEASE_URL = "https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/releases/latest";
+
+    /**
      * (LEGACY) DiscordSRV(v1.29.0) webhook naming prefix "DiscordSRV ".
      * <a href="https://github.com/DiscordSRV/DiscordSRV/blob/9d4734818ab27069d76f264a4cda74a699806770/src/main/java/github/scarsz/discordsrv/util/WebhookUtil.java#L430">
      *     github.scarsz.discordsrv.util.WebhookUtil

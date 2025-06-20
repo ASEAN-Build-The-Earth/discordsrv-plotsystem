@@ -55,7 +55,10 @@ public class Notification {
     public enum PluginMessage implements PluginNotification {
         PLUGIN_STARTED(GREEN, "plugin-started"),
         PLUGIN_STOPPING_GRACEFUL(ORANGE, "plugin-stopping-graceful"),
-        PLUGIN_STOPPING_ON_ERROR(RED, "plugin-stopping-on-error");
+        PLUGIN_STOPPING_ON_ERROR(RED, "plugin-stopping-on-error"),
+        PLUGIN_UPDATE_AVAILABLE(BLUE, "plugin-update.available"),
+        PLUGIN_UPDATE_EXCEPTION(RED, "plugin-update.exception"),
+        PLUGIN_UPDATE_UP_TO_DATE(GREEN, "plugin-update.up-to-date");
 
         private final @NotNull String path;
         private final @NotNull Color accentColor;

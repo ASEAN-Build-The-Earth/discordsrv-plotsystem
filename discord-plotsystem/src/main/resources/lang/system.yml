@@ -26,6 +26,24 @@ system-notification:
   plugin-stopping-on-error:
     - ":red_circle: Fatal error occurred! Disabling Discord-PlotSystem."
     - ~
+  plugin-update:
+    available:
+      - ":incoming_envelope: **New update available!**"
+      - |
+        A newer version of **Discord Plot-System** is now available.
+        
+        :link: [Download latest release](https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/releases/latest)
+    exception:
+      - ":warning: **Update check failed**"
+      - |
+        Failed to verify whether the plugin is up to date.
+          
+        :warning:️ **This might indicate API changes or network issues.**
+        :mag_right: Please manually check for updates:
+        https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/releases/latest
+    up-to-date:
+      - "-# Plugin is up-to-date"
+      - ~
   plot-status:
     plot-created:
       - ":hammer_pick: New Plot Created at <#{threadID}>"
