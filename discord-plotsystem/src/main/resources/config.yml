@@ -17,7 +17,10 @@ database:
   password: ""
   webhook-table: "discord_webhook"
 
-# Forum channel tag
+# Forum channel tags
+# Required all tags to be configured
+# Values must match the exact name of the tag in discord or a snowflake ID
+# Ex. "finished", "1361310076308033616"
 available-tag:
   on-going: "on-going"
   finished: "finished"
@@ -26,6 +29,8 @@ available-tag:
   archived: "archived"
   abandoned: "abandoned"
 
+# Accent color for each status
+# Supported HEX only
 embed-color:
   on-going: "#808080" # Gray
   finished: "#fdcb58" # Yellow
@@ -34,8 +39,11 @@ embed-color:
   archived: "#55acee" # Blue
   abandoned: "#aa8ed6" # Purple
 
+# ========================
 # Plot notification settings
+# All the notification will ping the owner in notified plot
 # Disable what is not preferred
+# ========================
 plot-notification:
   on-plot-created: false
   on-plot-submitted: true

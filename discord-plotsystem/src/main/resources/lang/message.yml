@@ -73,6 +73,9 @@ plot:
 
 # ============================================
 # Build team specific messages
+# Optional language for build-team data (if not provided externally)
+# For example, providing country string of "TH" will display "Thailand"
+# and providing the city ID of "example-city" will display "Example City"
 # ============================================
 build-team:
   country:
@@ -158,6 +161,11 @@ plot-notification:
     ## :warning: {owner} Your plot is getting abandoned in <t:{timestamp}:R>
     -# Plot is detected inactive, please join your plot world to extend this.
 
+# ============================================
+# Plot history messages
+# These messages get appended to each plot's
+# layout data (the first message in the thread)
+# ============================================
 history-messages:
   # Triggered on the initial claim of each plot
   initial-creation: "{owner} created the plot <t:{timestamp}:R>"
@@ -175,8 +183,14 @@ history-messages:
   on-undo-submit:   "<t:{timestamp}:D> • Plot submission is withdrawn"
   on-archived:      "<t:{timestamp}:D> • Plot has been archived by {owner}"
   on-reclaimed:     "<t:{timestamp}:D> • Plot is reclaimed by {owner}"
+
   on-system-fetch:  "<t:{timestamp}:D> • Plot has been fetched by the system"
 
+# ============================================
+# Plot Status Embeds
+# These are owner-owned embeds that gets display on each claimed plot in a thread.
+# The embed contains interactions like help and feedback button.
+# ============================================
 status-embeds:
   on-going:
     - ":white_circle: On Going"
@@ -197,6 +211,11 @@ status-embeds:
     - ":purple_circle: Abandoned"
     - "The user has abandoned their plot, anyone can re-claim this plot."
 
+# ============================================
+# Plot Status messages
+# These are status message on the first message in the thread.
+# The status will get paired with the plot owner's avatar image.
+# ============================================
 status-messages:
   on-going: |
     ## Claimed by {owner}
