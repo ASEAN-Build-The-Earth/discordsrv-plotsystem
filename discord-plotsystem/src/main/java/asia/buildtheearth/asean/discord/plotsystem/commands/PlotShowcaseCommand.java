@@ -120,9 +120,9 @@ final class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
                         final String ownerMention = payload.getPlotData().getOwnerMentionOrName();
                         String threadID = Long.toUnsignedString(payload.getPlotEntry().threadID());
 
-                        DiscordPS.getPlugin().getWebhook().sendNotification(notification, threadID, ownerMention);
+                        DiscordPS.getPlugin().getWebhook().sendNotification(notification, message.getMessageId(), threadID, ownerMention);
 
-                        Notification.notify(CommandMessage.PLOT_SHOWCASE, hook.getInteraction().getUser().getId(), threadID);
+                        Notification.notify(CommandMessage.PLOT_SHOWCASE, hook.getInteraction().getUser().getId(), message.getMessageId());
                     });
                 },
                 () -> defer.editMessageEmbeds(errorEmbed(MESSAGE_SHOWCASE_FAILED,

@@ -124,7 +124,7 @@ interactions:
 # ============================================
 # Plot notification message
 # Send when an event is triggered
-# Can be disabled separately in config.yml set enabled to false
+# Can be disabled separately in config.yml, set enabled to false
 # ============================================
 plot-notification:
   on-plot-created: |
@@ -152,7 +152,7 @@ plot-notification:
     -# The builder chose to keep working on the plot for now.
   on-plot-showcased: |
     ## :loudspeaker: Your plot has been showcased!
-    {owner}, your build is now featured publicly. Check it out in <#{threadID}>!
+    {owner}, your build is now featured publicly. Check it out in <#{label}>!
   on-plot-abandoned: |
     ### :broken_heart: *Plot Abandoned*
     -# Plot has been marked as abandoned due to inactivity or manual action.

@@ -425,7 +425,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     }
 
     /**
-     * Send a plot notification message with owner ID placeholder
+     * Send a plot notification message with owner and thread ID placeholder.
      *
      * @param type The notification message to send to
      * @param threadID The thread ID to send notification to
@@ -442,7 +442,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     }
 
     /**
-     * Special notification that notifies the review button label.
+     * Send a plot notification message with owner ID and a custom label placeholder.
      *
      * @param type The notification message to send to
      * @param threadID The thread ID to send notification to
@@ -451,7 +451,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      * @param label  Button label apply to this notification message
      *               <i>(placeholder: {@code {label}})</i>
      */
-    protected void sendNotification(@NotNull PlotNotification type,
+    public void sendNotification(@NotNull PlotNotification type,
                                     @NotNull String label,
                                     @NotNull String threadID,
                                     @Nullable String owner) {
