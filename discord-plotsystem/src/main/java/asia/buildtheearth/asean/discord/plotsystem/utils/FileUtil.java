@@ -82,7 +82,7 @@ public abstract class FileUtil {
      * @return The filename as a string
      */
     public static String getFilenameFromFile(@NotNull File file) {
-        // 63: character '.' where extension starts with
+        // 46: character '.' where extension starts with
         int dotIndex = file.getName().lastIndexOf(46);
         return dotIndex == -1 ? file.getName() : file.getName().substring(0, dotIndex);
     }
