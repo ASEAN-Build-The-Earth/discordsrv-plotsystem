@@ -26,7 +26,7 @@ public enum ThreadStatus implements WebhookStatusProvider {
      *
      * @return The SQL enum entry
      */
-    public static @NotNull String constructEnumString() {
+    static @NotNull String constructEnumString() {
         StringBuilder enumBuilder = new StringBuilder();
         enumBuilder.append("(");
         for(int i = 0; i < VALUES.length; i++) {

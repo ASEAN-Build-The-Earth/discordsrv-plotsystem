@@ -208,9 +208,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         // Optionally add new owner of exist (and not the same as previous owner)
         Optional<CompletableFuture<Void>> optAddMemberAction = plotData.getOwnerDiscord().map(ISnowflake::getId)
-            .flatMap(newOwner -> (removeMemberID != null && !removeMemberID.equals(newOwner))
-                ? Optional.of(this.webhook.addThreadMember(threadID.get(), newOwner).submit())
-                : Optional.empty()
+            .map(newOwner -> (removeMemberID != null && !removeMemberID.equals(newOwner))
+                ? this.webhook.addThreadMember(threadID.get(), newOwner).submit() : null
             );
 
         // Remove previous member
@@ -678,7 +677,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * @return Updated data
      */
     @NotNull
-    private static Optional<WebhookData> updateExistingClaim(@NotNull PlotReclaimEvent event,
+    private static Optional<WebhookData> updateExistingClaim(@SuppressWarnings("deprecation")
+                                                             @NotNull PlotReclaimEvent event,
                                                              @NotNull Layout component,
                                                              MemberOwnable owner,
                                                              AvailableTag tag) {
@@ -689,7 +689,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         boolean doUploadAvatar = false;
         Map<UUID, String> savedUUID = new HashMap<>();
 
-        for(LayoutComponentProvider<? extends ComponentV2, ? extends Enum<?>> layout : component.getLayout()) {
+        for(LayoutComponentProvider<?, ?> layout : component.getLayout()) {
             switch (layout) {
                 case InfoComponent infoComponent:
                     infoComponent.addHistory(event);
@@ -817,6 +817,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                                           @NotNull Layout component,
                                           @NotNull MemberOwnable owner,
                                           @NotNull AvailableTag tag) {
+        // Check if layout attachment(s) is modified
         boolean modified = false;
 
         // Update layout data
@@ -824,7 +825,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         List<File> imageList = new ArrayList<>();
         List<String> ownerList = new ArrayList<>();
 
-        for(LayoutComponentProvider<? extends ComponentV2, ? extends Enum<?>> layout : component.getLayout()) {
+        for(LayoutComponentProvider<?, ?> layout : component.getLayout()) {
             switch (layout) {
                 // Edit info component accent and history as well as add new images if exist
                 case InfoComponent infoComponent:

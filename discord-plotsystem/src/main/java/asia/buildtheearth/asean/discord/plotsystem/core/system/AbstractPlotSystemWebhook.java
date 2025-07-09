@@ -7,6 +7,7 @@ import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotNotificationEv
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.LangPaths;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
@@ -200,8 +201,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
                                                          boolean register) {
         final Consumer<PlotData> registerNewPlot = plotData -> this.registerNewPlot(plotData, entry.plotID(), entry.threadID());
         final PlotSystemThread thread = new PlotSystemThread(entry.plotID(), entry.threadID());
-        final Optional<String> removeMemberID = Optional.ofNullable(entry.ownerID());
-        return this.addNewExistingPlot(thread, plot, removeMemberID.orElse(null), register? registerNewPlot : null);
+        return this.addNewExistingPlot(thread, plot, entry.ownerID(), register? registerNewPlot : null);
     }
 
     /**
