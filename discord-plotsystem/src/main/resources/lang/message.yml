@@ -158,7 +158,7 @@ plot-notification:
     -# Plot has been marked as abandoned due to inactivity or manual action.
     -# {owner}, if this was a mistake, please contact a staff member or reclaim it if allowed.
   on-plot-inactivity: |
-    ## :warning: {owner} Your plot is getting abandoned in <t:{timestamp}:R>
+    ## :warning: {owner} Your plot is getting abandoned <t:{timestamp}:R>
     -# Plot is detected inactive, please join your plot world to extend this.
 
 # ============================================

@@ -18,8 +18,25 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Function;
 
+/**
+ * Static notification manager class.
+ *
+ * <p>This statically parse configured notification channel on first use,
+ * and is available for the entire system after.</p>
+ *
+ * @see #notify(NotificationLang, String...)
+ */
 public abstract class Notification extends NotificationProvider {
 
+    /**
+     * Notify a notification message dynamically with defined language information.
+     *
+     * <p>Supported types are: {@linkplain PluginNotification PluginNotification}, {@linkplain PlotNotification PlotNotification},
+     * {@linkplain ErrorNotification ErrorNotification}, and {@linkplain NotificationLang NotificationLang}</p>
+     *
+     * @param message The message definition to retrieve language information from.
+     * @param args Supported placeholder argument(s) defined by each notification message.
+     */
     public static void notify(@NotNull NotificationLang message, @NotNull String... args) {
         switch (message) {
             case PluginNotification plugin -> {
@@ -80,6 +97,7 @@ public abstract class Notification extends NotificationProvider {
 
     /**
      * Send message content and embed(s) to the notification channel.
+     *
      * @param content Message string content.
      * @param embeds The {@link MessageEmbed}
      */
@@ -91,7 +109,8 @@ public abstract class Notification extends NotificationProvider {
 
     /**
      * Send message to the notification channel.
-     * @param message The message as String of content
+     *
+     * @param message The message as String of content.
      */
     public static void sendMessage(CharSequence message) {
         if(METADATA.plugin() == Config.DISABLED) return;
@@ -99,6 +118,13 @@ public abstract class Notification extends NotificationProvider {
         getOpt().ifPresent((channel -> channel.sendMessage(message).queue()));
     }
 
+    /**
+     * Send red error embed.
+     *
+     * @param message The error message language definition.
+     * @param error The error stacktrace message.
+     * @param args Supported placeholder argument(s) of the message.
+     */
     public static void sendErrorEmbed(ErrorNotification message, String error, String... args) {
         if(METADATA.errors() == Config.DISABLED) return;
 
@@ -108,6 +134,13 @@ public abstract class Notification extends NotificationProvider {
         );
     }
 
+    /**
+     * Send error embed with a specific color.
+     *
+     * @param color The color to be used.
+     * @param description The error description message.
+     * @param error The error stacktrace message.
+     */
     public static void sendErrorEmbed(java.awt.Color color, String description, String error) {
         if(METADATA.errors() == Config.DISABLED) return;
 
@@ -120,6 +153,12 @@ public abstract class Notification extends NotificationProvider {
         );
     }
 
+    /**
+     * Send error embed with a specific color.
+     *
+     * @param color The color to be used.
+     * @param description The error description message.
+     */
     public static void sendErrorEmbed(java.awt.Color color, String description) {
         if(METADATA.errors() == Config.DISABLED) return;
 
@@ -131,14 +170,32 @@ public abstract class Notification extends NotificationProvider {
         );
     }
 
+    /**
+     * Send red error embed.
+     *
+     * @param description The error description message.
+     */
     public static void sendErrorEmbed(String description) {
         sendErrorEmbed(Constants.RED, description);
     }
 
+    /**
+     * Send red error embed.
+     *
+     * @param description The error description message.
+     * @param error The error stacktrace message.
+     */
     public static void sendErrorEmbed(String description, String error) {
         sendErrorEmbed(Constants.RED, description, error);
     }
 
+    /**
+     * Prepare an error embed as an {@linkplain EmbedBuilder}.
+     *
+     * @param message The error message language definition.
+     * @param args Supported placeholder argument(s) of the message.
+     * @return New embed builder instance built with the error title, description, and its accent color.
+     */
     private static @NotNull EmbedBuilder prepareErrorEmbed(@NotNull ErrorNotification message,
                                                            String @NotNull ... args) {
         LanguageFile.EmbedLang lang = DiscordPS.getSystemLang().getEmbed(message);
@@ -155,7 +212,6 @@ public abstract class Notification extends NotificationProvider {
 
         return embed;
     }
-
 
     /**
      * Message arguments applier.

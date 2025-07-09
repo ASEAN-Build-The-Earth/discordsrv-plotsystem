@@ -1,14 +1,9 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.ImageEmbed;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.InfoEmbed;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.PlotDataEmbed;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.StatusEmbed;
 import asia.buildtheearth.asean.discord.plotsystem.utils.CoordinatesUtil;
 import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
 import org.jetbrains.annotations.NotNull;
@@ -20,6 +15,19 @@ import java.util.function.Function;
 
 import static asia.buildtheearth.asean.discord.plotsystem.Constants.PLOT_IMAGE_FILE;
 
+/**
+ * Class responsible for managing plot information/metadata
+ * provided by an initial sets of information provided by the API.
+ *
+ * <p>Data collections:</p>
+ * <ul>
+ *     <li>Parse {@link PlotCreateData initial} data for plot specific metadata.<ul>
+ *         <li>Plot's initial status</li>
+ *         <li>Plot's geographic location</li></ul></li>
+ *     <li>Fetch plot's image file(s) in their respective data folder.</li>
+ *     <li>Fetch owner's information such as their Discord and avatar info.</li>
+ * </ul>
+ */
 public class PlotData extends MemberOwnable {
 
     private final Map<String, File> imageFiles;
@@ -32,6 +40,12 @@ public class PlotData extends MemberOwnable {
     private @NotNull ThreadStatus primaryStatus;
     private final @NotNull Set<Long> statusTags;
 
+    /**
+     * Construct a plot data using an initial create data.
+     *
+     * @param plot The initial information defining this plot.
+     * @see PlotData
+     */
     public PlotData(@NotNull PlotCreateData plot) {
         super(plot.ownerUUID());
         this.plot = plot;
@@ -51,10 +65,22 @@ public class PlotData extends MemberOwnable {
         this.statusTags = new HashSet<>(Collections.singletonList(primaryStatus.toTag().getTag().getIDLong()));
     }
 
+    /**
+     * Get the primary status of this plot.
+     *
+     * @return The thread status.
+     */
     public @NotNull ThreadStatus getPrimaryStatus() {
         return this.primaryStatus;
     }
 
+    /**
+     * Set a new primary status for this plot data.
+     *
+     * @param status New primary status to set to.
+     * @param override If {@code true}, will remove the previous status if existed.
+     *                 Setting {@code false} will retain the previous status without it being primary status.
+     */
     public void setPrimaryStatus(@NotNull ThreadStatus status, boolean override) {
         if(override)
             this.statusTags.remove(this.primaryStatus.toTag().getTag().getIDLong());
@@ -62,24 +88,58 @@ public class PlotData extends MemberOwnable {
         this.primaryStatus = status;
     }
 
+    /**
+     * Add a non-primary status tag to this plot data.
+     *
+     * <p>Added tag will appear on {@link #getStatusTags()}</p>
+     * <p>Note: this tag will not get returned by {@link #getPrimaryStatus()}</p>
+     * @param status A tag to add
+     */
     public void addStatusTag(@NotNull ThreadStatus status) {
         this.statusTags.add(status.toTag().getTag().getIDLong());
     }
 
+    /**
+     * Get all status tag(s) applied to this plot.
+     *
+     * @return Set of the tag's snowflake ID long.
+     */
     public @NotNull Set<Long> getStatusTags() {
         return this.statusTags;
     }
 
+    /**
+     * Get all media file(s) of this plot fetched initially by the constructor.
+     *
+     * <p>Use {@link #fetchMediaFolder()} to update the media file(s)</p>
+     *
+     * @return Collection of {@linkplain File} instance.
+     */
     public Collection<File> getImageFiles() { return this.imageFiles.values(); }
 
+    /**
+     * Get the plot's location.
+     *
+     * @return Plot's location formatted as {@code NSEW}
+     */
     public String getDisplayCords() {
         return displayCords;
     }
 
+    /**
+     * Get the plot's location
+     *
+     * @return Plot's location formatted as {@code lat, long}
+     */
     public String getGeoCoordinates() {
         return geoCoordinates;
     }
 
+    /**
+     * Get the initial plot-create data provided during construction.
+     *
+     * @return Un-modified plot-create data instance.
+     */
     public PlotCreateData getPlot() {
         return plot;
     }
@@ -144,45 +204,8 @@ public class PlotData extends MemberOwnable {
             imageFiles.addAll(FileUtil.findImagesFileByPrefix(PLOT_IMAGE_FILE, folder));
         }
         catch (IOException ex) {
-            DiscordPS.error("Failed to find plot's image files");
+            DiscordPS.error("Failed to find plot's image files", ex);
         }
         return imageFiles;
-    }
-
-    @Deprecated
-    public static class PlotDataEmbedBuilder {
-        private final InfoEmbed infoEmbed;
-        private final StatusEmbed statusEmbed;
-        private final List<PlotDataEmbed> embeds;
-
-        private final List<ImageEmbed> imageEmbeds = new ArrayList<>(4);
-
-        public PlotDataEmbedBuilder(@NotNull InfoEmbed info, @NotNull StatusEmbed status, ImageEmbed... images) {
-            this.embeds = new ArrayList<>();
-            this.embeds.add(this.infoEmbed = info);
-            this.embeds.add(this.statusEmbed = status);
-
-            for(ImageEmbed image : images) {
-                imageEmbeds.add(image);
-                this.embeds.add(image);
-            }
-        }
-
-        public InfoEmbed getInfoEmbed() {
-            return infoEmbed;
-        }
-
-        public StatusEmbed getStatusEmbed() {
-            return statusEmbed;
-        }
-
-        public List<ImageEmbed> getImageEmbeds() {
-            return imageEmbeds;
-        }
-
-        public List<MessageEmbed> build() {
-            return embeds.stream().map(PlotDataEmbed::build).toList();
-        }
-
     }
 }

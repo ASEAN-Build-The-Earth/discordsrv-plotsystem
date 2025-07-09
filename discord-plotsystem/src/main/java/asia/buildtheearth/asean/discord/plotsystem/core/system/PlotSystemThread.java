@@ -22,11 +22,27 @@ import java.util.function.Function;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage.PLOT_UPDATE_SQL_EXCEPTION;
 
 /**
- * Plot-System forum thread manager
+ * Plot-System forum thread manager,
+ * provide 3 major structure for creating/modifying Plot-System thread.
  *
- * @see #setProvider(PlotDataProvider)
- * @see #setApplier(ThreadNameApplier)
- * @see #setModifier(PlotInfoModifier)
+ * <p>{@linkplain  PlotSystemWebhook#newThreadForPlotID(PlotSystemThread, PlotCreateData, boolean, boolean) #newThreadForPlotID}
+ * Implementation: </p>
+ * <blockquote>{@snippet :
+ * public void newThreadForPlotID(PlotCreateData data, PlotSystemThread thread) {
+ *     // 1st: Retrieve plot data from thread provider
+ *     PlotData plotData = thread.getProvider().apply(data);
+ *
+ *     // 2nd: Get the display name from thread applier
+ *     String threadName = thread.getApplier().apply(plotData);
+ *
+ *     // 3rd: Optional modification to info component if provided
+ *     InfoComponent infoComponent = new InfoComponent(0, plotData);
+ *     thread.getModifier().accept(plotData, infoComponent);
+ * }}</blockquote>
+ *
+ * @see #setProvider(PlotDataProvider) Provide plot data
+ * @see #setApplier(ThreadNameApplier) Apply thread name
+ * @see #setModifier(PlotInfoModifier) Modify plot layout
  */
 public class PlotSystemThread {
 
@@ -35,89 +51,137 @@ public class PlotSystemThread {
      * require plot ID and owner name to format.
      *
      * <p>Example formatted: {@code Plot#17 @bob (bobTheBuilder)}</p>
-     *
-     * @see #DEFAULT_THREAD_NAME
      */
     public static final BiFunction<Integer, String, String> THREAD_NAME = (plotID, ownerName) -> DiscordPS.getMessagesLang()
             .get(PlotInformation.THREAD_NAME)
             .replace(Format.OWNER, ownerName)
             .replace(Format.PLOT_ID, String.valueOf(plotID));
 
-    public static final Function<Integer, ThreadNameApplier> DEFAULT_THREAD_NAME = plotID -> owner -> THREAD_NAME.apply(plotID, owner.formatOwnerName());
+    private static final Function<Integer, ThreadNameApplier> DEFAULT_THREAD_NAME = plotID -> owner -> THREAD_NAME.apply(plotID, owner.formatOwnerName());
 
     /**
      * Formatter for initial history message to newly create plot, require owner name to format.
      *
      * <p>Example formatted: {@code @bob created the plot 3 minutes ago}</p>
-     *
-     * @see #DEFAULT_THREAD_CREATED_STATUS
      */
     public static final Function<String, String> INITIAL_HISTORY = ownerName -> DiscordPS.getMessagesLang()
             .get(HistoryMessage.INITIAL_CREATION)
             .replace(Format.OWNER, ownerName)
             .replace(Format.TIMESTAMP, String.valueOf(Instant.now().getEpochSecond()));
 
-    public static final PlotInfoModifier DEFAULT_THREAD_CREATED_STATUS = (owner, info) -> info.addHistory(INITIAL_HISTORY.apply(owner.getOwnerMentionOrName()));
+    private static final PlotInfoModifier DEFAULT_THREAD_CREATED_STATUS = (owner, info) -> info.addHistory(INITIAL_HISTORY.apply(owner.getOwnerMentionOrName()));
 
     /**
-     * The plot data provider (usually {@link PlotData#PlotData(PlotCreateData)}) but can be modified before passing the instance.
+     * The plot data provider (usually {@link PlotData#PlotData(PlotCreateData)})
+     * which can be modified before passing the instance.
      */
     private @Nullable PlotDataProvider provider;
 
-    /**
-     * Applier for thread name, invoked with the plot's owner info.
-     */
+    /** Applier for thread name, invoked with the plot's owner info. */
     private @Nullable ThreadNameApplier applier;
 
-    /**
-     * Optional modifier for info data after it is initialized
-     */
+    /** Optional modifier for info data after it is initialized */
     private @Nullable PlotInfoModifier modifier;
 
-    /**
-     * The nullable thread ID if the plot already have thread data registered before.
-     */
+    /** The nullable thread ID if the plot already have thread data registered before. */
     private @Nullable Long threadID;
 
+    /** The unique ID of the tracking plot on this thread. */
     private final int plotID;
 
+    /**
+     * Construct a new thread information from plot ID.
+     *
+     * @param plotID The plot ID tracked by this thread.
+     */
     public PlotSystemThread(int plotID) {
         this.plotID = plotID;
     }
 
+    /**
+     * Construct a thread information from existing thread.
+     *
+     * @param plotID The plot ID tracked by this thread.
+     * @param threadID The existing thread ID of this instance.
+     */
     public PlotSystemThread(int plotID, long threadID) {
         this.plotID = plotID;
         this.threadID = threadID;
     }
 
+    /**
+     * Get the plot ID tracked by this thread.
+     *
+     * @return The unique plot ID in integer.
+     */
     public int getPlotID() {
-        return plotID;
+        return this.plotID;
     }
 
-    public Optional<Long> getOptID() {
+    /**
+     * Get the thread's snowflake ID if existed.
+     *
+     * @return If thread exist (created by the constructor {@link PlotSystemThread#PlotSystemThread(int, long)})
+     *         then a non-empty optional is returned with the thread ID.
+     */
+    public @NotNull Optional<@NotNull Long> getOptID() {
         return Optional.ofNullable(this.threadID);
     }
 
+    /**
+     * Set a new {@link PlotData} provider for this thread.
+     *
+     * @param provider New plot data provider
+     * @see PlotDataProvider
+     */
     public void setProvider(@NotNull PlotDataProvider provider) {
         this.provider = provider;
     }
 
+    /**
+     * Set a new {@linkplain #DEFAULT_THREAD_NAME thread name} to apply.
+     *
+     * @param applier New thread name applier
+     * @see ThreadNameApplier
+     */
     public void setApplier(@NotNull ThreadNameApplier applier) {
         this.applier = applier;
     }
 
+    /**
+     * Set a layout modifier for plot's initial thread layout.
+     *
+     * @param modifier New plot's {@link InfoComponent} modifier
+     * @see PlotInfoModifier
+     */
     public void setModifier(@NotNull PlotInfoModifier modifier) {
         this.modifier = modifier;
     }
 
+    /**
+     * Get the {@link PlotData} provider for this thread.
+     *
+     * @return A defined provider (default to {@link PlotData#PlotData(PlotCreateData)})
+     */
     public @NotNull PlotDataProvider getProvider() {
         return this.provider == null? PlotData::new : this.provider;
     }
 
+    /**
+     * Get layout modifier for plot's initial thread layout.
+     *
+     * @return A defined modifier (default to {@linkplain #INITIAL_HISTORY}
+     *         which applies initial plot-create history to the layout)
+     */
     public @NotNull PlotInfoModifier getModifier() {
         return this.modifier == null? DEFAULT_THREAD_CREATED_STATUS : this.modifier;
     }
 
+    /**
+     * Get the applier for this thread's name.
+     *
+     * @return A defined applier (default to {@linkplain #THREAD_NAME})
+     */
     public @NotNull ThreadNameApplier getApplier() {
         return this.applier == null?  DEFAULT_THREAD_NAME.apply(this.plotID) : this.applier;
     }
