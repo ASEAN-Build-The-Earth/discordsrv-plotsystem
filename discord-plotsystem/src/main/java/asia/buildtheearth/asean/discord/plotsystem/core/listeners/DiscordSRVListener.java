@@ -19,6 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -103,11 +104,7 @@ public class DiscordSRVListener extends PluginListenerProvider {
 
         // Initialize main webhook
         try {
-            ForumWebhookImpl forumWebhook = new ForumWebhookImpl(
-                this.plugin.getJDA(),
-                this.plugin.getWebhookConfig(),
-                this.plugin.getConfig()
-            );
+            ForumWebhookImpl forumWebhook = new ForumWebhookImpl(this.plugin.getJDA(), this.plugin.getWebhookConfig());
             this.plugin.initWebhook(new PlotSystemWebhook(this.plugin, forumWebhook));
         }
         catch (RuntimeException ex) {
@@ -119,11 +116,7 @@ public class DiscordSRVListener extends PluginListenerProvider {
 
         // Initialize showcase webhook
         try {
-            ForumWebhookImpl showcaseWebhook = new ForumWebhookImpl(
-                this.plugin.getJDA(),
-                this.plugin.getShowcaseConfig(),
-                this.plugin.getConfig()
-            );
+            ForumWebhookImpl showcaseWebhook = new ForumWebhookImpl(this.plugin.getJDA(), this.plugin.getShowcaseConfig());
             this.plugin.initShowcase(new ShowcaseWebhook(showcaseWebhook));
         }
         catch (RuntimeException ex) {
@@ -132,14 +125,17 @@ public class DiscordSRVListener extends PluginListenerProvider {
 
         // Webhook is initialized, validate its functionalities
         if(this.plugin.getWebhook() != null) {
-            CompletableFuture<Void> validation = this.plugin.getShowcase() != null
-                ? this.plugin
-                    .getWebhook()
-                    .getProvider()
-                    .validateWebhook(this.plugin.getShowcase().getProvider())
-                : this.plugin.getWebhook().getProvider().validateWebhook();
+            PlotSystemWebhookValidator validator = this.newWebhookValidator();
 
-            validation.orTimeout(60, TimeUnit.SECONDS).whenComplete((ok, error) -> {
+            // Validate the webhook(s), optionally including the ShowcaseWebhook if present.
+            // Completed future with no error indicate a successful validation
+            // Output is checked again by Debug.Error class to determine if the plugin is ready or not.
+            Optional.ofNullable(this.plugin.getShowcase())
+                    .map(ShowcaseWebhook::getProvider)
+                    .map(validator::validate)
+                    .orElseGet(validator::validate)
+                    .orTimeout(60, TimeUnit.SECONDS)
+                    .whenComplete((ok, error) -> {
 
                 if(error != null) {
                     DiscordPS.error(Debug.Error.WEBHOOK_VALIDATION_UNKNOWN_EXCEPTION, error);

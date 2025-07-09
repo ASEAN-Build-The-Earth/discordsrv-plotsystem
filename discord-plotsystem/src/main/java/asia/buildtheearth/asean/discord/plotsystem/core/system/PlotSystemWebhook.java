@@ -72,12 +72,10 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * provides webhook as references and validation method.
      *
      * @return The provider as interface
-     * @see WebhookProvider#validateWebhook(WebhookProvider...)
      */
     public WebhookProvider getProvider() {
         return this.webhook.getProvider();
     }
-
 
     /**
      * {@inheritDoc}

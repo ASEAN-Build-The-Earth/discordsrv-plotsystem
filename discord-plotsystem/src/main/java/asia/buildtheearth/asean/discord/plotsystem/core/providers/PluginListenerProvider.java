@@ -8,6 +8,7 @@ import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordSRVList
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemListener;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemWebhook;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemWebhookValidator;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.platform.bukkit.BukkitAudiences;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.Component;
 import github.scarsz.discordsrv.dependencies.kyori.adventure.text.TextComponent;
@@ -80,7 +81,7 @@ public abstract class PluginListenerProvider extends PluginProvider {
      * @return A newly created {@link DiscordEventListener} instance.
      */
     @Contract("_ -> new")
-    public @NotNull DiscordEventListener newEventListener(@NotNull DiscordSRVListener listener) {
+    protected @NotNull DiscordEventListener newEventListener(@NotNull DiscordSRVListener listener) {
         if(getEventListener() != null) throw new IllegalArgumentException("[Internal] Trying to initialize plugin listener that already exist");
         return this.eventListener = new DiscordEventListener(listener);
     }
@@ -92,7 +93,7 @@ public abstract class PluginListenerProvider extends PluginProvider {
      * @return A newly created {@link DiscordCommandListener} instance.
      */
     @Contract("-> new")
-    public @NotNull DiscordCommandListener newSlashCommandListener() {
+    protected @NotNull DiscordCommandListener newSlashCommandListener() {
         if(getPluginSlashCommand() != null) throw new IllegalArgumentException("[Internal] Trying to initialize plugin listener that already exist");
         return this.pluginSlashCommand = new DiscordCommandListener(this.plugin);
     }
@@ -105,9 +106,20 @@ public abstract class PluginListenerProvider extends PluginProvider {
      * @return A newly created {@link PlotSystemListener} instance.
      */
     @Contract("_ -> new")
-    public @NotNull PlotSystemListener newPlotSystemListener(@NotNull PlotSystemWebhook webhook) {
+    protected @NotNull PlotSystemListener newPlotSystemListener(@NotNull PlotSystemWebhook webhook) {
         if(getPlotSystemListener() != null) throw new IllegalArgumentException("[Internal] Trying to initialize plugin listener that already exist");
         return this.plotSystemListener = new PlotSystemListener(webhook);
+    }
+
+    /**
+     * Create a new {@linkplain PlotSystemWebhookValidator}.
+     *
+     * @return A newly created validator using the plugin's webhook instance.
+     */
+    @Contract("-> new")
+    protected @NotNull PlotSystemWebhookValidator newWebhookValidator() {
+        if(this.plugin.getWebhook() == null) throw new IllegalArgumentException("[Internal] Trying to initialize plot-system webhook validator but its instance is null");
+        return new PlotSystemWebhookValidator(this.plugin.getWebhook(),  this.plugin.getConfig());
     }
 
     /**

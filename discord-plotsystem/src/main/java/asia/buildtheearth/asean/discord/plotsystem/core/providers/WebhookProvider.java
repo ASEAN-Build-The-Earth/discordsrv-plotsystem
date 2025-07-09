@@ -1,12 +1,9 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.providers;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Webhook provider, provide webhook reference and validation method.
  *
  * @see #getWebhook()
- * @see #validateWebhook(WebhookProvider...)
  */
 public interface WebhookProvider {
 
@@ -31,22 +28,6 @@ public interface WebhookProvider {
      * @return Guild ID as unsigned long snowflake
      */
     long getGuildID();
-
-    /**
-     * Validate this webhook integrity and output error/information to {@link asia.buildtheearth.asean.discord.plotsystem.Debug}.
-     *
-     * <p>The validation process is as follows:</p>
-     * <ul>
-     *     <li>Fetch the webhook guild if the webhook actually exist in the guild</li>
-     *     <li>Check if this webhook is created by the bot itself (required by the system)</li>
-     *     <li>Resolve status tags from config file (eg. name and color)</li>
-     *     <li>Validate status tags if all of it exist by discord API</li>
-     * </ul>
-     *
-     * @param others other webhook to validate with within the same request call
-     * @return Future that complete when all validation action is completed
-     */
-    CompletableFuture<Void> validateWebhook(WebhookProvider... others);
 
     /**
      * Get the webhook reference, this is used to resolve for actual webhook entity.

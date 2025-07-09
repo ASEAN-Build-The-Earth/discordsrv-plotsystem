@@ -5,8 +5,6 @@ import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookProvide
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Webhook;
 import github.scarsz.discordsrv.dependencies.jda.internal.JDAImpl;
 
-import java.util.concurrent.CompletableFuture;
-
 public abstract class MockWebhook {
     public static final PlotSystemWebhook PLOT_SYSTEM = new PlotSystemWebhook();
     public static final ShowcaseWebhook SHOWCASE = new ShowcaseWebhook();
@@ -50,17 +48,6 @@ public abstract class MockWebhook {
     private abstract static class AbstractWebhookProvider implements WebhookProvider {
         public JDAImpl getJDA() {
             return (JDAImpl) DiscordPS.getPlugin().getJDA();
-        }
-
-        /**
-         * Assume the webhook validation is successfully validated since unit test does not cover API calls.
-         *
-         * @param others other webhook to validate with within the same request call
-         * @return Instant completed future
-         */
-        @Override
-        public CompletableFuture<Void> validateWebhook(WebhookProvider... others) {
-            return CompletableFuture.completedFuture(null);
         }
 
         /**

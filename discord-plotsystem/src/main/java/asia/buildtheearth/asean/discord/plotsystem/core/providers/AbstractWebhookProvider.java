@@ -9,8 +9,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Implementations for {@link WebhookProvider}
  */
@@ -101,13 +99,6 @@ public abstract class AbstractWebhookProvider implements WebhookProvider {
      */
     @Contract(" -> new")
     public abstract @NotNull Webhook.WebhookReference getWebhookReference();
-
-    /**
-     * {@inheritDoc}
-     *
-     * @return
-     */
-    public abstract CompletableFuture<Void> validateWebhook(WebhookProvider... others);
 
     /**
      * {@inheritDoc}

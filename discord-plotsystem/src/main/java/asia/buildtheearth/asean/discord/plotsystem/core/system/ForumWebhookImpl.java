@@ -1,13 +1,13 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.AccountType;
 import github.scarsz.discordsrv.dependencies.jda.api.JDA;
-import github.scarsz.discordsrv.dependencies.jda.api.Permission;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.AccountTypeException;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.Request;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.Response;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
@@ -20,14 +20,11 @@ import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import github.scarsz.discordsrv.dependencies.okhttp3.MediaType;
 import github.scarsz.discordsrv.dependencies.okhttp3.MultipartBody;
 import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
-import asia.buildtheearth.asean.discord.plotsystem.Constants;
-import asia.buildtheearth.asean.discord.plotsystem.Debug;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.AbstractWebhookProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -45,12 +42,11 @@ import java.util.function.Supplier;
  * @see WebhookProvider
  * @see ForumWebhook
  */
-public final class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWebhook {
+public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWebhook {
     private final JDAImpl jdaImpl;
     private final Webhook webhook;
     private final Webhook.WebhookReference webhookReference;
-    private final YamlConfiguration forumConfig;
-
+    private final MessageChannel channel;
 
     /**
      * Initialize Webhook provider with a given configuration
@@ -58,10 +54,11 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
      * @param config Yaml Configuration file of this webhook
      * @throws IllegalArgumentException If the given configuration is invalid for webhook ID and its channel ID
      */
-    public ForumWebhookImpl(JDA jda, @NotNull YamlConfiguration config, @NotNull YamlConfiguration forumConfig) throws IllegalArgumentException {
+    public ForumWebhookImpl(@NotNull JDA jda,
+                            @NotNull YamlConfiguration config) throws IllegalArgumentException {
         super(config);
-        this.forumConfig = forumConfig;
         this.jdaImpl = this.makeJdaImpl(jda);
+        this.channel = new TextChannelImpl(this.channelID, new GuildImpl(this.jdaImpl, this.guildID));
         this.webhookReference = new Webhook.WebhookReference(this.getJDA(), this.webhookID, this.channelID);
         this.webhook = this.retrieveWebhook();
     }
@@ -76,269 +73,34 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
     private JDAImpl makeJdaImpl(@NotNull JDA jda) {
         // Validate for account type (This should never happen)
         try { AccountTypeException.check(jda.getAccountType(), AccountType.BOT); }
-        catch (AccountTypeException ex) { throw new IllegalArgumentException(ex.getMessage()); }
+        catch (AccountTypeException ex) { throw new IllegalArgumentException(ex); }
 
         return (JDAImpl) jda;
     }
 
+    /** {@inheritDoc} */
     @Override
     public Webhook getWebhook() {
         return this.webhook;
     }
 
+    /** {@inheritDoc} */
     @Override
     public WebhookProvider getProvider() { return this; }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull Webhook.WebhookReference getWebhookReference(){
         return this.webhookReference;
     }
 
+    /** {@inheritDoc} */
     @Override
     public JDAImpl getJDA() {
         return this.jdaImpl;
     }
 
-    @Override
-    public CompletableFuture<Void> validateWebhook(WebhookProvider... others) {
-
-        List<CompletableFuture<?>> validateActions = this.validateWebhookReference(others);
-
-        return CompletableFuture.allOf(validateActions.toArray(new CompletableFuture<?>[0])).handle((ok, error) -> {
-            if(error != null)  DiscordPS.error(Debug.Error.WEBHOOK_VALIDATION_UNKNOWN_EXCEPTION, error.toString());
-            // If webhook reference validation failed, tag validation is guarantee to fails too
-            if(DiscordPS.getDebugger().hasGroup(Debug.ErrorGroup.WEBHOOK_REFS_VALIDATION)) {
-                DiscordPS.error(Debug.Error.WEBHOOK_TAG_VALIDATION_FAILED);
-                return CompletableFuture.<Void>completedFuture(null);
-            } // Else validate for it with API calls
-            else return this.validateWebhookTags();
-        }).thenCompose(Function.identity());
-    }
-
-    /**
-     * Validate for webhook reference in guild,
-     * this request a guild data for each guild the bot is in
-     * then check the webhook existence in those guild.
-     *
-     * @param others Other webhook to be validated within the same API call
-     * @return Futures of each guild validation action
-     */
-    private @NotNull List<CompletableFuture<?>> validateWebhookReference(WebhookProvider... others) {
-        // Fetch database to update webhooks every session
-        List<CompletableFuture<?>> validateActions = new ArrayList<>();
-
-        for(Guild guild : this.getJDA().getGuilds()) {
-
-            Member selfMember = guild.getSelfMember();
-
-            if (!selfMember.hasPermission(Permission.MANAGE_WEBHOOKS)) {
-                DiscordPS.error(
-                    Debug.Error.WEBHOOK_CAN_NOT_MANAGE,
-            "Unable to manage webhooks guild-wide in " + guild
-                    + ", please allow the permission MANAGE_WEBHOOKS"
-                );
-                continue;
-            }
-
-            validateActions.add(this.validateWebhooksInGuild(guild, selfMember, others));
-        }
-
-        return validateActions;
-    }
-
-    /**
-     * Configure and resolved status tags does not have valid API reference yet,
-     * this method fetch the tag reference from the webhook guild and apply tags base on configured name.
-     *
-     * @return Future to the validation action
-     * @see AvailableTag#resolveAllTag(FileConfiguration)
-     * @see AvailableTag#applyAllTag()
-     */
-    private CompletableFuture<Void> validateWebhookTags() {
-        // Order matters here
-        // 1st Resolve the tag enum to is corresponding config value
-        this.resolveStatusTags();
-
-        // 2nd validate its existence by fetching available tags from this webhook channel
-        return this.getAvailableTags(true).submit().handle((optData, error) -> {
-            if(error != null) DiscordPS.error(Debug.Error.WEBHOOK_TAG_VALIDATION_FAILED, error.getMessage(), error);
-            else if(optData.isEmpty()) DiscordPS.error(Debug.Error.WEBHOOK_TAG_VALIDATION_FAILED,
-                "Failed to fetch webhook channel data to validate available tags because API response returned empty.");
-            else {
-                DataArray availableTags = optData.get();
-                AvailableTag.initCache(availableTags);
-                AvailableTag.applyAllTag();
-            }
-
-            return null;
-        });
-    }
-
-    /**
-     * Resolve all configured status tags from forum config file,
-     * output statically as {@link AvailableTag} which resolve for tag color and snowflake id.
-     *
-     * @see AvailableTag#resolveAllTag(FileConfiguration)
-     */
-    private void resolveStatusTags() {
-        // Resolve the config path into tag enum
-        try {
-            AvailableTag.resolveAllTag(this.forumConfig);
-        }
-        catch (NoSuchElementException ex) {
-            DiscordPS.error(Debug.Error.WEBHOOK_TAG_CONFIGURATION_FAILED, ex);
-        }
-    }
-
-    /**
-     * Fetch for available tags in this webhook channel.
-     *
-     * @param allowSecondAttempt To retry on 404 response
-     * @return The request action that if success, return optional of raw data array.
-     */
-    @NotNull
-    private RestAction<Optional<DataArray>> getAvailableTags(boolean allowSecondAttempt) {
-        Route.CompiledRoute route = Route
-            .get(Route.Channels.MODIFY_CHANNEL.getRoute())
-            .compile(Long.toUnsignedString(this.channelID));
-
-        return new RestActionImpl<>(this.getJDA(), route, (response, request) -> {
-            try {
-                int status = response.code;
-                if (status == 404) {
-                    if (allowSecondAttempt)
-                        return retryWebhookExecution(() -> getAvailableTags(false));
-                    request.cancel();
-
-                    return Optional.empty();
-                }
-                Optional<DataObject> body = response.optObject();
-
-                if (body.isPresent()) {
-                    if (body.get().hasKey("code")) {
-                        if (body.get().getInt("code") == 10015) {
-                            DiscordPS.debug("Webhook delivery returned 10015 (Unknown Webhook)");
-                            request.cancel();
-                            return Optional.empty();
-                        }
-                    }
-
-                    // Additional checks since this route does have channel data
-                    // to fail if the channel isn't forum channel
-                    if(body.get().hasKey("type")) {
-                        int type = body.get().getInt("type");
-                        if(type != 15) {
-                            DiscordPS.error(Debug.Error.WEBHOOK_CHANNEL_NOT_FORUM);
-                            return Optional.empty();
-                        }
-                    }
-
-                    // Push all available tags in the forum channel
-                    if(body.get().hasKey("available_tags"))
-                        return Optional.of(body.get().getArray("available_tags"));
-
-                    return Optional.empty();
-                }
-            }
-            catch (Throwable ex) {
-                DiscordPS.warning("Failed to receive API response: " + ex.toString());
-                request.cancel();
-            }
-            return Optional.empty();
-        });
-    }
-
-    /**
-     * Fetch guild for webhook information and validate if our webhook exist in the guild,
-     * this also check for all bot created webhook if it is sync to the configured one or not.
-     *
-     * @param guild The guild to check for webhook
-     * @param bot The plugin bot as discord member
-     */
-    private CompletableFuture<Void> validateWebhooksInGuild(@NotNull Guild guild, @NotNull Member bot, WebhookProvider... others) {
-
-        Route.CompiledRoute route = Route.Guilds.GET_WEBHOOKS.compile(guild.getId());
-
-        // Retrieve guild webhooks as raw data since this outdated api produce null value for newer webhook.
-        return new RestActionImpl<List<DataObject>>(this.getJDA(), route, (response, request) -> {
-            DataArray array = response.getArray();
-            List<DataObject> webhooks = new ArrayList<>(array.length());
-
-            for(int i = 0; i < array.length(); ++i) {
-                try {
-                    DataObject webhookObj = array.getObject(i);
-
-                    webhooks.add(webhookObj);
-                } catch (Exception e) {
-                    DiscordPS.error("[Internal] Error creating webhook from json", e);
-                }
-            }
-
-            return Collections.unmodifiableList(webhooks);
-        }).submit().thenAccept(webhooks -> {
-            boolean webhookExist = false;
-            List<String> notRegistered = new ArrayList<>();
-
-            for (DataObject webhook : webhooks) {
-                try {
-                    // Filter for bot created webhook only
-                    DataObject user = webhook.getObject("user");
-
-                    long userID = Long.parseUnsignedLong(user.getString("id"));
-
-                    if(userID != bot.getIdLong()) continue;
-
-                    // Check for configured webhooks
-                    String name = webhook.getString("name");
-                    String username = user.getString("username");
-
-                    long id = Long.parseUnsignedLong(webhook.getString("id"));
-                    long channel = Long.parseUnsignedLong(webhook.getString("channel_id"));
-
-                    if(name.startsWith(Constants.DISCORD_SRV_WEBHOOK_PREFIX_LEGACY)
-                    || name.startsWith(Constants.DISCORD_SRV_WEBHOOK_PREFIX))
-                        continue;
-
-                    if(id == this.webhookID && channel == this.channelID) {
-                        DiscordPS.debug("Found configured webhook: " + name + ": " + username);
-                        webhookExist = true;
-                    }
-                    else {
-
-                        boolean registered = false;
-
-                        for(WebhookProvider other : others) {
-                            if(id == other.getWebhookID() && channel == other.getChannelID()) {
-                                DiscordPS.debug("Found configured webhook: " + name + ": " + username);
-                                registered = true;
-                                break;
-                            }
-                        }
-
-                        if(!registered) {
-                            // name:username(snowflake)
-                            notRegistered.add(name + ":" + username + "(" + Long.toUnsignedString(id) + ")");
-                            DiscordPS.warning("Found un-registered bot created webhook: " + name + ": " + username);
-                        }
-                    }
-                } catch (ParsingException ex) {
-                    DiscordPS.error("Fetching webhook: "
-                        + "Exception occur trying to parse webhook data, "
-                        + "maybe discord API updated?",
-                        ex);
-                }
-            }
-
-            if(!webhookExist)
-                DiscordPS.error(Debug.Error.WEBHOOK_NOT_FOUND_IN_GUILD);
-
-            if(!notRegistered.isEmpty()) DiscordPS.warning(
-                Debug.Warning.WEBHOOK_NOT_REGISTERED_DETECTED,
-                "Detected un-registered webhook created by this bot " + notRegistered
-            );
-        });
-    }
-
+    /** {@inheritDoc} */
     @Override
     public @NotNull RestAction<Optional<DataObject>> editThreadChannelTags(
             @NotNull String channelID,
@@ -347,6 +109,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         return this.modifyThreadChannel(channelID, null, appliedTags, null, null, null, allowSecondAttempt);
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull RestAction<Optional<MessageReference>> editInitialThreadMessage(
             @NotNull String threadID,
@@ -355,6 +118,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         return this.editWebhookMessage(threadID, threadID, webhookData, false, allowSecondAttempt);
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull RestAction<Optional<MessageReference>> editThreadMessage(
             @NotNull String threadID,
@@ -364,6 +128,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         return this.editWebhookMessage(threadID, messageID, webhookData, false, allowSecondAttempt);
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull RestAction<Optional<MessageReference>> editInitialThreadMessage(
             @NotNull String threadID,
@@ -373,6 +138,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         return this.editWebhookMessage(threadID, threadID, webhookData, withComponents, allowSecondAttempt);
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull RestAction<Optional<MessageReference>> newThreadFromWebhook(
             @NotNull WebhookDataBuilder.WebhookData webhookData,
@@ -381,6 +147,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         return this.newThreadWithMessage(webhookData, appliedTags, false, allowSecondAttempt);
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull RestAction<Optional<MessageReference>> newThreadFromWebhook(
             @NotNull WebhookDataBuilder.WebhookData webhookData,
@@ -390,6 +157,7 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         return this.newThreadWithMessage(webhookData, appliedTags, false, allowSecondAttempt);
     }
 
+    /** {@inheritDoc} */
     @Override
     public @NotNull RestAction<Optional<DataObject>> modifyThreadChannel(
             @NotNull String channelID,
@@ -398,8 +166,8 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
             @Nullable Integer autoArchiveDuration,
             @Nullable Boolean locked,
             @Nullable Boolean archived,
-            boolean allowSecondAttempt
-    ) {
+            boolean allowSecondAttempt) {
+
         Checks.isSnowflake(channelID, "Thread Channel ID");
         Route.CompiledRoute route = Route.Channels.MODIFY_CHANNEL.compile(channelID);
 
@@ -424,26 +192,11 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         }
 
         RequestBody requestBody = RequestBody.create(MediaType.get("application/json"), data.toString());
+        RestResponse<DataObject> response = new RestResponse<>(Function.identity());
 
-        return new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, requestBody, (response, request) -> {
-            try {
-                if(!response.isOk()) {
-                    if(allowSecondAttempt)
-                        return retryWebhookExecution(() ->
-                                modifyThreadChannel(channelID, name, appliedTags, autoArchiveDuration, locked, archived, false));
-                    return Optional.empty();
-                }
+        if(allowSecondAttempt) response.setRetryExecution(() -> modifyThreadChannel(channelID, name, appliedTags, autoArchiveDuration, locked, archived, false));
 
-                if (response.optObject().isEmpty()) return Optional.empty();
-
-                DataObject body = response.optObject().get();
-                return Optional.of(body);
-            }
-            catch (Throwable ex) {
-                DiscordPS.debug("Failed to receive API response modifying forum thread: " + ex.getMessage());
-                return Optional.empty();
-            }
-        });
+        return new RestActionImpl<>(this.jdaImpl, route, requestBody, response::execute);
     }
 
     public @NotNull RestAction<Optional<MessageReference>> editWebhookMessage(
@@ -451,8 +204,8 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
             @NotNull String messageID,
             @NotNull WebhookDataBuilder.WebhookData webhookData,
             boolean withComponents,
-            boolean allowSecondAttempt
-    ) {
+            boolean allowSecondAttempt) {
+
         Checks.isSnowflake(threadID, "Webhook thread ID");
         Checks.isSnowflake(messageID, "Webhook message ID");
 
@@ -462,28 +215,15 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
                 .withQueryParams("with_components", String.valueOf(withComponents));
 
         MultipartBody requestBody = webhookData.prepareRequestBody();
+        RestResponse<MessageReference> response = new RestResponse<>(this::packageMessageResponse);
 
-        return new RestActionImpl<>(this.jdaImpl, route, requestBody, (response, request) -> {
-            try {
-                if(!response.isOk()) {
-                    if(allowSecondAttempt)
-                        return retryWebhookExecution(() ->
-                                editWebhookMessage(threadID, messageID, webhookData, withComponents, false));
-                    return Optional.empty();
-                }
+        if(allowSecondAttempt) response.setRetryExecution(() -> editWebhookMessage(threadID, messageID, webhookData, withComponents, false));
 
-                if (response.optObject().isEmpty()) return Optional.empty();
-
-                DataObject body = response.optObject().get();
-                return Optional.ofNullable(packageMessageResponse(body));
-            }
-            catch (Throwable ex) {
-                DiscordPS.debug("Failed to receive API response editing webhook message: " + ex.getMessage());
-                return Optional.empty();
-            }
-        });
+        return new RestActionImpl<>(this.jdaImpl, route, requestBody, response::execute);
     }
 
+    /** {@inheritDoc} */
+    @Override
     public @NotNull RestAction<Optional<ReceivedMessage>> getWebhookMessage(
             @NotNull String threadID,
             @NotNull String messageID,
@@ -496,30 +236,18 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
                 .compile(webhook.getId(), webhook.getToken(), messageID)
                 .withQueryParams("thread_id", threadID);
 
-        return new RestActionImpl<>(this.jdaImpl, route, (response, request) -> {
-            try {
-                if(!response.isOk()) {
-                    if(allowSecondAttempt)
-                        return retryWebhookExecution(() ->
-                                getWebhookMessage(threadID, messageID, false));
-                    return Optional.empty();
-                }
+        RestResponse<ReceivedMessage> response = new RestResponse<>(data -> this.jdaImpl
+            .getEntityBuilder()
+            .createMessage(data, this.channel, false)
+        );
 
-                if (response.optObject().isEmpty()) return Optional.empty();
+        if(allowSecondAttempt) response.setRetryExecution(() -> getWebhookMessage(threadID, messageID, false));
 
-                // Mock a text channel because forum channel doesn't exist
-                TextChannelImpl channel = new TextChannelImpl(this.channelID, new GuildImpl(this.jdaImpl, this.guildID));
-
-                DataObject body = response.optObject().get();
-                return Optional.of(this.jdaImpl.getEntityBuilder().createMessage(body, channel, false));
-            }
-            catch (Throwable ex) {
-                DiscordPS.debug("Failed to receive API response creating new thread with message: " + ex.getMessage());
-                return Optional.empty();
-            }
-        });
+        return new RestActionImpl<>(this.jdaImpl, route, response::execute);
     }
 
+    /** {@inheritDoc} */
+    @Override
     public @NotNull RestAction<Optional<Layout>> getInitialLayout(
             @NotNull String threadID,
             boolean allowSecondAttempt) {
@@ -530,26 +258,15 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
                 .compile(webhook.getId(), webhook.getToken(), threadID)
                 .withQueryParams("thread_id", threadID);
 
-        return new RestActionImpl<>(this.jdaImpl, route, (response, request) -> {
-            try {
-                if(!response.isOk()) {
-                    if(allowSecondAttempt)
-                        return retryWebhookExecution(() -> getInitialLayout(threadID, false));
-                    return Optional.empty();
-                }
+        RestResponse<Layout> response = new RestResponse<>(data -> data
+            .optArray("components")
+            .flatMap(Layout::fromRawData)
+            .orElse(null)
+        );
 
-                if (response.optObject().isEmpty()) return Optional.empty();
+        if(allowSecondAttempt) response.setRetryExecution(() -> getInitialLayout(threadID, false));
 
-                DataObject body = response.optObject().get();
-                Optional<DataArray> components = body.optArray("components");
-
-                return components.flatMap(Layout::fromRawData);
-            }
-            catch (Throwable ex) {
-                DiscordPS.debug("Failed to receive API response creating new thread with message: " + ex.getMessage());
-                return Optional.empty();
-            }
-        });
+        return new RestActionImpl<>(this.jdaImpl, route, response::execute);
     }
 
 
@@ -563,8 +280,6 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
                     .compile(webhook.getId(), webhook.getToken())
                     .withQueryParams("wait", "true")
                     .withQueryParams("with_components", String.valueOf(withComponents));
-
-            DiscordPS.debug("Querying URL: " + route.getCompiledRoute());
 
             if(StringUtils.isBlank(webhookData.getString("thread_name", null))) {
                 throw new IllegalArgumentException("Thread Name is required to create a new thread.");
@@ -583,28 +298,15 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
             }
 
             MultipartBody requestBody = webhookData.prepareRequestBody();
+            RestResponse<MessageReference> response = new RestResponse<>(this::packageMessageResponse);
 
-            return new RestActionImpl<>(this.jdaImpl, route, requestBody, (response, request) -> {
-                try {
-                    if(!response.isOk()) {
-                        if(allowSecondAttempt)
-                            return retryWebhookExecution(() ->
-                                    newThreadWithMessage(webhookData, appliedTags, withComponents, false));
-                        return Optional.empty();
-                    }
+            if(allowSecondAttempt) response.setRetryExecution(() -> newThreadWithMessage(webhookData, appliedTags, withComponents, false));
 
-                    if (response.optObject().isEmpty()) return Optional.empty();
-
-                    DataObject body = response.optObject().get();
-                    return Optional.ofNullable(packageMessageResponse(body));
-                }
-                catch (Throwable ex) {
-                    DiscordPS.debug("Failed to receive API response creating new thread with message: " + ex.getMessage());
-                    return Optional.empty();
-                }
-            });
+            return new RestActionImpl<>(this.jdaImpl, route, requestBody, response::execute);
     }
 
+    /** {@inheritDoc} */
+    @Override
     public @NotNull RestAction<Optional<MessageReference>> sendMessageInThread(
             @NotNull String threadID,
             @NotNull WebhookDataBuilder.WebhookData webhookData,
@@ -619,38 +321,26 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
                 .withQueryParams("thread_id", threadID)
                 .withQueryParams("with_components", String.valueOf(withComponents));
 
-        DiscordPS.debug("Querying URL: " + route.getCompiledRoute());
-
         MultipartBody requestBody = webhookData.prepareRequestBody();
 
-        return new RestActionImpl<>(this.jdaImpl, route, requestBody, (response, request) -> {
-            try {
-                if(!response.isOk()) {
-                    if(allowSecondAttempt)
-                        return retryWebhookExecution(() ->
-                                sendMessageInThread(threadID, webhookData, withComponents, false));
-                    return Optional.empty();
-                }
+        RestResponse<MessageReference> response = new RestResponse<>(this::packageMessageResponse);
 
-                if (response.optObject().isEmpty()) return Optional.empty();
+        if(allowSecondAttempt) response.setRetryExecution(() ->  sendMessageInThread(threadID, webhookData, withComponents, false));
 
-                DataObject body = response.optObject().get();
-                return Optional.ofNullable(packageMessageResponse(body));
-            }
-            catch (Throwable ex) {
-                DiscordPS.debug("Failed to receive API response creating new thread with message: " + ex.getMessage());
-                return Optional.empty();
-            }
-        });
+        return new RestActionImpl<>(this.jdaImpl, route, requestBody, response::execute);
     }
 
+    /** {@inheritDoc} */
     @NotNull
+    @Override
     public RestAction<Void> removeThreadMember(@NotNull String threadID,
                                                @NotNull String memberID) {
         return this.editThreadMember(Method.DELETE, threadID, memberID);
     }
 
+    /** {@inheritDoc} */
     @NotNull
+    @Override
     public RestAction<Void> addThreadMember(@NotNull String threadID,
                                             @NotNull String memberID) {
         return this.editThreadMember(Method.PUT, threadID, memberID);
@@ -667,10 +357,9 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
         return new RestActionImpl<>(this.getJDA(), route);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    /** {@inheritDoc} */
     @NotNull
+    @Override
     public <T> CompletableFuture<Optional<MessageReference>> queueNewUpdateAction(
             @NotNull RestAction<Optional<T>> restAction,
             @NotNull Function<T, RestAction<Optional<MessageReference>>> whenComplete) {
@@ -692,36 +381,24 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
     }
 
     /**
-     * Retry rest action after 5 seconds.
-     *
-     * @param execution The rest action to execute
-     * @return The supplied rest action that is called afet 5 seconds delay
-     * @param <T> The rest action result type
-     */
-    private <T> @NotNull Optional<T> retryWebhookExecution(@NotNull Supplier<RestAction<Optional<T>>> execution) {
-        DiscordPS.debug("Webhook delivery returned 404, trying again in 5 seconds");
-        return execution.get().completeAfter(5, TimeUnit.SECONDS);
-    }
-
-    /**
      * Retrieve message reference from raw data object.
      *
      * @param body The data object response
      * @return The message reference as {@link MessageReference}
      */
     private @Nullable MessageReference packageMessageResponse(@NotNull DataObject body) {
-
-        if (body.hasKey("code")) {
-            if (body.getInt("code") == 10015) {
-                DiscordPS.debug("Webhook delivery returned 10015 (Unknown Webhook)");
-                return null;
-            }
-        }
-
         try {
             // Note that channel_id and id returns the same snowflake for the first message of the thread
-            String channelID = body.getString("channel_id");
-            String messageID = body.getString("id");
+            String channelID = body.getString("channel_id", null);
+            String messageID = body.getString("id", null);
+
+            if(channelID == null || messageID == null) {
+                DiscordPS.error(
+                    "Trying to parse forum webhook message response of invalid data "
+                    + "(channel: " + channelID + ", message: " + messageID + ')'
+                );
+                return null;
+            }
 
             return new MessageReference(
                     Long.parseUnsignedLong(messageID),
@@ -732,8 +409,68 @@ public final class ForumWebhookImpl extends AbstractWebhookProvider implements F
             );
         }
         catch (ParsingException ex) {
-            DiscordPS.error("[Internal] Failed to parse webhook execution response data:", ex);
+            DiscordPS.error("Failed to parse forum webhook message response", ex);
             return null;
+        }
+    }
+
+    /**
+     * Conventional utility class to handle rest action response.
+     *
+     * @param <T> Type of the return value of this response.
+     */
+    public static class RestResponse<T> {
+        private static final long RETRY_AFTER_MILLIS = 5000;
+        private @Nullable Supplier<RestAction<Optional<T>>> retryExecution;
+        private final @NotNull Function<@NotNull DataObject, @Nullable T> response;
+
+        /**
+         * Create a rest action {@link DataObject} response.
+         *
+         * @param response The response function.
+         */
+        public RestResponse(@NotNull Function<@NotNull DataObject, @Nullable T> response) {
+            this.response = response;
+        }
+
+        /**
+         * Provide this response with retry supplier.
+         *
+         * <p>The supplier will be executed once if a bad response is returned from discord api.</p>
+         *
+         * @param execution The execution that return this respective response.
+         */
+        public void setRetryExecution(@Nullable Supplier<RestAction<Optional<T>>> execution) {
+            this.retryExecution = execution;
+        }
+
+        /**
+         * Execute this rest action response.
+         *
+         * <p>Execution is checked for a retry if {@link Response#isOk()} returns {@code false}.
+         * Result is then received via the response function given by class constructor
+         * (invoked by response body if present).
+         * </p>
+         *
+         * @param response Response from discord API
+         * @return The execution result handled with {@linkplain Optional}.
+         */
+        public Optional<T> execute(Response response, Request<Optional<T>> ignored) {
+            try {
+                if(!response.isOk()) {
+                    if(this.retryExecution == null) return Optional.empty();
+
+                    // Not sure with the threading on this one, in theory it should block the rest action thread for 5 seconds.
+                    DiscordPS.debug("Discord returned bad response for Forum webhook execution, trying again in 5 seconds");
+                    return this.retryExecution.get().completeAfter(RETRY_AFTER_MILLIS, TimeUnit.MILLISECONDS);
+                }
+
+                return response.optObject().map(this.response);
+            }
+            catch (Throwable ex) {
+                DiscordPS.error("Failed to execute API response of a webhook forum process", ex);
+                return Optional.empty();
+            }
         }
     }
 }
