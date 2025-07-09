@@ -742,6 +742,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         }
 
         WebhookData updatedData = new WebhookDataBuilder()
+                .suppressMentions()
+                .suppressNotifications()
                 .forceComponentV2()
                 .setComponentsV2(updated)
                 .build();
@@ -872,7 +874,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             updated.add(layout.build());
         }
 
-        WebhookData updatedData = new WebhookDataBuilder().forceComponentV2().setComponentsV2(updated).build();
+        WebhookData updatedData = new WebhookDataBuilder()
+                .suppressNotifications()
+                .suppressMentions()
+                .forceComponentV2()
+                .setComponentsV2(updated)
+                .build();
 
         if(modified) {
             imageList.forEach(updatedData::addFile);

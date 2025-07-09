@@ -258,6 +258,8 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
                 .setThreadName(threadName)
                 .setComponentsV2(componentsV2)
                 .forceComponentV2()
+                .suppressMentions()
+                .suppressNotifications()
                 .build();
 
         // Attach files
