@@ -291,35 +291,35 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
         ActionRow documentationRow = ActionRow.of(this.metadata.documentationButton());
 
         Function<Long, ActionRow> interactionRow = userID -> ActionRow.of(
-            this.newHelpButton(messageID, userID, plotID),
-            this.metadata.documentationButton()
+                this.newHelpButton(messageID, userID, plotID),
+                this.metadata.documentationButton()
         );
 
         Function<Long, ActionRow> approvedRow = userID -> ActionRow.of(Button.success(
-            AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID),
-            this.metadata.approvedFeedbackLabel())
+                AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID),
+                this.metadata.approvedFeedbackLabel())
         );
 
         Function<Long, ActionRow> rejectedRow = userID -> ActionRow.of(Button.danger(
-            AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID),
-            this.metadata.rejectedFeedbackLabel())
+                AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID),
+                this.metadata.rejectedFeedbackLabel())
         );
 
-        // Interactive row if owner has discord to interact with it
-        List<ActionRow> interactiveRow = switch (status) {
-            case on_going, finished -> List.of(interactionRow.apply(owner.getOwnerDiscord().get().getIdLong()));
-            case approved -> List.of(approvedRow.apply(owner.getOwnerDiscord().get().getIdLong()));
-            case rejected -> List.of(rejectedRow.apply(owner.getOwnerDiscord().get().getIdLong()));
+        // Interactive row if the owner has linked discord to interact with it
+        Function<Member, List<ActionRow>> interactiveRow = member -> switch (status) {
+            case on_going, finished -> List.of(interactionRow.apply(member.getIdLong()));
+            case approved -> List.of(approvedRow.apply(member.getIdLong()));
+            case rejected -> List.of(rejectedRow.apply(member.getIdLong()));
             default -> null;
         };
 
-        // Static row if owner discord is not present
+        // Static row if owner has no linked discord account
         List<ActionRow> staticRow = switch (status) {
             case on_going, finished, rejected -> List.of(documentationRow);
             default -> null;
         };
 
-        return owner.getOwnerDiscord().isPresent()? interactiveRow : staticRow;
+        return owner.getOwnerDiscord().map(interactiveRow).orElse(staticRow);
     }
 
     /**
