@@ -77,7 +77,7 @@ public abstract class AbstractWebhookProvider implements WebhookProvider {
      */
     @Override
     public final long getWebhookID() {
-        return webhookID;
+        return this.webhookID;
     }
 
     /**
@@ -85,7 +85,15 @@ public abstract class AbstractWebhookProvider implements WebhookProvider {
      */
     @Override
     public final long getChannelID() {
-        return channelID;
+        return this.channelID;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public final long getGuildID() {
+        return this.guildID;
     }
 
     /**

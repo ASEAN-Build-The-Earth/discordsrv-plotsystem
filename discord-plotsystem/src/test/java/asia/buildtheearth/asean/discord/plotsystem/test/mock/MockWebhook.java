@@ -22,6 +22,11 @@ public abstract class MockWebhook {
         public long getChannelID() {
             return MockSnowflake.WEBHOOK_CHANNEL_ID.getMockID();
         }
+
+        @Override
+        public long getGuildID() {
+            return MockSnowflake.MAIN_GUILD.getMockID();
+        }
     }
 
     public static class ShowcaseWebhook extends AbstractWebhookProvider {
@@ -34,6 +39,11 @@ public abstract class MockWebhook {
         @Override
         public long getChannelID() {
             return MockSnowflake.SHOWCASE_CHANNEL_ID.getMockID();
+        }
+
+        @Override
+        public long getGuildID() {
+            return MockSnowflake.MAIN_GUILD.getMockID();
         }
     }
 

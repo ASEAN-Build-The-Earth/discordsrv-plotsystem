@@ -26,6 +26,13 @@ public interface WebhookProvider {
     long getChannelID();
 
     /**
+     * Get the guild this webhook is hooked to.
+     *
+     * @return Guild ID as unsigned long snowflake
+     */
+    long getGuildID();
+
+    /**
      * Validate this webhook integrity and output error/information to {@link asia.buildtheearth.asean.discord.plotsystem.Debug}.
      *
      * <p>The validation process is as follows:</p>

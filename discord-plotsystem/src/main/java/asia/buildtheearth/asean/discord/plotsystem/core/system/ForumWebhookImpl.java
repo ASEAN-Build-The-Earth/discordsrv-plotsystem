@@ -39,6 +39,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * Implementation for forum webhook functionalities.
+ *
+ * @see WebhookProvider
+ * @see ForumWebhook
+ */
 public final class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWebhook {
     private final JDAImpl jdaImpl;
     private final Webhook webhook;
