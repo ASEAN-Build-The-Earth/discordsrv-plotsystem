@@ -555,7 +555,7 @@ slash-commands:
       debugging-notice:
         - ":warning: Notices"
         - |
-          The configuration and control commands `/setup`, `/plot` and `/review` are **publicly accessible by default**.
+          The configuration and control commands `/setup`, `/plotctl` and `/review` are **publicly accessible by default**.
           To secure these commands:
           - Open the bot’s **Slash Command Permissions** in the Server integration settings.  
           - **Disable access for `@everyone`**.

@@ -1,9 +1,9 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
+import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnReview;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
@@ -77,7 +77,7 @@ final class ReviewSendCommand extends ReviewEditCommand {
         // Send the preview as raw rest-action to bypass outdated checks
         Route.CompiledRoute route = Route.Messages.SEND_MESSAGE.compile(channel.getId());
         MultipartBody requestBody = reviewData.prepareRequestBody();
-        RestAction<Object> newReview = new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, requestBody);
+        RestAction<Object> newReview = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
 
         // Send preview and handle for error
         this.sendReviewConfirmation(newReview, channel, interaction)

@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem;
 
 import asia.buildtheearth.asean.discord.DiscordSRVBridge;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhookImpl;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import github.scarsz.discordsrv.dependencies.google.common.util.concurrent.ThreadFactoryBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
@@ -37,6 +38,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Function;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage;
 
@@ -379,24 +381,11 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
 
         RequestBody requestBody = RequestBody.create(MediaType.get("application/json"), jsonObject.toString());
         Route.CompiledRoute route = Route.Channels.CREATE_WEBHOOK.compile(channelID);
+        ForumWebhookImpl.RestResponse<DataObject> response = new ForumWebhookImpl.RestResponse<>(Function.identity());
 
-        return new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody, (response, request) -> {
-            if (response.code == 404) {
-                // 404 = Invalid Request (most likely bad permissions)
-                DiscordPS.error(
-                    "Webhook POST returned 404"
-                    + (allowSecondAttempt? " ... retrying in 5 seconds" : "")
-                );
+        if(allowSecondAttempt) response.setRetryExecution(() -> createWebhook(channelID, name, avatarURL, false));
 
-                if (allowSecondAttempt) return createWebhook(channelID, name, avatarURL, false)
-                    .completeAfter(5, TimeUnit.SECONDS);
-                request.cancel();
-
-                return Optional.empty();
-            }
-
-            return response.optObject();
-        });
+        return new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody, response::execute);
     }
 
     /**

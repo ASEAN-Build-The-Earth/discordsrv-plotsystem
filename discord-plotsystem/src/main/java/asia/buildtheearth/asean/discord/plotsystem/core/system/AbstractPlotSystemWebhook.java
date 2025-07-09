@@ -334,7 +334,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      * @return Optional if the config {@link LangPaths#ARCHIVED_PREFIX} specified a prefix for an archival thread.
      */
     public static Optional<PlotSystemThread.ThreadNameApplier> getOptArchiveThreadName(int plotID) {
-        String prefix = DiscordPS.getSystemLang().get(LangPaths.ARCHIVED_PREFIX);
+        String prefix = DiscordPS.getSystemLang().get(LangPaths.ARCHIVED_PREFIX, "");
         PlotSystemThread.ThreadNameApplier threadName = null;
 
         if(!StringUtils.isBlank(prefix))

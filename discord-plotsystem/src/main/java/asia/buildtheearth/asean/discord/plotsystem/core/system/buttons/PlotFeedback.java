@@ -3,7 +3,6 @@ package asia.buildtheearth.asean.discord.plotsystem.core.system.buttons;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
 import asia.buildtheearth.asean.discord.components.api.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonClickEvent;
@@ -39,7 +38,7 @@ public class PlotFeedback implements PluginButtonHandler, SimpleButtonHandler {
 
         try {
             Route.CompiledRoute route = Route.Interactions.CREATE_FOLLOWUP.compile(
-                DiscordSRV.getPlugin().getJda().getSelfUser().getApplicationId(),
+                DiscordPS.getPlugin().getJDA().getSelfUser().getApplicationId(),
                 event.getInteraction().getToken()
             ).withQueryParams("with_components", String.valueOf(true));
 
@@ -47,7 +46,7 @@ public class PlotFeedback implements PluginButtonHandler, SimpleButtonHandler {
 
             // Prepare the request action
             MultipartBody requestBody = webhookData.prepareRequestBody();
-            RestAction<Object> action = new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, requestBody);
+            RestAction<Object> action = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
 
             // Queue the action and handle for error
             action.submit().whenComplete((ok, error) -> {

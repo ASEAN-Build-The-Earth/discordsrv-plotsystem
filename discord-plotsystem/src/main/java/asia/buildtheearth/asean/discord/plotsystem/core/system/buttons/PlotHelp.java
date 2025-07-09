@@ -4,7 +4,6 @@ import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
 import asia.buildtheearth.asean.discord.components.api.ComponentV2;
 import asia.buildtheearth.asean.discord.components.api.TextDisplay;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
@@ -35,7 +34,7 @@ public class PlotHelp implements PluginButtonHandler, SimpleButtonHandler {
         String content = DiscordPS.getMessagesLang().get(PlotInformation.HELP_CONTENT);
 
         Route.CompiledRoute route = Route.Interactions.CREATE_FOLLOWUP.compile(
-                DiscordSRV.getPlugin().getJda().getSelfUser().getApplicationId(),
+                DiscordPS.getPlugin().getJDA().getSelfUser().getApplicationId(),
                 event.getInteraction().getToken()
         ).withQueryParams("with_components", String.valueOf(true));
 
@@ -53,7 +52,7 @@ public class PlotHelp implements PluginButtonHandler, SimpleButtonHandler {
 
         // Prepare the request action
         MultipartBody requestBody = webhookData.prepareRequestBody();
-        RestAction<Object> action = new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, requestBody);
+        RestAction<Object> action = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
 
         // Queue the action and handle for error
         action.submit().whenComplete((ok, error) -> {

@@ -1,6 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
-import github.scarsz.discordsrv.DiscordSRV;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhookImpl;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
@@ -297,29 +297,13 @@ sealed class SetupWebhookCommand extends AbstractSetupWebhookCommand permits Set
             .get(Route.Channels.MODIFY_CHANNEL.getRoute())
             .compile(Long.toUnsignedString(channelID));
 
-        return new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, (response, request) -> {
-            try {
-                if (response.code == 404) {
-                    // 404 = Invalid Webhook (most likely to have been deleted)
-                    DiscordPS.error("Channel GET returned 404" + (allowSecondAttempt? " ... retrying in 5 seconds" : ""));
-                    if(allowSecondAttempt) return getChannelType(channelID, false).completeAfter(5, TimeUnit.SECONDS);
-                    request.cancel();
+        ForumWebhookImpl.RestResponse<Integer> response = new ForumWebhookImpl.RestResponse<>(
+            data -> data.hasKey("type")? data.getInt("type") : null
+        );
 
-                    return Optional.empty();
-                }
+        response.setRetryExecution(() -> getChannelType(channelID, false));
 
-                Optional<DataObject> body = response.optObject();
-
-                if (body.isPresent() && body.get().hasKey("type"))
-                    return Optional.of(body.get().getInt("type"));
-                else return Optional.empty();
-            }
-            catch (Throwable ex) {
-                DiscordPS.warning("Failed to receive API response: " + ex.toString());
-                request.cancel();
-                return Optional.empty();
-            }
-        });
+        return new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, response::execute);
     }
 
     /**

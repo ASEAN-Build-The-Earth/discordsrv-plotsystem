@@ -14,7 +14,6 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
 import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
-import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
@@ -169,8 +168,8 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
         // Send the preview as raw rest-action to bypass outdated checks
         Route.CompiledRoute route = Route.Messages.SEND_MESSAGE.compile(channel.getId());
         MultipartBody requestBody = reviewData.prepareRequestBody();
-        RestAction<Object> newReview = new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, requestBody);
-        RestAction<Object> previousReview = new RestActionImpl<>(DiscordSRV.getPlugin().getJda(), route, previousData);
+        RestAction<Object> newReview = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
+        RestAction<Object> previousReview = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, previousData);
         RestAction<?> previewAction = (previousData != null)? RestAction.allOf(previousReview, newReview) : newReview;
 
         this.sendReviewConfirmation(previewAction, channel, interaction)
