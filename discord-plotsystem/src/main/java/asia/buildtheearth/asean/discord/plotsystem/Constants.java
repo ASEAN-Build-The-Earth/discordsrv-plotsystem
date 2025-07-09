@@ -7,9 +7,17 @@ import java.awt.Color;
  */
 public abstract class Constants {
     /**
-     * URL to the latest release of this plugin.
+     * URL to the latest release of this plugin used for checking for version update.
      */
     public static final String REPOSITORY_RELEASE_URL = "https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/releases/latest";
+
+    /**
+     * Base discord URL for channel related links.
+     *
+     * <p>Example: Using for message reference endpoint
+     * <pre>{@code https://discord.com/channels/<GUILD-ID>/<CHANNEL-ID>/<MESSAGE-ID>}</pre></p>
+     */
+    public static final String CHANNEL_REFERENCE_URL = "https://discord.com/channels";
 
     /**
      * (LEGACY) DiscordSRV(v1.29.0) webhook naming prefix "DiscordSRV ".

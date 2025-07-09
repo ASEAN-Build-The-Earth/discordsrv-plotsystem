@@ -8,10 +8,7 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.Emoji;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.ISnowflake;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ButtonStyle;
@@ -52,6 +49,12 @@ import static asia.buildtheearth.asean.discord.components.WebhookDataBuilder.Web
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage;
 
+/**
+ * Main class for managing {@link ForumWebhook} used by all Plot-System functionality.
+ *
+ * <p>Class majority is used via {@link asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemListener}
+ * with some selective method usage for manual controls.</p>
+ */
 public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
     /**
@@ -191,6 +194,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         AvailableTag tag = ThreadStatus.valueOf(plot.status().getName()).toTag();
         long tagID = tag.getTag().getIDLong();
         String threadName = thread.getApplier().apply(plotData);
+
+        @SuppressWarnings("deprecation")
         PlotReclaimEvent event = new PlotReclaimEvent(thread.getPlotID(), plotData.getOwnerMentionOrName());
 
         // Update thread layout to correct status
@@ -238,9 +243,13 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     protected void registerNewPlot(@NotNull PlotData plotData, int plotID, long threadIDLong) {
         String threadID = Long.toUnsignedString(threadIDLong);
 
+        StatusEmbed statusEmbed = new StatusEmbed(
+            plotData, plotData.getPrimaryStatus(),
+            this.getMessageReferenceURL(threadID, threadID)
+        );
 
         WebhookData statusData = new WebhookDataBuilder()
-                .setEmbeds(Collections.singletonList(new StatusEmbed(plotData, plotData.getPrimaryStatus()).build()))
+                .setEmbeds(Collections.singletonList(statusEmbed.build()))
                 .build();
 
         // When status message is sent: this is the actual message we use to track per ID,
@@ -324,7 +333,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         MemberOwnable owner = new MemberOwnable(action.entry().ownerUUID());
 
         LayoutUpdater layoutUpdater = component -> fetchLayoutData(action.plotID(), event, component, owner, tag);
-        MessageUpdater messageUpdater = message -> fetchStatusMessage(event, message, owner, status);
+        MessageUpdater messageUpdater = message -> fetchStatusMessage(event, message, threadID, owner, status);
 
         // 1st update the thread layout components (the one that display main plot information)
         final CompletableFuture<Optional<MessageReference>> updateLayoutAction = this.webhook.queueNewUpdateAction(
@@ -893,19 +902,28 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     }
 
     /**
-     * Fetch a new status message as a webhook data.
+     * Fetch a new status message by constructing a new {@link StatusEmbed} and build it as a webhook data.
      *
-     * @param owner The owner of this plot data
-     * @param status The status of this plot
-     * @return New {@link StatusComponent} built as webhook data ready to be used in API call
+     * <p>This also fetch if (any) new button interactions is needed
+     * from looking at the {@linkplain PlotEvent event} instance.</p>
+     *
+     * @param event The event that triggers this update action, can be null.
+     * @param message The current message containing the status embed to be updated.
+     * @param threadID The thread ID of this plot.
+     * @param owner The owner of this plot data.
+     * @param status The status of this plot.
+     * @return New {@link StatusComponent} built as webhook data ready to be used in API call.
+     * @param <T> The event representing this current status message.
      */
     @NotNull
     private <T extends PlotEvent>
     Optional<WebhookData> fetchStatusMessage(@Nullable T event,
                                              @NotNull Message message,
+                                             @NotNull String threadID,
                                              @NotNull MemberOwnable owner,
                                              @NotNull ThreadStatus status) {
-        StatusEmbed statusEmbed = new StatusEmbed(owner, status);
+
+        StatusEmbed statusEmbed = new StatusEmbed(owner, status, this.getMessageReferenceURL(threadID, threadID));
         WebhookDataBuilder data = new WebhookDataBuilder().setEmbeds(Collections.singletonList(statusEmbed.build()));
 
         // No interaction to update

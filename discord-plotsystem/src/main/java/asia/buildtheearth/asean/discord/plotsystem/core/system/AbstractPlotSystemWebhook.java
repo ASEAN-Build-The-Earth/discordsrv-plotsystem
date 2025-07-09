@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
+import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotNotificationEvent;
@@ -22,6 +23,7 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInformation;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
+import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,6 +61,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     /**
      * Initialize webhook instance
      *
+     * @param plugin The plugin instance
      * @param webhook The forum webhook manager instance
      */
     protected AbstractPlotSystemWebhook(DiscordPS plugin, ForumWebhook webhook) {
@@ -454,9 +457,9 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      *               <i>(placeholder: {@code {label}})</i>
      */
     public void sendNotification(@NotNull PlotNotification type,
-                                    @NotNull String label,
-                                    @NotNull String threadID,
-                                    @Nullable String owner) {
+                                 @NotNull String label,
+                                 @NotNull String threadID,
+                                 @Nullable String owner) {
         this.sendNotification(type, threadID, content -> content
                 .replace(Format.LABEL, label)
                 .replace(Format.OWNER, owner == null? LanguageFile.NULL_LANG : owner));
@@ -465,6 +468,25 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     /** Create a plot's help button by owner and message. */
     protected Button newHelpButton(long messageID, long ownerID, int plotID) {
         return Button.primary(AvailableButton.HELP_BUTTON.resolve(messageID, ownerID, plotID), this.metadata.helpButtonLabel());
+    }
+
+    /**
+     * Create a https URL referencing to a message sent in webhook forum channel.
+     *
+     * @param messageID The message that is sent within the forum channel.
+     * @return {@value Constants#CHANNEL_REFERENCE_URL} by the endpoint {@code <GUILD-ID>/<CHANNEL-ID>/<MESSAGE-ID>}
+     */
+    protected @Nullable String getMessageReferenceURL(@NotNull String threadID, @NotNull String messageID) {
+        try {
+            String guildID = Long.toUnsignedString(this.webhook.getProvider().getGuildID());
+
+            Checks.isSnowflake(guildID, "Webhook's Guild ID");
+            Checks.isSnowflake(threadID, "Webhook's Thread ID");
+            Checks.isSnowflake(messageID, "Webhook's Message ID");
+
+            return String.join("/", Constants.CHANNEL_REFERENCE_URL, guildID, threadID, messageID);
+        }
+        catch (IllegalArgumentException ignored) { return null; }
     }
 
     /** Unknown error when overriding plot data, happens from an exception in completable future. */

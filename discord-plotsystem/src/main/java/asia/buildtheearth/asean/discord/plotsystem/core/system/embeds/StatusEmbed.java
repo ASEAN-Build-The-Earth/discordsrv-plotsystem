@@ -1,7 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.embeds;
 
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
-import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookStatusProvider;
@@ -9,9 +8,9 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableTag;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.MemberOwnable;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.Locale;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Status embed for tracking plot status.
@@ -21,7 +20,23 @@ import java.util.Locale;
  * tracking all possible plot entries in a thread.</p>
  */
 public class StatusEmbed extends EmbedBuilder implements PlotDataEmbed {
-    public StatusEmbed(@NotNull MemberOwnable owner, @NotNull ThreadStatus status) {
+
+    /**
+     * Construct a status embed as a fully configured {@linkplain EmbedBuilder}.
+     *
+     * <p>Configured field includes:</p>
+     * <ul>
+     *     <li>The {@linkplain EmbedBuilder#setAuthor(String, String, String) author} information</li>
+     *     <li>The accent {@linkplain EmbedBuilder#setColor(java.awt.Color) color} of the status</li>
+     *     <li>The {@linkplain EmbedBuilder#setTitle(String, String) title} message and reference URL</li>
+     *     <li>The {@linkplain EmbedBuilder#setDescription(CharSequence) description} message from {@link DisplayMessage}</li>
+     * </ul>
+     *
+     * @param owner The owner/author of this embed.
+     * @param status The accent status of this embed.
+     * @param referenceURL Optional reference URL to be embedded on the title text.
+     */
+    public StatusEmbed(@NotNull MemberOwnable owner, @NotNull ThreadStatus status, @Nullable String referenceURL) {
         super();
 
         owner.getOwnerDiscord().ifPresentOrElse(
@@ -30,7 +45,7 @@ public class StatusEmbed extends EmbedBuilder implements PlotDataEmbed {
         );
         DisplayMessage message = DisplayMessage.fromStatus(status);
 
-        this.setTitle(message.get().title());
+        this.setTitle(message.get().title(), referenceURL);
         this.setDescription(message.get().description());
         this.setColor(status.toTag().getColor());
     }
@@ -53,7 +68,7 @@ public class StatusEmbed extends EmbedBuilder implements PlotDataEmbed {
         }
 
         public static @NotNull DisplayMessage fromStatus(@NotNull ThreadStatus status) {
-            return valueOf(status.name().toUpperCase(Locale.ENGLISH));
+            return valueOf(status.name().toUpperCase(java.util.Locale.ENGLISH));
         }
 
         public @NotNull LanguageFile.EmbedLang get() {
@@ -62,7 +77,7 @@ public class StatusEmbed extends EmbedBuilder implements PlotDataEmbed {
 
         @Override
         public @NotNull ThreadStatus toStatus() {
-            return valueOf(ThreadStatus.class, this.name().toLowerCase(Locale.ENGLISH));
+            return valueOf(ThreadStatus.class, this.name().toLowerCase(java.util.Locale.ENGLISH));
         }
 
         @Override
