@@ -1,6 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
-import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhookImpl;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhook;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -297,7 +296,7 @@ sealed class SetupWebhookCommand extends AbstractSetupWebhookCommand permits Set
             .get(Route.Channels.MODIFY_CHANNEL.getRoute())
             .compile(Long.toUnsignedString(channelID));
 
-        ForumWebhookImpl.RestResponse<Integer> response = new ForumWebhookImpl.RestResponse<>(
+        ForumWebhook.RestResponse<Integer> response = new ForumWebhook.RestResponse<>(
             data -> data.hasKey("type")? data.getInt("type") : null
         );
 

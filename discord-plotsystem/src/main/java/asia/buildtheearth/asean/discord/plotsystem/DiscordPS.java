@@ -1,7 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem;
 
 import asia.buildtheearth.asean.discord.DiscordSRVBridge;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhookImpl;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import github.scarsz.discordsrv.dependencies.google.common.util.concurrent.ThreadFactoryBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
@@ -381,7 +381,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
 
         RequestBody requestBody = RequestBody.create(MediaType.get("application/json"), jsonObject.toString());
         Route.CompiledRoute route = Route.Channels.CREATE_WEBHOOK.compile(channelID);
-        ForumWebhookImpl.RestResponse<DataObject> response = new ForumWebhookImpl.RestResponse<>(Function.identity());
+        ForumWebhook.RestResponse<DataObject> response = new ForumWebhook.RestResponse<>(Function.identity());
 
         if(allowSecondAttempt) response.setRetryExecution(() -> createWebhook(channelID, name, avatarURL, false));
 

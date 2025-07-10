@@ -1,6 +1,9 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
+import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.Request;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.Response;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.entities.ReceivedMessage;
@@ -13,7 +16,9 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Manager interface for interacting with Discord Forum Channels via a webhook context.
@@ -229,4 +234,64 @@ public interface ForumWebhook {
     <T> CompletableFuture<Optional<MessageReference>> queueNewUpdateAction(
             @NotNull RestAction<Optional<T>> restAction,
             @NotNull Function<T, RestAction<Optional<MessageReference>>> whenComplete);
+
+    /**
+     * Conventional utility class to handle rest action response.
+     *
+     * @param <T> Type of the return value of this response.
+     */
+    class RestResponse<T> {
+        private static final long RETRY_AFTER_MILLIS = 5000;
+        private @Nullable Supplier<RestAction<Optional<T>>> retryExecution;
+        private final @NotNull Function<@NotNull DataObject, @Nullable T> response;
+
+        /**
+         * Create a rest action {@link DataObject} response.
+         *
+         * @param response The response function.
+         */
+        public RestResponse(@NotNull Function<@NotNull DataObject, @Nullable T> response) {
+            this.response = response;
+        }
+
+        /**
+         * Provide this response with retry supplier.
+         *
+         * <p>The supplier will be executed once if a bad response is returned from discord api.</p>
+         *
+         * @param execution The execution that return this respective response.
+         */
+        public void setRetryExecution(@Nullable Supplier<RestAction<Optional<T>>> execution) {
+            this.retryExecution = execution;
+        }
+
+        /**
+         * Execute this rest action response.
+         *
+         * <p>Execution is checked for a retry if {@link Response#isOk()} returns {@code false}.
+         * Result is then received via the response function given by class constructor
+         * (invoked by response body if present).
+         * </p>
+         *
+         * @param response Response from discord API
+         * @return The execution result handled with {@linkplain Optional}.
+         */
+        public Optional<T> execute(Response response, Request<Optional<T>> ignored) {
+            try {
+                if(!response.isOk()) {
+                    if(this.retryExecution == null) return Optional.empty();
+
+                    // Not sure with the threading on this one, in theory it should block the rest action thread for 5 seconds.
+                    DiscordPS.debug("Discord returned bad response for Forum webhook execution, trying again in 5 seconds");
+                    return this.retryExecution.get().completeAfter(RETRY_AFTER_MILLIS, TimeUnit.MILLISECONDS);
+                }
+
+                return response.optObject().map(this.response);
+            }
+            catch (Throwable ex) {
+                DiscordPS.error("Failed to execute API response of a webhook forum process", ex);
+                return Optional.empty();
+            }
+        }
+    }
 }

@@ -158,7 +158,7 @@ public class PlotSystemWebhookValidator {
                 .get(Route.Channels.MODIFY_CHANNEL.getRoute())
                 .compile(Long.toUnsignedString(this.webhook.getChannelID()));
 
-        ForumWebhookImpl.RestResponse<DataArray> response = new ForumWebhookImpl.RestResponse<>(data -> {
+        ForumWebhook.RestResponse<DataArray> response = new ForumWebhook.RestResponse<>(data -> {
             // Additional checks since this route does have channel data
             // Fail the validation if the channel isn't forum channel
             if (data.hasKey("type")) {

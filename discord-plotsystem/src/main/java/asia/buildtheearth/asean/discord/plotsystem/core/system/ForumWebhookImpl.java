@@ -6,8 +6,6 @@ import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.AccountTypeException;
 import github.scarsz.discordsrv.dependencies.jda.api.exceptions.ParsingException;
-import github.scarsz.discordsrv.dependencies.jda.api.requests.Request;
-import github.scarsz.discordsrv.dependencies.jda.api.requests.Response;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
@@ -31,10 +29,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * Implementation for forum webhook functionalities.
@@ -86,7 +82,9 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
 
     /** {@inheritDoc} */
     @Override
-    public WebhookProvider getProvider() { return this; }
+    public WebhookProvider getProvider() {
+        return this;
+    }
 
     /** {@inheritDoc} */
     @Override
@@ -199,6 +197,16 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
         return new RestActionImpl<>(this.jdaImpl, route, requestBody, response::execute);
     }
 
+    /**
+     * Edits a specific message in a thread using webhook data.
+     *
+     * @param threadID   ID of the thread.
+     * @param messageID  ID of the message to edit.
+     * @param webhookData Webhook message data.
+     * @param withComponents Whether to forcefully include message components (e.g., buttons).
+     * @param allowSecondAttempt Whether to retry once if the request fails.
+     * @return A RestAction holding an Optional with the edited message reference.
+     */
     public @NotNull RestAction<Optional<MessageReference>> editWebhookMessage(
             @NotNull String threadID,
             @NotNull String messageID,
@@ -269,7 +277,15 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
         return new RestActionImpl<>(this.jdaImpl, route, response::execute);
     }
 
-
+    /**
+     * Starts a new thread with optional components in the initial webhook message.
+     *
+     * @param webhookData Webhook message data.
+     * @param appliedTags Collection of tag IDs to apply, or null.
+     * @param withComponents Whether to forcefully include message components (e.g., buttons).
+     * @param allowSecondAttempt Whether to retry once if the request fails.
+     * @return A RestAction holding an Optional with the edited message reference.
+     */
     public @NotNull RestAction<Optional<MessageReference>> newThreadWithMessage(
             @NotNull WebhookDataBuilder.WebhookData webhookData,
             @Nullable Collection<Long> appliedTags,
@@ -325,7 +341,7 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
 
         RestResponse<MessageReference> response = new RestResponse<>(this::packageMessageResponse);
 
-        if(allowSecondAttempt) response.setRetryExecution(() ->  sendMessageInThread(threadID, webhookData, withComponents, false));
+        if(allowSecondAttempt) response.setRetryExecution(() -> sendMessageInThread(threadID, webhookData, withComponents, false));
 
         return new RestActionImpl<>(this.jdaImpl, route, requestBody, response::execute);
     }
@@ -411,66 +427,6 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
         catch (ParsingException ex) {
             DiscordPS.error("Failed to parse forum webhook message response", ex);
             return null;
-        }
-    }
-
-    /**
-     * Conventional utility class to handle rest action response.
-     *
-     * @param <T> Type of the return value of this response.
-     */
-    public static class RestResponse<T> {
-        private static final long RETRY_AFTER_MILLIS = 5000;
-        private @Nullable Supplier<RestAction<Optional<T>>> retryExecution;
-        private final @NotNull Function<@NotNull DataObject, @Nullable T> response;
-
-        /**
-         * Create a rest action {@link DataObject} response.
-         *
-         * @param response The response function.
-         */
-        public RestResponse(@NotNull Function<@NotNull DataObject, @Nullable T> response) {
-            this.response = response;
-        }
-
-        /**
-         * Provide this response with retry supplier.
-         *
-         * <p>The supplier will be executed once if a bad response is returned from discord api.</p>
-         *
-         * @param execution The execution that return this respective response.
-         */
-        public void setRetryExecution(@Nullable Supplier<RestAction<Optional<T>>> execution) {
-            this.retryExecution = execution;
-        }
-
-        /**
-         * Execute this rest action response.
-         *
-         * <p>Execution is checked for a retry if {@link Response#isOk()} returns {@code false}.
-         * Result is then received via the response function given by class constructor
-         * (invoked by response body if present).
-         * </p>
-         *
-         * @param response Response from discord API
-         * @return The execution result handled with {@linkplain Optional}.
-         */
-        public Optional<T> execute(Response response, Request<Optional<T>> ignored) {
-            try {
-                if(!response.isOk()) {
-                    if(this.retryExecution == null) return Optional.empty();
-
-                    // Not sure with the threading on this one, in theory it should block the rest action thread for 5 seconds.
-                    DiscordPS.debug("Discord returned bad response for Forum webhook execution, trying again in 5 seconds");
-                    return this.retryExecution.get().completeAfter(RETRY_AFTER_MILLIS, TimeUnit.MILLISECONDS);
-                }
-
-                return response.optObject().map(this.response);
-            }
-            catch (Throwable ex) {
-                DiscordPS.error("Failed to execute API response of a webhook forum process", ex);
-                return Optional.empty();
-            }
         }
     }
 }
