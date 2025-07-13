@@ -3,7 +3,7 @@ package asia.buildtheearth.asean.discord.plotsystem.api.events;
 /**
  * All available undo events.
  *
- * @see PlotUndoReviewEvent
+ * @see PlotUndoSubmitEvent
  * @see PlotUndoReviewEvent
  */
 public abstract sealed class PlotUndoEvent extends PlotEvent
