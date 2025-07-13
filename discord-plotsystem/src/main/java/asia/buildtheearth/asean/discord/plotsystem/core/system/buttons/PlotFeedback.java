@@ -25,6 +25,8 @@ import java.io.File;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage;
 
@@ -34,77 +36,83 @@ public class PlotFeedback implements PluginButtonHandler, SimpleButtonHandler {
         // Response
         event.deferReply(true).queue();
 
-        String plotID = button.getPayload();
+        PlotFeedback.getFeedback(null, button.getIDLong()).thenCompose((webhookData -> {
 
-        try {
             Route.CompiledRoute route = Route.Interactions.CREATE_FOLLOWUP.compile(
-                DiscordPS.getPlugin().getJDA().getSelfUser().getApplicationId(),
-                event.getInteraction().getToken()
+                    DiscordPS.getPlugin().getJDA().getSelfUser().getApplicationId(),
+                    event.getInteraction().getToken()
             ).withQueryParams("with_components", String.valueOf(true));
-
-            WebhookDataBuilder.WebhookData webhookData = getFeedback(null, button.getIDLong());
 
             // Prepare the request action
             MultipartBody requestBody = webhookData.prepareRequestBody();
-            RestAction<Object> action = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
+            RestAction<Void> action = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
 
-            // Queue the action and handle for error
-            action.submit().whenComplete((ok, error) -> {
-                if(error == null) return;
+            // Queue the request
+            return action.submit();
 
-                // Handle error if failed
-                event.getHook().sendMessageEmbeds(getErrorEmbed()).queue();
+        })).whenComplete((ok, error) -> {
+            // Handle error if failed
+            if(error == null) return;
 
-                Notification.sendErrorEmbed(
-                    ErrorMessage.PLOT_FEEDBACK_GET_EXCEPTION,
-                    error.toString(),
-                    plotID,
-                    event.getUser().getId()
-                );
-            });
-        } catch (SQLException ex) {
-            // Reply owner that it failed
-            event.deferReply(true).addEmbeds(getErrorEmbed()).queue();
+            event.getHook().sendMessageEmbeds(getErrorEmbed()).queue();
 
             Notification.sendErrorEmbed(
-                ErrorMessage.PLOT_FEEDBACK_GET_EXCEPTION,
-                ex.toString(),
-                plotID,
-                event.getUser().getId()
+                    ErrorMessage.PLOT_FEEDBACK_GET_EXCEPTION,
+                    error.toString(),
+                    button.getPayload(),
+                    event.getUser().getId()
             );
-        }
+        });
     }
 
-    public static @NotNull WebhookDataBuilder.WebhookData getFeedback(@Nullable String title, long feedbackID) throws SQLException {
-        WebhookEntry entry = WebhookEntry.getByMessageID(feedbackID);
+    /**
+     * Fetch feedback data from the given ID, then parse it to {@linkplain WebhookDataBuilder.WebhookData WebhookData}.
+     *
+     * @param title Optional title that will be displayed before the feedback embed.
+     * @param feedbackID The feedback ID in the database.
+     * @return Completable future that complete successfully if the given feedback ID exists and the feedback is not {@code null}.
+     */
+    @NotNull
+    public static CompletableFuture<WebhookDataBuilder.WebhookData> getFeedback(@Nullable String title, long feedbackID) {
 
-        if(entry == null || entry.feedback() == null)
-            throw new SQLException("Trying to get feedback that does not exist in the database!");
+        CompletableFuture<WebhookEntry> action = CompletableFuture.supplyAsync(() -> {
+            try {
+                WebhookEntry entry = WebhookEntry.getByMessageID(feedbackID);
 
-        String feedbackRaw = entry.feedback();
-        String entryID = Long.toUnsignedString(feedbackID);
-        Optional<List<File>> reviewMedia = ReviewComponent.getOptMedia(entry.plotID(), entryID);
-        ReviewComponent component = new ReviewComponent(
-            feedbackRaw,
-            null,
-            entry.status().toTag().getColor(),
-            reviewMedia.orElse(null)
-        );
+                if(entry == null || entry.feedback() == null)
+                    throw new SQLException("Trying to get feedback that does not exist in the database!");
 
-        Collection<ComponentV2> components = (title == null || StringUtils.isBlank(title))
-                ? Collections.singletonList(component.build())
-                : List.of(new TextDisplay(title), component.build());
+                return entry;
+            } catch (SQLException ex) { throw new RuntimeException(ex); }
+        });
 
-        WebhookDataBuilder.WebhookData webhookData = new WebhookDataBuilder()
-                .setComponentsV2(components)
-                .forceComponentV2()
-                .suppressNotifications()
-                .suppressMentions()
-                .build();
+        return action.orTimeout(60L, TimeUnit.SECONDS).thenApply(entry -> {
 
-        reviewMedia.ifPresent(files -> files.forEach(webhookData::addFile));
+            String feedbackRaw = entry.feedback();
+            String entryID = Long.toUnsignedString(feedbackID);
+            Optional<List<File>> reviewMedia = ReviewComponent.getOptMedia(entry.plotID(), entryID);
+            ReviewComponent component = new ReviewComponent(
+                    Objects.requireNonNull(feedbackRaw),
+                    null,
+                    entry.status().toTag().getColor(),
+                    reviewMedia.orElse(null)
+            );
 
-        return webhookData;
+            Collection<ComponentV2> components = (title == null || StringUtils.isBlank(title))
+                    ? Collections.singletonList(component.build())
+                    : List.of(new TextDisplay(title), component.build());
+
+            WebhookDataBuilder.WebhookData webhookData = new WebhookDataBuilder()
+                    .setComponentsV2(components)
+                    .forceComponentV2()
+                    .suppressNotifications()
+                    .suppressMentions()
+                    .build();
+
+            reviewMedia.ifPresent(files -> files.forEach(webhookData::addFile));
+
+            return webhookData;
+        });
     }
 
     private static @NotNull MessageEmbed getErrorEmbed() {

@@ -450,6 +450,9 @@ slash-commands:
       review-send-success:
         - ":package: Successfully sent the review"
         - "Thread: <#{threadID}>"
+      previous-review-not-found:
+        - "No previous review is found for this entry"
+        - ~
     messages:
       review-confirmation: "-# Make sure the feedback preview is up to what you expected"
       new-review-preview: "New Review Preview:"
@@ -460,7 +463,6 @@ slash-commands:
         Error occurred when trying to preview your feedback edits.
         Confirming this may produce future error when user is asking for the review feedback.
       sql-get-error: "The system failed get data for this plot ID, cannot edit the entry."
-      sql-save-error: "The system failed to save new review data."
       validation-error: "The system failed to verify selected plot to process."
       feedback-send-error: "The system failed to send feedback to the thread."
 

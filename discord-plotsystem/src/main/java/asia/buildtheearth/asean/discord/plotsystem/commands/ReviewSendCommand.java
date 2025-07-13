@@ -80,7 +80,7 @@ final class ReviewSendCommand extends ReviewEditCommand {
         RestAction<Object> newReview = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
 
         // Send preview and handle for error
-        this.sendReviewConfirmation(newReview, channel, interaction)
+        this.sendReviewConfirmation(newReview.submit(), channel, interaction)
             .thenAccept(success -> success.setNewReviewMessage(feedbackRaw));
     }
 
@@ -95,8 +95,8 @@ final class ReviewSendCommand extends ReviewEditCommand {
 
         interaction.getOptAttachments().ifPresentOrElse(attachments -> {
             String eventID = Long.toUnsignedString(interaction.eventID);
-            this.saveAttachmentsToFile(hook, interaction, attachments, (uploaded, files) ->
-                this.sendReviewInThread(hook, interaction, eventID, uploaded, files), eventID);
+            this.saveAttachmentsToFile(hook, interaction, eventID, attachments, (uploaded, files) ->
+                this.sendReviewInThread(hook, interaction, eventID, uploaded, files));
         }, () -> this.sendReviewInThread(hook, interaction, null, null, null));
     }
 

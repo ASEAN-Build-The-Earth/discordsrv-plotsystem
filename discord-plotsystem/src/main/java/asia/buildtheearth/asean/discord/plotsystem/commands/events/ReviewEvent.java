@@ -34,8 +34,8 @@ public interface ReviewEvent {
     void sendInstruction(@NotNull InteractionHook hook, @NotNull OnReview interaction);
 
     /**
-     * Interacted when user clicked on the delete confirmation button
-     * after delete entry is selected.
+     * Interacted when user clicked on the review confirmation button
+     * after review entry is selected.
      *
      * @param message The event's retrieved message
      * @param interaction The {@link OnReview} interaction payload of this event.

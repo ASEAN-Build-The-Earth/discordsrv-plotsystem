@@ -34,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
 import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.List;
@@ -49,6 +50,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Re
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.ReviewCommand.DESC_PLOT_ID;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.CommandMessage.PLOT_REVIEW_SEND;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.CommandMessage.PLOT_REVIEW_EDIT;
+import static asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemThread.UpdateAction;
 
 sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendCommand {
 
@@ -115,7 +117,7 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
                 return;
             }
 
-            if(hasExistingMedia(entry.plotID(), selected)) {
+            if(optExistingMedia(entry.plotID(), selected).isPresent()) {
                 ActionRow row = ActionRow.of(
                     Button.PREV_IMG_CLEAR.get(interaction),
                     Button.PREV_IMG_ADD.get(interaction)
@@ -141,39 +143,35 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
             return;
         }
 
-        // Get the previous review data
-        MultipartBody previousData = null;
-
-        try {
-            WebhookDataBuilder.WebhookData reviewData = PlotFeedback.getFeedback(
-                "## " + getLang(MESSAGE_PREVIOUS_REVIEW), entry.messageID()
-            );
-            previousData = reviewData.prepareRequestBody();
-        }
-        catch (SQLException ex) {
-            channel.sendMessageEmbeds(errorEmbed(MESSAGE_SQL_GET_ERROR)).queue();
-        }
-
         // Parse the new content and send it as preview
         String feedbackRaw = message.getContentRaw();
 
         WebhookDataBuilder.WebhookData reviewData = parseReviewContent(
-                message,
-                entry.messageID(),
-                entry.plotID(),
-                entry.status().toTag().getColor(),
-                interaction::setAttachments
+            message,
+            entry.messageID(),
+            entry.plotID(),
+            entry.status().toTag().getColor(),
+            interaction::setAttachments
         );
 
-        // Send the preview as raw rest-action to bypass outdated checks
         Route.CompiledRoute route = Route.Messages.SEND_MESSAGE.compile(channel.getId());
         MultipartBody requestBody = reviewData.prepareRequestBody();
-        RestAction<Object> newReview = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
-        RestAction<Object> previousReview = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, previousData);
-        RestAction<?> previewAction = (previousData != null)? RestAction.allOf(previousReview, newReview) : newReview;
 
-        this.sendReviewConfirmation(previewAction, channel, interaction)
-            .thenAccept(success -> success.setNewReviewMessage(feedbackRaw));
+        // Get the previous review data
+        CompletableFuture<RestActionImpl<?>> previousData = PlotFeedback
+                .getFeedback("## " + getLang(MESSAGE_PREVIOUS_REVIEW), entry.messageID())
+                .thenApply(WebhookDataBuilder.WebhookData::prepareRequestBody)
+                .thenApply(data -> new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, data));
+
+        // Send the preview as raw rest-action to bypass outdated checks
+        previousData.whenComplete((preview, error) -> {
+            RestAction<?> newReview = new RestActionImpl<>(DiscordPS.getPlugin().getJDA(), route, requestBody);
+            RestAction<?> notFound = channel.sendMessageEmbeds(getEmbed(Constants.ORANGE, EMBED_PREVIOUS_NOT_FOUND));
+            RestAction<?> previewAction = RestAction.allOf((preview != null && error == null)? preview : notFound, newReview);
+
+            this.sendReviewConfirmation(previewAction.submit(), channel, interaction)
+                .thenAccept(success -> success.setNewReviewMessage(feedbackRaw));
+        });
     }
 
     @Override
@@ -198,7 +196,7 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
                 .setColor(Constants.BLUE)
                 .build();
 
-        hook.sendMessageEmbeds(embed).addActionRows(interactions).queue();
+        this.queueEmbed(hook, interactions, embed);
     }
 
     @Override
@@ -232,46 +230,44 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
             return;
         }
 
-        try {
-            WebhookEntry.updateEntryFeedback(interaction.getSelectedEntry().messageID(), interaction.getNewReviewMessage());
+        WebhookEntry entry = interaction.getSelectedEntry();
 
-            String threadID = Long.toUnsignedString(interaction.getSelectedEntry().threadID());
+        String threadID = Long.toUnsignedString(entry.threadID());
+        String messageID = Long.toUnsignedString(entry.messageID());
+        UpdateAction action = new UpdateAction(interaction.getPlotID(), entry, messageID, threadID);
 
-            Notification.notify(
-                PLOT_REVIEW_EDIT,
-                String.valueOf(interaction.getSelectedEntry().plotID()),
-                hook.getInteraction().getUser().getId(),
-                threadID
-            );
+        DiscordPS.getPlugin().getWebhook().setFeedback(interaction.getNewReviewMessage(), action);
 
-            // Discord account is not linked
-            if(interaction.getSelectedEntry().ownerID() == null) {
-                interaction.getOptAttachments().ifPresentOrElse(attachments -> {
-                    String eventID = Long.toUnsignedString(interaction.eventID);
-                    this.saveAttachmentsToFile(hook, interaction, attachments, (uploaded, files) ->
-                        this.sendReviewInThread(hook, interaction, eventID, uploaded, files), eventID);
-                }, () -> this.sendReviewInThread(hook, interaction, null, null, null));
+        Notification.notify(
+            PLOT_REVIEW_EDIT,
+            String.valueOf(interaction.getPlotID()),
+            hook.getInteraction().getUser().getId(),
+            threadID
+        );
 
-                return;
-            }
-
-            EmbedBuilder embed = this.getLangManager()
-                .getEmbedBuilder(EMBED_REVIEW_EDIT_SUCCESS,
-                    description -> description.replace(Format.THREAD_ID, threadID))
-                .setColor(GREEN);
-
+        // Discord account is not linked
+        if(interaction.getSelectedEntry().ownerID() == null) {
             interaction.getOptAttachments().ifPresentOrElse(attachments -> {
                 String eventID = Long.toUnsignedString(interaction.eventID);
-                String feedbackID = Long.toUnsignedString(interaction.getSelectedEntry().messageID());
-                this.saveAttachmentsToFile(hook, interaction, attachments, (uploaded, files) -> this.queueEmbed(hook,
-                        embed.addField(getLang(MESSAGE_SAVED_ATTACHMENTS), uploaded, false)
-                    .build()
-                ), eventID, feedbackID);
-            }, () -> this.queueEmbed(hook, embed.build()));
+                this.saveAttachmentsToFile(hook, interaction, eventID, attachments, (uploaded, files) ->
+                    this.sendReviewInThread(hook, interaction, eventID, uploaded, files));
+            }, () -> this.sendReviewInThread(hook, interaction, null, null, null));
+
+            return;
         }
-        catch (SQLException ex) {
-            this.queueEmbed(hook, errorEmbed(MESSAGE_SQL_SAVE_ERROR));
-        }
+
+        // Save (if any) attachment of the review is provided
+        EmbedBuilder embed = this.getLangManager()
+            .getEmbedBuilder(EMBED_REVIEW_EDIT_SUCCESS,
+                description -> description.replace(Format.THREAD_ID, threadID))
+            .setColor(GREEN);
+
+        interaction.getOptAttachments().ifPresentOrElse(attachments -> {
+            String feedbackID = Long.toUnsignedString(interaction.getSelectedEntry().messageID());
+            this.saveAttachmentsToFile(hook, interaction, feedbackID, attachments, (uploaded, files) ->
+                this.queueEmbed(hook, embed.addField(getLang(MESSAGE_SAVED_ATTACHMENTS), uploaded, false).build())
+            );
+        }, () -> this.queueEmbed(hook, embed.build()));
     }
 
     @Override
@@ -300,10 +296,10 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
     }
 
     @NotNull
-    protected CompletableFuture<OnReview> sendReviewConfirmation(@NotNull RestAction<?> action,
+    protected CompletableFuture<OnReview> sendReviewConfirmation(@NotNull CompletableFuture<?> action,
                                                                  MessageChannel channel,
                                                                  OnReview interaction) {
-        return action.submit().handle((ok, error) -> {
+        return action.handle((ok, error) -> {
             if(error != null) {
                 channel.sendMessageEmbeds(errorEmbed(MESSAGE_PREVIEW_ERROR, error.toString())).queue();
                 DiscordPS.debug(error.toString());
@@ -326,9 +322,9 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
 
     protected void saveAttachmentsToFile(@NotNull InteractionHook hook,
                                          @NotNull OnReview interaction,
+                                         @NotNull String fileSuffix,
                                          @NotNull List<Message.Attachment> attachments,
-                                         @NotNull BiConsumer<String, List<File>> onSuccess,
-                                         @NotNull String... fileSuffix) {
+                                         @NotNull BiConsumer<String, List<File>> onSuccess) {
         if(interaction.getSelectedEntry() == null) {
             this.queueEmbed(hook, errorEmbed(MESSAGE_VALIDATION_ERROR));
             return;
@@ -349,18 +345,31 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
 
         if(!canSave) return;
 
+        // Format review file name so that it is saved as:
+        // plot-review-[i]-<message_id>
+
+        int prev = optExistingMedia(interaction.getSelectedEntry().plotID(), fileSuffix).map(media -> {
+            for (int i = 0; i < attachments.size(); i++) {
+                File file = media.get(i);
+                String filename = Constants.PLOT_REVIEW_IMAGE_FILE + '-' + i + '-' + fileSuffix;
+                Path finalFile = folder.toPath().resolve(filename + FileUtil.getExtensionFromFile(file));
+
+                //noinspection ResultOfMethodCallIgnored
+                media.get(i).renameTo(finalFile.toFile());
+            }
+
+            return media.size();
+        }).orElse(0);
+
         for (int i = 0; i < attachments.size(); i++) {
             Message.Attachment file = attachments.get(i);
             if(file.getContentType() == null) continue;
             if(file.getContentType().startsWith("image/")) {
-                StringBuilder filename = new StringBuilder();
-                filename.append(Constants.PLOT_REVIEW_IMAGE_FILE);
-                filename.append('-').append(i);
-                for(String suffix : fileSuffix)
-                    filename.append('-').append(suffix);
-                download.add(file.downloadToFile(
-                        folder.toPath().resolve(filename.toString() + '.' + file.getFileExtension()).toFile()
-                ));
+                String filename = Constants.PLOT_REVIEW_IMAGE_FILE + '-' + (i + prev) + '-' + fileSuffix;
+                Optional<String> extension = Optional.ofNullable(file.getFileExtension());
+                Path finalFile = folder.toPath().resolve(filename + extension.map(ext -> '.' + ext).orElse(""));
+
+                download.add(file.downloadToFile(finalFile.toFile()));
             }
         }
 
@@ -472,21 +481,25 @@ sealed class ReviewEditCommand extends AbstractReviewCommand permits ReviewSendC
         return reviewData;
     }
 
-    public boolean hasExistingMedia(int plotID, String entryID) {
+    public Optional<List<File>> optExistingMedia(int plotID, String entryID) {
         File folder = PlotData.prepareMediaFolder(plotID);
 
-        if(!folder.exists()) return false;
+        if(!folder.exists()) return Optional.empty();
 
         try {
+            List<File> media = new ArrayList<>();
+
             for(File file : FileUtil.findImagesFileByPrefix(Constants.PLOT_REVIEW_IMAGE_FILE, folder)) {
                 if(FileUtil.getFilenameFromFile(file).endsWith(entryID))
-                    return true;
+                    media.add(file);
             }
+
+            if(!media.isEmpty()) return Optional.of(media);
         }
         catch (IOException ex) {
             Notification.sendErrorEmbed("IOException trying to verify review media", ex.toString());
         }
 
-        return false;
+        return Optional.empty();
     }
 }

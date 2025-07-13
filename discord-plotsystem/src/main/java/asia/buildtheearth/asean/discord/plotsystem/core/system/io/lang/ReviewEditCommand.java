@@ -14,6 +14,7 @@ public enum ReviewEditCommand implements SystemLang {
     EMBED_OWNER_NO_DISCORD(     "embeds.selected-no-discord"),
     EMBED_MEDIA_FOLDER_CREATED( "embeds.media-folder-created"),
     EMBED_MEDIA_FOLDER_FAILED(  "embeds.media-folder-failed"),
+    EMBED_PREVIOUS_NOT_FOUND(   "embeds.previous-review-not-found"),
     EMBED_REVIEW_EDIT_SUCCESS(  "embeds.review-edit-success"),
     EMBED_REVIEW_SEND_SUCCESS(  "embeds.review-send-success"),
 
@@ -23,7 +24,6 @@ public enum ReviewEditCommand implements SystemLang {
     MESSAGE_SAVED_ATTACHMENTS(   "messages.saved-attachments"),
     MESSAGE_PREV_MEDIA_DELETED(  "messages.previous-media-deleted"),
     MESSAGE_SQL_GET_ERROR(       "messages.sql-get-error"),
-    MESSAGE_SQL_SAVE_ERROR(      "messages.sql-save-error"),
     MESSAGE_VALIDATION_ERROR(    "messages.validation-error"),
     MESSAGE_FEEDBACK_SEND_ERROR( "messages.feedback-send-error"),
     MESSAGE_PREVIEW_ERROR(       "messages.preview-error");
