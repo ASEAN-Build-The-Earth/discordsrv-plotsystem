@@ -28,6 +28,7 @@ public enum PlotInformation implements MessageLang {
 
     // Help Button
     HELP_LABEL("plot.help.label"),
+    HELP_TITLE("plot.help.title"),
     HELP_CONTENT("plot.help.content");
 
     private final String path;

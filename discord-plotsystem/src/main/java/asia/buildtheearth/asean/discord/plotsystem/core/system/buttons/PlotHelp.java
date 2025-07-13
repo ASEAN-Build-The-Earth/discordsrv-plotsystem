@@ -30,7 +30,7 @@ public class PlotHelp implements PluginButtonHandler, SimpleButtonHandler {
     public void onInteracted(PluginButton button, @NotNull ButtonClickEvent event) {
         event.deferReply(true).queue();
 
-        String title = DiscordPS.getMessagesLang().get(PlotInformation.HELP_LABEL);
+        String title = DiscordPS.getMessagesLang().get(PlotInformation.HELP_TITLE, "");
         String content = DiscordPS.getMessagesLang().get(PlotInformation.HELP_CONTENT);
 
         Route.CompiledRoute route = Route.Interactions.CREATE_FOLLOWUP.compile(
