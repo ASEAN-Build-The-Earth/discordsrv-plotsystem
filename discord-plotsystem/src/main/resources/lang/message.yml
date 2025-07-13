@@ -201,8 +201,7 @@ history-messages:
   on-undo-review:   "<t:{timestamp}:D> • Plot review has been revoked"
   on-undo-submit:   "<t:{timestamp}:D> • Plot submission is withdrawn"
   on-archived:      "<t:{timestamp}:D> • Plot has been archived by {owner}"
-  on-reclaimed:     "<t:{timestamp}:D> • Plot is reclaimed by {owner}"
-
+  on-reclaimed:     "{owner} reclaimed the plot <t:{timestamp}:R>"
   on-system-fetch:  "<t:{timestamp}:D> • Plot has been fetched by the system"
 
 # ============================================
