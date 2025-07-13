@@ -90,7 +90,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.No
  * @see DiscordPlotSystemAPI
  */
 public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge {
-    public static final String VERSION = "1.2.2";
+    public static final String VERSION = "1.2.3";
     public static final String DISCORD_SRV_VERSION = "1.29.0";
 
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
