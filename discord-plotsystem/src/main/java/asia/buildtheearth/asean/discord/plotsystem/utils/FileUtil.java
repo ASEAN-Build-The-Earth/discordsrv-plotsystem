@@ -76,6 +76,22 @@ public abstract class FileUtil {
     }
 
     /**
+     * Get file extension from a {@link File} object.
+     *
+     * @param file The file object to get extension.
+     * @return The file extension including dot (e.g., {@code .txt}), or a blank string if no valid extension string is found.
+     */
+    public static String getExtensionFromFile(@NotNull File file) {
+        // 46: character '.' where extension starts with
+        String name = file.getName();
+        int dotIndex = name.lastIndexOf(46);
+
+        if (dotIndex <= 0 || dotIndex == name.length() - 1) return "";
+
+        return name.substring(dotIndex); // includes the dot
+    }
+
+    /**
      * Get filename of a {@link File} object ignoring file extension.
      *
      * @param file The file object to get name
