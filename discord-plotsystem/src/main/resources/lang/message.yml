@@ -62,8 +62,27 @@ plot:
     label: "Documentation"
     url: "https://asean.buildtheearth.asia/intro/getting-started/building-first-build/plot-system"
   help:
-    label: "Help" # The header title
-    content: "Click the documentation link above to take a look at a detailed guide on how to build your plot!"
+    label: "Help" # The button label
+    title: |
+      # Your Plot
+      -# :speech_balloon: Feel free to send a message in this thread if you have any questions about your plot!
+    content: |
+      ## :house: Building Guide
+      ___
+      The outlined shape is a rough estimate of the building, based on Google Maps satellite imagery. 
+      **You are expected to build directly on top of this outline** to maintain real-world accuracy.
+      ___
+      :pushpin: A direct Google Maps link to this plot is included in the **first message** of this thread.
+      ___
+      For full instructions, visit the documentation page linked above.
+      ===
+      ## :stopwatch: Quick Tips
+      ___
+      - Try to **replicate real-world references** as closely as possible using Google Maps.
+      - **1 block = 1 meter**
+      - Typical building height: **3 blocks per floor**
+      ___
+      Happy building! :tada:
   feedback-label:
     rejected-feedback: "Show Reason"
     approved-feedback: "View Feedback"
