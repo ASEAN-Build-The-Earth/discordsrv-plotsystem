@@ -1,7 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.components.PluginComponent;
-import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
@@ -11,7 +10,6 @@ import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
-import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ButtonStyle;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.concurrent.DelayedCompletableFuture;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
@@ -52,7 +50,7 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.No
 /**
  * Main class for managing {@link ForumWebhook} used by all Plot-System functionality.
  *
- * <p>Class majority is used via {@link asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemListener}
+ * <p>Class majority is used via {@link asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemListener},
  * with some selective method usage for manual controls.</p>
  */
 public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
@@ -331,7 +329,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         MemberOwnable owner = new MemberOwnable(action.entry().ownerUUID());
 
         LayoutUpdater layoutUpdater = component -> fetchLayoutData(action.plotID(), event, component, owner, tag);
-        MessageUpdater messageUpdater = message -> fetchStatusMessage(event, message, threadID, owner, status);
+        MessageUpdater messageUpdater = message -> fetchStatusMessage(event, message, action.entry(), owner, status);
 
         // 1st update the thread layout components (the one that display main plot information)
         final CompletableFuture<Optional<MessageReference>> updateLayoutAction = this.webhook.queueNewUpdateAction(
@@ -404,7 +402,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 ? Collections.singletonList(component.build())
                 : List.of(new TextDisplay(title), component.build());
 
-        WebhookDataBuilder.WebhookData webhookData = new WebhookDataBuilder()
+        WebhookData webhookData = new WebhookDataBuilder()
                 .setComponentsV2(components)
                 .forceComponentV2()
                 .build();
@@ -508,33 +506,25 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     public <T extends PlotReviewEvent> void onPlotReview(@NotNull T event) {
         switch (event) {
             case PlotApprovedEvent approved: {
-                this.updatePlot(approved, ThreadStatus.approved, action -> {
-                    // Reply and ping user that their plot got reviewed
+                this.updatePlot(approved, ThreadStatus.approved, action ->
                     onNotification(NotificationType.ON_APPROVED, action.plotID(), PlotMessage::getPlotMessage,
                         (notification, message) -> {
                             final String ownerMention = parseOwnerMention(action.entry());
                             this.sendNotification(notification, action.threadID(), ownerMention);
                             Notification.notify(message, action.threadID(), String.valueOf(action.plotID()));
                         }
-                    );
-
-                    this.attachFeedbackButton(ButtonStyle.SUCCESS, this.metadata.approvedNoFeedbackLabel(), action);
-                });
+                    ));
                 return;
             }
             case PlotRejectedEvent rejected: {
-                this.updatePlot(rejected, ThreadStatus.rejected, action -> {
-                    // Reply and ping user that their plot got reviewed
+                this.updatePlot(rejected, ThreadStatus.rejected, action ->
                     onNotification(NotificationType.ON_REJECTED, action.plotID(), PlotMessage::getPlotMessage,
                         (notification, message) -> {
                             final String ownerMention = parseOwnerMention(action.entry());
                             this.sendNotification(notification, action.threadID(), ownerMention);
                             Notification.notify(message, action.threadID(), String.valueOf(action.plotID()));
                         }
-                    );
-
-                    this.attachFeedbackButton(ButtonStyle.DANGER, this.metadata.rejectedNoFeedbackLabel(), action);
-                });
+                    ));
                 return;
             }
             case PlotFeedbackEvent feedback: {
@@ -575,20 +565,48 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     }
 
     /**
-     * Fetch for plot's feedback button and set it enabled,
-     * as well as set the feedback in {@link WebhookEntry}.
+     * Set the plot's feedback data and update its review button according to the plot status.
+     * (given by {@linkplain PlotSystemThread.UpdateAction the update action})
+     *
+     * @apiNote The feedback value of blank/null string or the exact match of {@code "No Feedback"} is ignored.
      *
      * @param feedback The feedback to be saved in {@link WebhookEntry}
      * @param action The update action for where the feedback button located
      */
-    private void setFeedback(String feedback, @Nullable PlotSystemThread.UpdateAction action) {
+    public void setFeedback(String feedback, @Nullable PlotSystemThread.UpdateAction action) {
         if(action == null) return;
 
-        // TODO: plot-system hard-coded this string, maybe find a better way for this
-        if(Objects.equals(feedback, "No Feedback")) return;
+        // Legacy Plot-System v4 where null feedback as sent as "No Feedback"
+        if(StringUtils.isBlank(feedback) || Objects.equals(feedback, "No Feedback")) return;
+
+        final String label;
+        final BiFunction<String, String, Button> style;
+
+        switch (action.entry().status()) {
+            case approved -> {
+                label = this.metadata.approvedFeedbackLabel();
+                style = Button::success;
+            }
+            case rejected -> {
+                label = this.metadata.rejectedFeedbackLabel();
+                style = Button::danger;
+            }
+            default -> {
+                label = this.metadata.feedbackButtonLabel();
+                style = Button::primary;
+            }
+        }
 
         // Send notification to owner when feedback button is set
-        MessageUpdater messageUpdater = onFeedbackSet(action);
+        MessageUpdater messageUpdater = message -> {
+            if(message.getActionRows().isEmpty()) return Optional.empty();
+
+            ActionRow componentRow = message.getActionRows().getFirst();
+
+            return this.fetchReviewButton(componentRow, action.plotID(), label, style, Function.identity())
+                    .map(new WebhookDataBuilder()::setComponents)
+                    .map(WebhookDataBuilder::build);
+        };
 
         // Queue the action
         CompletableFuture<Optional<MessageReference>> setFeedbackAction = this.webhook.queueNewUpdateAction(
@@ -601,6 +619,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
             try { // Update feedback data entry
                 WebhookEntry.updateEntryFeedback(action.entry().messageID(), feedback);
+
+                // Send notification
+                onNotification(NotificationType.ON_REVIEWED, action.plotID(), notification -> {
+                    final String owner = parseOwnerMention(action.entry());
+                    this.sendNotification(notification, label, action.threadID(), owner);
+                });
             }
             catch (SQLException ex) {
                 Notification.sendErrorEmbed(
@@ -611,67 +635,6 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             }
         });
     }
-
-    /**
-     * Fetch the feedback message by update action and update the attached feedback buttons,
-     * as well as send notification to plot owner.
-     *
-     * @param action The update action of this feedback event
-     * @return Message updater for applying the updated data as {@link WebhookData}
-     * @see #fetchFeedbackMessage(Message, Consumer)
-     */
-    private @NotNull MessageUpdater onFeedbackSet(@NotNull PlotSystemThread.UpdateAction action) {
-        return message -> this.fetchFeedbackMessage(message, label ->
-            onNotification(NotificationType.ON_REVIEWED, action.plotID(), notification -> {
-                final String owner = parseOwnerMention(action.entry());
-                this.sendNotification(notification, label, action.threadID(), owner);
-            })
-        );
-    }
-
-    /**
-     * Figure out owner's mention from plot entry.
-     *
-     * @param entry The plot entry to get
-     * @return Discord mention if the owner has discord account linked,
-     *         else will fetch for the owner's minecraft name from UUID
-     * @see Bukkit#getOfflinePlayer(UUID)
-     */
-    private String parseOwnerMention(@NotNull WebhookEntry entry) {
-        try {
-            UUID ownerUUID = UUID.fromString(entry.ownerUUID());
-
-            return entry.ownerID() != null
-                ? "<@" + entry.ownerID() + '>'
-                : Bukkit.getOfflinePlayer(ownerUUID).getName();
-        }
-        catch (IllegalArgumentException ignored) {
-            return LanguageFile.NULL_LANG;
-        }
-    }
-
-    /**
-     * Attach feedback button to plot status embed
-     *
-     * @param style The button style
-     * @param label The button label
-     * @param action The update action to what plot will be updated
-     */
-    private void attachFeedbackButton(ButtonStyle style, String label, @Nullable PlotSystemThread.UpdateAction action) {
-        if(action == null) return;
-
-        BiFunction<Long, Long, Button> onButtonSet = (messageID, userID) -> Button.of(
-            style, AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, action.plotID()), label
-        );
-
-        MessageUpdater messageUpdater = message -> this.fetchFeedbackButton(message, onButtonSet);
-
-        this.webhook.queueNewUpdateAction(
-            this.webhook.getWebhookMessage(action.threadID(), action.messageID(), true).map(opt -> opt.flatMap(messageUpdater)),
-            data -> this.webhook.editThreadMessage(action.threadID(), action.messageID(), data, true)
-        );
-    }
-
 
     /**
      * Fetch and add new claim to plot status.
@@ -907,7 +870,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      *
      * @param event The event that triggers this update action, can be null.
      * @param message The current message containing the status embed to be updated.
-     * @param threadID The thread ID of this plot.
+     * @param entry The entry data of this plot.
      * @param owner The owner of this plot data.
      * @param status The status of this plot.
      * @return New {@link StatusComponent} built as webhook data ready to be used in API call.
@@ -917,21 +880,26 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     private <T extends PlotEvent>
     Optional<WebhookData> fetchStatusMessage(@Nullable T event,
                                              @NotNull Message message,
-                                             @NotNull String threadID,
+                                             @NotNull WebhookEntry entry,
                                              @NotNull MemberOwnable owner,
                                              @NotNull ThreadStatus status) {
 
+        String threadID = Long.toUnsignedString(entry.threadID());
         StatusEmbed statusEmbed = new StatusEmbed(owner, status, this.getMessageReferenceURL(threadID, threadID));
         WebhookDataBuilder data = new WebhookDataBuilder().setEmbeds(Collections.singletonList(statusEmbed.build()));
 
-        // No interaction to update
+        // Check interaction to update
         if(message.getActionRows().isEmpty()) return Optional.of(data.build());
 
-        // Check interaction to update
         ActionRow componentRow = message.getActionRows().getFirst();
 
+        Optional<Collection<? extends ActionRow>> interactions = switch (event) {
+            case PlotReviewEvent review -> fetchReviewButton(componentRow, review, entry.feedback());
+            case null, default -> fetchInteractionButton(event, componentRow);
+        };
+
         // Set new component if it is modified
-        fetchInteractionButton(event, componentRow).ifPresent(data::setComponents);
+        interactions.ifPresent(data::setComponents);
 
         return Optional.of(data.build());
     }
@@ -939,7 +907,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     /**
      * Fetch the status interaction row if it should be updated or not
      *
-     * @param plotEvent The event to determine interactions to update
+     * @param plotEvent The event to determine interactions to update=
      * @param interactionRow The action row object to be updated
      * @return Optional of the updated component, empty if there's nothing to update
      * @param <T> The type of plot event
@@ -948,138 +916,191 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     private <T extends PlotEvent>
     Optional<Collection<? extends ActionRow>> fetchInteractionButton(@Nullable T plotEvent,
                                                                      @NotNull ActionRow interactionRow) {
+
         List<Button> buttons = new ArrayList<>();
 
-        switch(plotEvent) {
-            case PlotClosureEvent ignored: // Make all interactive button disabled if the plot is closed
-                interactionRow.getButtons().forEach(button -> PluginComponent.getOpt(this.plugin, button).ifPresentOrElse(component -> {
-                    switch (AvailableButton.valueOf(component.getType())) {
-                        case AvailableButton.FEEDBACK_BUTTON:
-                            buttons.add(
-                                Button.secondary(component.getRawID() + "/Locked",
-                                Emoji.fromUnicode("U+1F512")).asDisabled()
-                            );
-                            break;
-                        case AvailableButton.HELP_BUTTON:
-                            buttons.add(
-                                Button.primary(component.getRawID() + "/Locked",
-                                button.getLabel()).asDisabled()
-                            );
-                            break;
-                    }
-                }, () -> {
-                    if(buttons.isEmpty()) buttons.add(button.asDisabled());
-                }));
-                break;
-            case PlotUndoEvent event:
-                // Undo review: Filter out feedback button from the interaction row
-                if(event instanceof PlotUndoReviewEvent)
-                    interactionRow.getButtons().forEach(button ->
-                        PluginComponent.getOpt(this.plugin, button).ifPresentOrElse(component -> {
-                            if (AvailableButton.valueOf(component.getType()) == AvailableButton.HELP_BUTTON)
-                                buttons.add(component.get());
-                        }, () -> buttons.add(button))
-                    );
-                break;
-            case null, default: return Optional.empty();
+        // Closure Event: Make all interactive button disabled if the plot is closed
+        if(plotEvent instanceof PlotClosureEvent) {
+            fetchButtons(interactionRow, (component, optButton) -> optButton
+                .map(button -> switch (AvailableButton.valueOf(button.getType())) {
+                    case AvailableButton.FEEDBACK_BUTTON ->
+                            Button.secondary(button.getRawID() + "/Locked", Emoji.fromUnicode("U+1F512"));
+                    case AvailableButton.HELP_BUTTON ->
+                            Button.primary(button.getRawID() + "/Locked", component.getLabel());
+                    default -> null;
+                })
+                .or(() -> Optional.ofNullable(buttons.isEmpty()? component : null))
+                .map(Button::asDisabled)
+                .ifPresent(buttons::add)
+            );
         }
 
-        if(buttons.isEmpty()) return Optional.empty();
-        else return Optional.of(Collections.singletonList(ActionRow.of(buttons)));
+        // Undo Review: Filter out feedback button from the interaction row
+        if(plotEvent instanceof PlotUndoReviewEvent) {
+            fetchButtons(interactionRow, (component, optButton) -> optButton
+                .filter(button -> !button.getType().equals(AvailableButton.FEEDBACK_BUTTON.name()))
+                .map(PluginComponent::get)
+                .or(() -> Optional.ofNullable(optButton.isPresent()? null : component))
+                .ifPresent(buttons::add)
+            );
+        }
+
+        // Plot Submit: Check the plot has been previously reviewed
+        if(plotEvent instanceof PlotSubmitEvent) {
+            fetchButtons(interactionRow, (component, optButton) -> optButton
+                .map(button -> {
+                    if(!button.getType().equals(AvailableButton.FEEDBACK_BUTTON.name())) return button.get();
+
+                    // If so, set it as generic feedback button (Not red or green)
+                    Button review = Button.primary(button.getRawID(), this.metadata.feedbackButtonLabel());
+
+                    if(button.get().isDisabled()) return review.asDisabled();
+
+                    return review;
+                })
+                .or(() -> Optional.ofNullable(optButton.isPresent()? null : component))
+                .ifPresent(buttons::add)
+            );
+        }
+
+        return Optional.of(buttons)
+                .filter(data -> !data.isEmpty())
+                .map(ActionRow::of)
+                .map(Collections::singletonList);
     }
+
+    /**
+     * Retrieve a {@link PlotReviewEvent} and a feedback message and fetch a review button in the given {@linkplain ActionRow}.
+     *
+     * <p>This will either add a disabled button if the feedback is {@code null} or blank,
+     * or an enabled button referencing to the feedback data.</p>
+     *
+     * @param actionRow The action row to be checked and apply new button to.
+     * @param reviewEvent The event instance (Must be review event)
+     * @param feedback The feedback message of this review (can be {@code null})
+     * @return Optional of the modified {@linkplain ActionRow}
+     * @param <T> The type of the review event, currently only {@link PlotApprovedEvent} and {@link PlotRejectedEvent} is functional.
+     */
+    @NotNull
+    private <T extends PlotReviewEvent>
+    Optional<Collection<? extends ActionRow>> fetchReviewButton(@NotNull ActionRow actionRow,
+                                                                @NotNull T reviewEvent,
+                                                                @Nullable String feedback) {
+        // Plot Reviews: Check and update feedback button
+        boolean hasFeedback = StringUtils.isNotBlank(feedback);
+        Function<Button, Button> style = hasFeedback? Button::asEnabled : Button::asDisabled;
+
+        return switch (reviewEvent) {
+            case PlotApprovedEvent ignored -> {
+                String label = hasFeedback? this.metadata.approvedFeedbackLabel() : this.metadata.approvedNoFeedbackLabel();
+                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), label, Button::success, style);
+            }
+            case PlotRejectedEvent ignored -> {
+                String label = hasFeedback? this.metadata.rejectedFeedbackLabel() : this.metadata.rejectedNoFeedbackLabel();
+                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), label, Button::danger, style);
+            }
+            case PlotReviewEvent ignored -> Optional.empty();
+        };
+    }
+
+
+    /**
+     * Fetch a plot's review button with the given settings.
+     *
+     * <p>This will first check if the given action row already has existing review button,
+     * edit the button by given parameter, or add a new button using the parameter.</p>
+     *
+     * @param actionRow The action row to be checked and apply new button to.
+     * @param plotID The plotID of this reviewing button.
+     * @param label New button label text.
+     * @param style New button style as its reference function.
+     *              ({@link Button#primary(String, String) Button::primary},
+     *              {@link Button#secondary(String, String) Button::secondary},
+     *              {@link Button#danger(String, String) Button::danger},
+     *              {@link Button#success(String, String) Button::success}).
+     * @param modifier Modifier to be applied to the button result (like {@link Button#asDisabled() Button::asDisabled})
+     * @return Non-empty optional of the modified {@linkplain ActionRow}
+     */
+    @NotNull
+    private Optional<Collection<? extends ActionRow>> fetchReviewButton(@NotNull ActionRow actionRow, int plotID,
+                                                                        @NotNull String label,
+                                                                        @NotNull BiFunction<String, String, Button> style,
+                                                                        @NotNull Function<Button, Button> modifier) {
+        List<Button> buttons = new ArrayList<>();
+
+        // Parse for buttons data and check if review button exist
+        // Then apply the supplied button with supplied modifier
+        List<Button> row = fetchButtons(actionRow, (ignored, optButton) -> optButton
+                .filter(button -> button.getType().equals(AvailableButton.FEEDBACK_BUTTON.name()))
+                .map(button ->  modifier.apply(style.apply(button.getRawID(), label)))
+                .ifPresent(buttons::add)
+        );
+
+        // Review data is not empty, feedback button is already attached
+        if(!buttons.isEmpty()) {
+            // Retain all non-feedback button
+            fetchButtons(row, (component, optButton) -> optButton
+                    .filter(button -> !button.getType().equals(AvailableButton.FEEDBACK_BUTTON.name()))
+                    .map(PluginComponent::get)
+                    .or(() -> Optional.ofNullable(optButton.isPresent()? null : component))
+                    .ifPresent(buttons::add)
+            );
+
+            return Optional.of(buttons)
+                    .map(ActionRow::of)
+                    .map(Collections::singletonList);
+        }
+
+        return this.addFeedbackButton(actionRow, (messageID, userID) -> modifier.apply(
+                style.apply(AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID), label)
+        ));
+    }
+
 
     /**
      * Fetch a new feedback button into message.
      *
-     * @param message The message to fetch a feedback button to.
      * @param onButtonSet Invoke when setting button with message ID and owner ID, use this to supply button style.
      * @return The updated component data built as {@link WebhookData}
      */
     @NotNull
-    private Optional<WebhookData> fetchFeedbackButton(@NotNull Message message,
-                                                      @NotNull BiFunction<Long, Long, Button> onButtonSet) {
-        if(message.getActionRows().isEmpty()) return Optional.empty();
-
-        // Clone our component button and add a new, feedback button
-        ActionRow componentRow = message.getActionRows().getFirst();
+    private Optional<Collection<? extends ActionRow>> addFeedbackButton(@NotNull ActionRow componentRow,
+                                                                        @NotNull BiFunction<Long, Long, Button> onButtonSet) {
         List<Button> buttons = new ArrayList<>();
 
-        componentRow.getButtons().forEach((button) -> {
-            // Add all sent button back
-            if(button == null) return;
+        fetchButtons(componentRow, (component, optButton) -> {
+            optButton // Find settings from attached help button then apply it as a new feedback button
+                    .filter(button -> button.getType().equals(AvailableButton.HELP_BUTTON.name()))
+                    .map(button -> onButtonSet.apply(button.getIDLong(), button.getUserIDLong()))
+                    .ifPresent(buttons::add);
 
-            // Parse for data in help button
-            PluginComponent.getOpt(this.plugin, button).ifPresent(component -> {
-                AvailableButton buttonID = AvailableButton.valueOf(component.getType());
-
-                switch (buttonID) {
-                    // Ignore if feedback button is already attached
-                    case AvailableButton.FEEDBACK_BUTTON: return;
-                    // Feedback button is not yet attached:
-                    // Clone setting from a previously attached help button
-                    // since this button's existence also confirms user owner in its ID
-                    case AvailableButton.HELP_BUTTON: buttons.add(
-                            onButtonSet.apply(message.getIdLong(), component.getUserIDLong()).asDisabled()
-                    );
-                }
-            });
-
-            buttons.add(button);
+            // Retain all component(s) of the message
+            if(component != null) buttons.add(component);
         });
 
-        List<ActionRow> updatedRow = List.of(ActionRow.of(buttons));
-
-        return Optional.of(new WebhookDataBuilder().setComponents(updatedRow).build());
+        return Optional.of(buttons)
+                .filter(data -> !data.isEmpty()).map(ActionRow::of)
+                .map(Collections::singletonList);
     }
 
     /**
-     * Fetch the status message for feedback button and edit the button as enabled.
+     * Figure out owner's mention from plot entry.
      *
-     * @param message The status message
-     * @return The updated status message built to webhook data
+     * @param entry The plot entry to get
+     * @return Discord mention if the owner has discord account linked,
+     *         else will fetch for the owner's minecraft name from UUID
+     * @see Bukkit#getOfflinePlayer(UUID)
      */
-    @NotNull
-    private Optional<WebhookData> fetchFeedbackMessage(@NotNull Message message,
-                                                       @NotNull Consumer<String> onSuccess) {
-        if(message.getActionRows().isEmpty()) return Optional.empty();
+    private String parseOwnerMention(@NotNull WebhookEntry entry) {
+        try {
+            UUID ownerUUID = UUID.fromString(entry.ownerUUID());
 
-        // Clone our component button and add a new, feedback button
-        ActionRow componentRow = message.getActionRows().getFirst();
-        List<Button> buttons = new ArrayList<>();
-
-        componentRow.getButtons().forEach((button) -> {
-            // Add all sent button back
-            if(button == null) return;
-
-            // Parse for data in feedback button
-            try {
-                PluginButton component = new PluginButton(this.plugin, button);
-
-                // If feedback button is already attached
-                // update it to functional button
-                // (the initial feedback button is set as "No Feedback"
-                if(AvailableButton.valueOf(component.getType()) == AvailableButton.FEEDBACK_BUTTON) {
-
-                    String label = button.getLabel();
-
-                    buttons.add(switch (button.getStyle()) {
-                        case DANGER -> button.withLabel(label = this.metadata.rejectedFeedbackLabel()).asEnabled();
-                        case SUCCESS -> button.withLabel(label = this.metadata.approvedFeedbackLabel()).asEnabled();
-                        default -> button.asDisabled();
-                    });
-
-                    // Reply and ping user that their plot got reviewed
-                    onSuccess.accept(label);
-                    return;
-                }
-            }
-            catch (IllegalArgumentException ignored) { }
-
-            buttons.add(button);
-        });
-
-        List<ActionRow> updatedRow = List.of(ActionRow.of(buttons));
-
-        return Optional.of(new WebhookDataBuilder().setComponents(updatedRow).build());
+            return entry.ownerID() != null
+                    ? "<@" + entry.ownerID() + '>'
+                    : Bukkit.getOfflinePlayer(ownerUUID).getName();
+        }
+        catch (IllegalArgumentException ignored) {
+            return LanguageFile.NULL_LANG;
+        }
     }
 }

@@ -20,6 +20,7 @@ public enum PlotInformation implements MessageLang {
     DOCS_URL("plot.documentation.url"),
 
     // Feedback Button labels
+    FEEDBACK_LABEL("plot.feedback-label.feedback"),
     REJECTED_FEEDBACK_LABEL("plot.feedback-label.rejected-feedback"),
     APPROVED_FEEDBACK_LABEL("plot.feedback-label.approved-feedback"),
     REJECTED_NO_FEEDBACK_LABEL("plot.feedback-label.rejected-no-feedback"),

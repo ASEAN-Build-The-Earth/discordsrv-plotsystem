@@ -1,6 +1,8 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
+import asia.buildtheearth.asean.discord.components.PluginComponent;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
+import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
@@ -69,6 +71,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
         this.webhook = webhook;
         this.metadata = new Metadata(
             DiscordPS.getMessagesLang().get(PlotInformation.HELP_LABEL),
+            DiscordPS.getMessagesLang().get(PlotInformation.FEEDBACK_LABEL),
             DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_FEEDBACK_LABEL),
             DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_FEEDBACK_LABEL),
             DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_NO_FEEDBACK_LABEL),
@@ -326,6 +329,41 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
 
         return owner.getOwnerDiscord().map(interactiveRow).orElse(staticRow);
     }
+
+    /**
+     * Fetch an {@linkplain ActionRow} containing {@linkplain Button}(s),
+     * parsing each button as an optional of {@link PluginButton}.
+     *
+     * @param row The action row to be parsed.
+     * @param eachButton Invoked on each buttons with its instance, and an optional
+     *                   if the plugin is created by this plugin with valid data ID.
+     * @return List of all buttons inside the given action row.
+     */
+    @NotNull
+    protected List<Button> fetchButtons(@NotNull ActionRow row,
+                                        @NotNull BiConsumer<Button, Optional<PluginButton>> eachButton) {
+        return fetchButtons(row.getButtons(), eachButton);
+    }
+
+    /**
+     * Fetch a list of {@linkplain Button}(s), parsing each button as an optional of {@link PluginButton}.
+     *
+     * @param buttons The list of button to be parsed.
+     * @param eachButton Invoked on each buttons with its instance, and an optional
+     *                   if the plugin is created by this plugin with valid data ID.
+     * @return The same un-modified list.
+     */
+    @NotNull
+    protected List<Button> fetchButtons(@NotNull List<Button> buttons,
+                                        @NotNull BiConsumer<Button, Optional<PluginButton>> eachButton) {
+        for(Button component : buttons) {
+            Optional<PluginButton> optButton = PluginComponent.getOpt(this.plugin, component, PluginButton::new);
+            eachButton.accept(component, optButton);
+        }
+
+        return buttons;
+    }
+
 
     /**
      * Optionally get archive thread name if configured a prefix for it.
@@ -589,6 +627,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      * <p>Below are the default label of each buttons</p>
      *
      * @param helpButtonLabel "Help" label
+     * @param feedbackButtonLabel "Feedback" label
      * @param rejectedFeedbackLabel "Show Reason" label
      * @param approvedFeedbackLabel "View Feedback" label
      * @param rejectedNoFeedbackLabel "No Feedback Yet" label
@@ -597,6 +636,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      */
     protected record Metadata(
             String helpButtonLabel,
+            String feedbackButtonLabel,
             String rejectedFeedbackLabel,
             String approvedFeedbackLabel,
             String rejectedNoFeedbackLabel,

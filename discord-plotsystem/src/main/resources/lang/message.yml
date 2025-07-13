@@ -84,6 +84,7 @@ plot:
       ___
       Happy building! :tada:
   feedback-label:
+    feedback: "Feedback" # Generic feedback when plot is not explicitly approved or rejected
     rejected-feedback: "Show Reason"
     approved-feedback: "View Feedback"
     rejected-no-feedback: "No Reason Yet"
