@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
+import asia.buildtheearth.asean.discord.plotsystem.commands.ReloadCommand;
 import asia.buildtheearth.asean.discord.plotsystem.commands.ReviewCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.CommandInteractions;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
@@ -23,6 +24,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.EventListener;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Discord slash command listener
@@ -78,6 +80,17 @@ final public class DiscordCommandListener extends DiscordCommandProvider impleme
     @Override
     public @NotNull Plugin getPlugin() {
         return this.plugin;
+    }
+
+    /**
+     * Entry point for {@code /reload} command
+     *
+     * @param event Slash command event activated by JDA
+     * @see ReloadCommand Event handler
+     */
+    @SlashCommand(path = ReloadCommand.RELOAD)
+    public void onReload(@NotNull SlashCommandEvent event) {
+        this.onSlashCommand(event, true, ReloadCommand.class, cmd -> cmd);
     }
 
     /**

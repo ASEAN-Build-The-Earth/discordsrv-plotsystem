@@ -93,7 +93,7 @@ final class ApiManager {
             method.invoke(instance, method.getParameterCount() == 0 ? null : args);
             return true;
         } catch (InvocationTargetException ex) {
-            DiscordPlotSystemAPI.error(instance.getClass().getName() + "#" + method.getName() + " threw an error: ", ex);
+            DiscordPlotSystemAPI.error(instance.getClass().getName() + "#" + method.getName() + " threw an error: ", ex.getTargetException());
 
         } catch (IllegalAccessException ex) {
             // this should never happen

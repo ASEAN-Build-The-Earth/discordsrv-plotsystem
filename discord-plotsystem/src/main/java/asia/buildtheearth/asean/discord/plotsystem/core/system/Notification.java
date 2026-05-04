@@ -40,7 +40,7 @@ public abstract class Notification extends NotificationProvider {
     public static void notify(@NotNull NotificationLang message, @NotNull String... args) {
         switch (message) {
             case PluginNotification plugin -> {
-                if(METADATA.plugin() == Config.DISABLED) break;
+                if(getMetadata().plugin() == Config.DISABLED) break;
 
                 EmbedBuilder embed = DiscordPS.getSystemLang()
                     .getEmbedBuilder(plugin)
@@ -48,7 +48,7 @@ public abstract class Notification extends NotificationProvider {
 
                 if(args.length > 0) embed.setDescription(args[0]);
 
-                sendEmbed(METADATA.plugin(), embed.build());
+                sendEmbed(getMetadata().plugin(), embed.build());
             }
             case PlotNotification plot -> {
                 Config config = parseConfig(plot.getConfig(), Config.DISABLED);
@@ -62,15 +62,15 @@ public abstract class Notification extends NotificationProvider {
                 sendEmbed(config, embed);
             }
             case ErrorNotification error -> {
-                if(METADATA.errors() == Config.DISABLED) break;
-                sendEmbed(METADATA.errors(), prepareErrorEmbed(error, args).build());
+                if(getMetadata().errors() == Config.DISABLED) break;
+                sendEmbed(getMetadata().errors(), prepareErrorEmbed(error, args).build());
             }
             // un-categorized notification, will be sent as plugin related
             case NotificationLang notification -> {
-                if(METADATA.plugin() == Config.DISABLED) break;
+                if(getMetadata().plugin() == Config.DISABLED) break;
 
                 sendEmbed(
-                    METADATA.plugin(),
+                    getMetadata().plugin(),
                     DiscordPS.getSystemLang()
                         .getEmbedBuilder(notification)
                         .setColor(Constants.GRAY)
@@ -87,7 +87,7 @@ public abstract class Notification extends NotificationProvider {
      * @param embed The {@link MessageEmbed}
      */
     public static void sendEmbed(Config config, @NotNull MessageEmbed embed) {
-        if(config == Config.WITH_CONTENT) METADATA.content().ifPresentOrElse(
+        if(config == Config.WITH_CONTENT) getMetadata().content().ifPresentOrElse(
             content -> getOpt().ifPresent((channel -> channel.sendMessage(content).setEmbeds(embed).queue())),
             () -> getOpt().ifPresent((channel -> channel.sendMessageEmbeds(embed).queue())
         ));
@@ -102,7 +102,7 @@ public abstract class Notification extends NotificationProvider {
      * @param embeds The {@link MessageEmbed}
      */
     public static void sendMessageEmbeds(String content, @NotNull MessageEmbed... embeds) {
-        if(METADATA.plugin() == Config.DISABLED) return;
+        if(getMetadata().plugin() == Config.DISABLED) return;
 
         getOpt().ifPresent((channel -> channel.sendMessage(content).setEmbeds(embeds).queue()));
     }
@@ -113,7 +113,7 @@ public abstract class Notification extends NotificationProvider {
      * @param message The message as String of content.
      */
     public static void sendMessage(CharSequence message) {
-        if(METADATA.plugin() == Config.DISABLED) return;
+        if(getMetadata().plugin() == Config.DISABLED) return;
 
         getOpt().ifPresent((channel -> channel.sendMessage(message).queue()));
     }
@@ -126,10 +126,10 @@ public abstract class Notification extends NotificationProvider {
      * @param args Supported placeholder argument(s) of the message.
      */
     public static void sendErrorEmbed(ErrorNotification message, String error, String... args) {
-        if(METADATA.errors() == Config.DISABLED) return;
+        if(getMetadata().errors() == Config.DISABLED) return;
 
-        sendEmbed(METADATA.errors(), prepareErrorEmbed(message, args)
-            .addField(METADATA.errorLabel(), "```" + error + "```", false)
+        sendEmbed(getMetadata().errors(), prepareErrorEmbed(message, args)
+            .addField(getMetadata().errorLabel(), "```" + error + "```", false)
             .build()
         );
     }
@@ -142,11 +142,11 @@ public abstract class Notification extends NotificationProvider {
      * @param error The error stacktrace message.
      */
     public static void sendErrorEmbed(java.awt.Color color, String description, String error) {
-        if(METADATA.errors() == Config.DISABLED) return;
+        if(getMetadata().errors() == Config.DISABLED) return;
 
-        sendEmbed(METADATA.errors(), new EmbedBuilder()
-                .setTitle(METADATA.errorTitle())
-                .addField(METADATA.errorLabel(), "```" + error + "```", false)
+        sendEmbed(getMetadata().errors(), new EmbedBuilder()
+                .setTitle(getMetadata().errorTitle())
+                .addField(getMetadata().errorLabel(), "```" + error + "```", false)
                 .setDescription(description)
                 .setColor(color)
                 .build()
@@ -160,10 +160,10 @@ public abstract class Notification extends NotificationProvider {
      * @param description The error description message.
      */
     public static void sendErrorEmbed(java.awt.Color color, String description) {
-        if(METADATA.errors() == Config.DISABLED) return;
+        if(getMetadata().errors() == Config.DISABLED) return;
 
-        sendEmbed(METADATA.errors(), new EmbedBuilder()
-                .setTitle(METADATA.errorTitle())
+        sendEmbed(getMetadata().errors(), new EmbedBuilder()
+                .setTitle(getMetadata().errorTitle())
                 .setDescription(description)
                 .setColor(color)
                 .build()
@@ -200,7 +200,7 @@ public abstract class Notification extends NotificationProvider {
                                                            String @NotNull ... args) {
         LanguageFile.EmbedLang lang = DiscordPS.getSystemLang().getEmbed(message);
         EmbedBuilder embed = new EmbedBuilder()
-                .setTitle(METADATA.errorTitle())
+                .setTitle(getMetadata().errorTitle())
                 .setColor(message.getAccentColor());
 
         if(args.length > 0)

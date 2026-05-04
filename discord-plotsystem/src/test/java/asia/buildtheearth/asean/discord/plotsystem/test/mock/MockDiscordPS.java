@@ -40,15 +40,15 @@ public class MockDiscordPS extends DiscordPS implements MockDiscordSRVBridge {
     }
 
     @Override
-    public void initWebhook(PlotSystemWebhook webhook) {
+    public void assignWebhook(PlotSystemWebhook webhook) {
         this.mockWebhook = new PlotSystemWebhook(this, PLOT_SYSTEM);
-        super.initWebhook(webhook);
+        super.assignWebhook(webhook);
     }
 
     @Override
-    public void initShowcase(ShowcaseWebhook webhook) {
+    public void assignShowcase(ShowcaseWebhook webhook) {
         this.mockShowcase = new ShowcaseWebhook(SHOWCASE);
-        super.initShowcase(webhook);
+        super.assignShowcase(webhook);
     }
 
     public @NotNull DiscordSRVListener initListenerHook() {

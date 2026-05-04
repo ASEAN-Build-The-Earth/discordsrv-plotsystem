@@ -1,5 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.providers;
 
+import asia.buildtheearth.asean.discord.plotsystem.Debug;
+import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Webhook;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
@@ -8,6 +10,7 @@ import asia.buildtheearth.asean.discord.plotsystem.ConfigPaths;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementations for {@link WebhookProvider}
@@ -22,41 +25,53 @@ public abstract class AbstractWebhookProvider implements WebhookProvider {
     protected final long webhookID;
 
     /**
-     * Initialize Webhook provider with a given configuration
-     * @param config Yaml Configuration file of this webhook
+     * Initialize Webhook provider with a given configuration,
+     * may output {@link Debug.Error#WEBHOOK_MISSING_CONFIGURATION} on failures.
+     *
+     * @param config YAML Configuration file of this webhook
      * @throws IllegalArgumentException If the given configuration is invalid for webhook ID and its channel ID
      */
     public AbstractWebhookProvider(@NotNull YamlConfiguration config) throws IllegalArgumentException {
         this.config = config;
 
-        this.guildID = getAndValidateConfig(ConfigPaths.WEBHOOK_GUILD_ID);
-        this.channelID = getAndValidateConfig(ConfigPaths.WEBHOOK_CHANNEL_ID);
-        this.webhookID = getAndValidateConfig(ConfigPaths.WEBHOOK_ID);
+        String guildConfig = prepareConfig(ConfigPaths.WEBHOOK_GUILD_ID);
+        String channelConfig = prepareConfig(ConfigPaths.WEBHOOK_CHANNEL_ID);
+        String webhookConfig = prepareConfig(ConfigPaths.WEBHOOK_ID);
+
+        this.guildID = parse(guildConfig);
+        this.channelID = parse(channelConfig);
+        this.webhookID = parse(webhookConfig);
+    }
+
+    private @Nullable String prepareConfig(String configPath) {
+        String configValue = this.config.getString(configPath, "");
+
+        if(StringUtils.isBlank(configValue)) {
+            DiscordPS.error(Debug.Error.WEBHOOK_MISSING_CONFIGURATION,
+            "Webhook configuration for '" + configPath + "' is not set.");
+            return null;
+        }
+
+        return configValue;
     }
 
     /**
      * Parse and validate for webhook snowflake config value.
      *
-     * @param configPath The yaml config path to get
+     * @param value The yaml config path to get
      * @return The parsed config path as discord snowflake long
      * @throws IllegalArgumentException If the given config path is not valid
      */
-    private long getAndValidateConfig(String configPath) throws IllegalArgumentException {
-        String configValue = this.config.getString(configPath);
-
-        Checks.notNull(configValue, "Webhook configuration for " + configPath);
-
-        if(StringUtils.isBlank(configValue))
-            throw new IllegalArgumentException("Webhook configuration for " + configPath + " is not set.");
-
-        Checks.isSnowflake(configValue, "Webhook configuration for " + configPath);
-
-        try { return Long.parseUnsignedLong(configValue); }
-        catch (NumberFormatException ex) {
+    private long parse(String value) throws IllegalArgumentException {
+        try {
+            Checks.isSnowflake(value);
+            return Long.parseUnsignedLong(value);
+        }
+        catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException(
-                "Cannot parse webhook configuration for "
-                + configPath + ": " + configValue
-                + " (" + ex.getMessage() + ")"
+                "Cannot parse webhook configuration for '"
+                + value
+                + "' (" + ex.getMessage() + ")"
             );
         }
     }

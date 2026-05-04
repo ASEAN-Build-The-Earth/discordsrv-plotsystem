@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
+import asia.buildtheearth.asean.discord.plotsystem.commands.ReloadCommand;
 import asia.buildtheearth.asean.discord.plotsystem.commands.ReviewCommand;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
@@ -88,10 +89,9 @@ public class DiscordSRVListener extends PluginListenerProvider {
             this.plugin.getMainGuild().getId(),
             new SetupCommand(),
             new PlotCommand(),
-            new ReviewCommand()
+            new ReviewCommand(),
+            new ReloadCommand()
         );
-
-        Checks.notNull(this.getPluginSlashCommand(), "Plugin Slash Command Provider");
 
         // Register slash command provider
         this.plugin.addSlashCommandProvider(this.getPluginSlashCommand());
@@ -101,23 +101,43 @@ public class DiscordSRVListener extends PluginListenerProvider {
         // UPDATE_GUILD_COMMANDS = new Route(Method.PUT, "applications/{application_id}/guilds/{guild_id}/commands");
         this.plugin.updateSlashCommands();
 
+        boolean mainWebhookLoaded = this.loadWebhook(() -> {
+            if(this.plugin.isReady()) this.onPluginReady();
+            else this.onPluginNotReady();
+        }, this::onPluginNotReady);
 
+        if(!mainWebhookLoaded)
+            this.onPluginNotReady();
+    }
+
+    /**
+     * Load and assign webhook instances to DiscordPS.
+     *
+     * @param whenComplete if webhook is loaded and validated.
+     * @return true if webhook is loaded, but not validated.
+     */
+    public boolean loadWebhook(Runnable whenComplete, Runnable whenFailure) {
         // Initialize main webhook
         try {
             ForumWebhookImpl forumWebhook = new ForumWebhookImpl(this.plugin.getJDA(), this.plugin.getWebhookConfig());
-            this.plugin.initWebhook(new PlotSystemWebhook(this.plugin, forumWebhook));
+            this.plugin.assignWebhook(new PlotSystemWebhook(this.plugin, forumWebhook));
+
+            DiscordPS.getDebugger().resolveError(Debug.Error.WEBHOOK_MISSING_CONFIGURATION);
+            DiscordPS.getDebugger().resolveError(Debug.Error.WEBHOOK_INVALID_CONFIGURATION);
         }
         catch (RuntimeException ex) {
-            DiscordPS.error(
-                Debug.Error.WEBHOOK_NOT_CONFIGURED,
-                "Failed to initialize and validate webhook reference, maybe it is un-configured?", ex
+            if(!DiscordPS.getDebugger().hasError(Debug.Error.WEBHOOK_MISSING_CONFIGURATION)) DiscordPS.error(
+                Debug.Error.WEBHOOK_INVALID_CONFIGURATION,
+                "Failed to initialize and validate webhook reference, maybe it is configured incorrectly?", ex
             );
         }
 
         // Initialize showcase webhook
         try {
             ForumWebhookImpl showcaseWebhook = new ForumWebhookImpl(this.plugin.getJDA(), this.plugin.getShowcaseConfig());
-            this.plugin.initShowcase(new ShowcaseWebhook(showcaseWebhook));
+            this.plugin.assignShowcase(new ShowcaseWebhook(showcaseWebhook));
+
+            DiscordPS.getDebugger().resolveWarning(Debug.Warning.SHOWCASE_WEBHOOK_NOT_CONFIGURED);
         }
         catch (RuntimeException ex) {
             DiscordPS.warning(Debug.Warning.SHOWCASE_WEBHOOK_NOT_CONFIGURED);
@@ -131,23 +151,24 @@ public class DiscordSRVListener extends PluginListenerProvider {
             // Completed future with no error indicate a successful validation
             // Output is checked again by Debug.Error class to determine if the plugin is ready or not.
             Optional.ofNullable(this.plugin.getShowcase())
-                    .map(ShowcaseWebhook::getProvider)
-                    .map(validator::validate)
-                    .orElseGet(validator::validate)
-                    .orTimeout(60, TimeUnit.SECONDS)
-                    .whenComplete((ok, error) -> {
+                .map(ShowcaseWebhook::getProvider)
+                .map(validator::validate)
+                .orElseGet(validator::validate)
+                .orTimeout(60, TimeUnit.SECONDS)
+                .whenComplete((ok, error) -> {
+                    if(error != null) {
+                        DiscordPS.error(Debug.Error.WEBHOOK_VALIDATION_UNKNOWN_EXCEPTION, error);
+                        whenFailure.run();
+                        return;
+                    }
 
-                if(error != null) {
-                    DiscordPS.error(Debug.Error.WEBHOOK_VALIDATION_UNKNOWN_EXCEPTION, error);
-                    this.onPluginNotReady();
-                    return;
-                }
-
-                if(this.plugin.isReady()) this.onPluginReady();
-                else this.onPluginNotReady();
-            });
+                    DiscordPS.getDebugger().resolveError(Debug.Error.WEBHOOK_VALIDATION_UNKNOWN_EXCEPTION);
+                    whenComplete.run();
+                });
+            return true;
         }
-        else this.onPluginNotReady();
+
+        return false;
     }
 
     /**

@@ -35,6 +35,11 @@ public class LangPaths {
     public static final String REVIEW_COMMAND = SLASH_COMMANDS + "review-command.";
 
     /**
+     * Reload command's parent path.
+     */
+    public static final String RELOAD_COMMAND = SLASH_COMMANDS + "reload-command.";
+
+    /**
      * Plot command
      *
      * @see PlotCommand

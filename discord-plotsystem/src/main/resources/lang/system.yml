@@ -207,7 +207,11 @@ slash-commands:
         - >
           Cannot use plugin related command, 
           please set up the plugin first with `/setup webhook` (`/setup help` for more info)"
-
+  # ------------------------
+  # Plugin reload command - WIP
+  # ------------------------
+  reload-command:
+    description: "Reload all configurations of this plugin"
   # ------------------------
   # Plot Management Commands
   # ------------------------

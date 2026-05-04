@@ -8,6 +8,7 @@ import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
 import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotNotificationEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginProvider;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MetadataInstance;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.LangPaths;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
@@ -26,8 +27,10 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInfor
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
 import java.sql.SQLException;
 import java.util.*;
@@ -58,7 +61,9 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      *
      * @see Metadata
      */
-    protected final Metadata metadata;
+    protected Metadata getMetadata() {
+        return DiscordPS.getMetadata().getAs(Metadata.class);
+    }
 
     /**
      * Initialize webhook instance
@@ -69,19 +74,6 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     protected AbstractPlotSystemWebhook(DiscordPS plugin, ForumWebhook webhook) {
         super(plugin);
         this.webhook = webhook;
-        this.metadata = new Metadata(
-            DiscordPS.getMessagesLang().get(PlotInformation.HELP_LABEL),
-            DiscordPS.getMessagesLang().get(PlotInformation.FEEDBACK_LABEL),
-            DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_FEEDBACK_LABEL),
-            DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_FEEDBACK_LABEL),
-            DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_NO_FEEDBACK_LABEL),
-            DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_NO_FEEDBACK_LABEL),
-            DiscordPS.getMessagesLang().get(PlotInformation.NEW_FEEDBACK_NOTIFICATION),
-            Button.link(
-                DiscordPS.getMessagesLang().get(PlotInformation.DOCS_URL),
-                DiscordPS.getMessagesLang().get(PlotInformation.DOCS_LABEL)
-            )
-        );
     }
 
     /**
@@ -296,21 +288,21 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
                                                                  long messageID,
                                                                  @NotNull ThreadStatus status,
                                                                  @NotNull MemberOwnable owner) {
-        ActionRow documentationRow = ActionRow.of(this.metadata.documentationButton());
+        ActionRow documentationRow = ActionRow.of(this.getMetadata().documentationButton());
 
         Function<Long, ActionRow> interactionRow = userID -> ActionRow.of(
                 this.newHelpButton(messageID, userID, plotID),
-                this.metadata.documentationButton()
+                this.getMetadata().documentationButton()
         );
 
         Function<Long, ActionRow> approvedRow = userID -> ActionRow.of(Button.success(
                 AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID),
-                this.metadata.approvedFeedbackLabel())
+                this.getMetadata().approvedFeedbackLabel())
         );
 
         Function<Long, ActionRow> rejectedRow = userID -> ActionRow.of(Button.danger(
                 AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID),
-                this.metadata.rejectedFeedbackLabel())
+                this.getMetadata().rejectedFeedbackLabel())
         );
 
         // Interactive row if the owner has linked discord to interact with it
@@ -505,7 +497,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
 
     /** Create a plot's help button by owner and message. */
     protected Button newHelpButton(long messageID, long ownerID, int plotID) {
-        return Button.primary(AvailableButton.HELP_BUTTON.resolve(messageID, ownerID, plotID), this.metadata.helpButtonLabel());
+        return Button.primary(AvailableButton.HELP_BUTTON.resolve(messageID, ownerID, plotID), this.getMetadata().helpButtonLabel());
     }
 
     /**
@@ -643,5 +635,30 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
             String approvedNoFeedbackLabel,
             String newFeedbackNotification,
             Button documentationButton
-    ) { }
+    ) implements MetadataInstance {
+
+        private static @NotNull @Contract(" -> new") Metadata create() {
+            return new Metadata(
+                DiscordPS.getMessagesLang().get(PlotInformation.HELP_LABEL),
+                DiscordPS.getMessagesLang().get(PlotInformation.FEEDBACK_LABEL),
+                DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_FEEDBACK_LABEL),
+                DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_FEEDBACK_LABEL),
+                DiscordPS.getMessagesLang().get(PlotInformation.REJECTED_NO_FEEDBACK_LABEL),
+                DiscordPS.getMessagesLang().get(PlotInformation.APPROVED_NO_FEEDBACK_LABEL),
+                DiscordPS.getMessagesLang().get(PlotInformation.NEW_FEEDBACK_NOTIFICATION),
+                Button.link(
+                    DiscordPS.getMessagesLang().get(PlotInformation.DOCS_URL),
+                    DiscordPS.getMessagesLang().get(PlotInformation.DOCS_LABEL)
+                )
+            );
+        }
+
+        public @NotNull @Unmodifiable MetadataInstance load() {
+            return create();
+        }
+    }
+
+    static {
+        DiscordPS.getMetadata().register(Metadata.create());
+    }
 }

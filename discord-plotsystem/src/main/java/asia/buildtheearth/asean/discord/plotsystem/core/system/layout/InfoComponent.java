@@ -1,5 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.layout;
 
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MetadataInstance;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.BuildTeamLang;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
@@ -21,6 +22,7 @@ import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent.INFO;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent.InfoComponent.*;
@@ -47,15 +49,29 @@ public final class InfoComponent
     private record Metadata(String titleFormat,
                             String historyTitle,
                             String historyPrefix,
-                            String googleMapLabel) {}
+                            String googleMapLabel) implements MetadataInstance {
+        private static @NotNull @Contract(" -> new") Metadata create() {
+            return new Metadata(
+                DiscordPS.getMessagesLang().get(PlotInformation.INFO_TITLE),
+                DiscordPS.getMessagesLang().get(PlotInformation.HISTORIES_TITLE),
+                DiscordPS.getMessagesLang().get(PlotInformation.HISTORIES_PREFIX),
+                DiscordPS.getMessagesLang().get(PlotInformation.MAP_LABEL)
+            );
+        }
+
+        public @NotNull @Unmodifiable MetadataInstance load() {
+            return Metadata.create();
+        }
+    }
 
     // Cache metadata statically
-    private static final Metadata METADATA = new Metadata(
-        DiscordPS.getMessagesLang().get(PlotInformation.INFO_TITLE),
-        DiscordPS.getMessagesLang().get(PlotInformation.HISTORIES_TITLE),
-        DiscordPS.getMessagesLang().get(PlotInformation.HISTORIES_PREFIX),
-        DiscordPS.getMessagesLang().get(PlotInformation.MAP_LABEL)
-    );
+    static {
+        DiscordPS.getMetadata().register(Metadata.create());
+    }
+
+    private static Metadata getMetadata() {
+        return DiscordPS.getMetadata().getAs(Metadata.class);
+    }
 
     public InfoComponent(int id, int layout, Color color) {
         super(layout, INFO, AvailableComponent.InfoComponent.VALUES);
@@ -73,14 +89,14 @@ public final class InfoComponent
 
         // Track history field as StringBuilder
         this.histories = new StringBuilder();
-        this.histories.append(METADATA.historyTitle());
+        this.histories.append(getMetadata().historyTitle());
 
         // Prepare component data
         this.register(INFO_TITLE, id -> new TextDisplay(id,
             makeTitle(data.getPlot().plotID(), data.getPlot().cityProjectID(), data.getPlot().countryCode())
         ));
         this.register(INFO_LOCATION, id -> {
-            Button plotLinkButton = Button.link("https://www.google.com/maps/place/" + data.getGeoCoordinates(), METADATA.googleMapLabel());
+            Button plotLinkButton = Button.link("https://www.google.com/maps/place/" + data.getGeoCoordinates(), getMetadata().googleMapLabel());
             TextButtonSection field = new TextButtonSection(id, plotLinkButton);
             field.addTextDisplay(new TextDisplay(makeLocation(data.getDisplayCords())));
             return field;
@@ -116,7 +132,7 @@ public final class InfoComponent
         String country = DiscordPS.getMessagesLang().get(BuildTeamLang.getCountry().getName(countryCode), countryCode);
         String city = DiscordPS.getMessagesLang().get(BuildTeamLang.getCityProject().getName(cityProjectID), cityProjectID);
 
-        return METADATA.titleFormat()
+        return getMetadata().titleFormat()
             .replace(Format.PLOT_ID, String.valueOf(plotID))
             .replace(Format.COUNTRY, country)
             .replace(Format.CITY, city);
@@ -131,8 +147,8 @@ public final class InfoComponent
         if(history == null || StringUtils.isBlank(history)) return;
         if(!histories.isEmpty()) histories.append('\n');
         if(history.charAt(0) == FETCH_SIGNATURE)
-            histories.append("-# ").append(METADATA.historyPrefix()).append('*').append(history.substring(1)).append('*');
-        else histories.append(METADATA.historyPrefix()).append(' ').append(history);
+            histories.append("-# ").append(getMetadata().historyPrefix()).append('*').append(history.substring(1)).append('*');
+        else histories.append(getMetadata().historyPrefix()).append(' ').append(history);
     }
 
     /**
@@ -243,7 +259,7 @@ public final class InfoComponent
         switch(AvailableComponent.InfoComponent.get(AvailableComponent.unpackSubComponent(packedID))) {
             case INFO_TITLE -> this.register(INFO_TITLE, id -> new TextDisplay(id, component.getString("content")));
             case INFO_LOCATION -> this.register(INFO_LOCATION, id -> {
-                Button button = Button.link(component.getObject("accessory").getString("url"), METADATA.googleMapLabel());
+                Button button = Button.link(component.getObject("accessory").getString("url"), getMetadata().googleMapLabel());
                 TextButtonSection field = new TextButtonSection(id, button);
                 field.addTextDisplay(new TextDisplay(component.getArray("components").getObject(0).getString("content")));
                 return field;

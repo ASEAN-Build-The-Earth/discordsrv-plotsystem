@@ -394,7 +394,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                                                       @NotNull String threadID,
                                                       @Nullable String feedbackID) {
 
-        String title = this.metadata.newFeedbackNotification().replace(Format.OWNER, this.parseOwnerMention(entry));
+        String title = this.getMetadata().newFeedbackNotification().replace(Format.OWNER, this.parseOwnerMention(entry));
         Optional<List<File>> reviewMedia = ReviewComponent.getOptMedia(plotID, feedbackID);
         ReviewComponent component = new ReviewComponent(rawContent, null, Constants.BLUE, reviewMedia.orElse(null));
 
@@ -584,15 +584,15 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         switch (action.entry().status()) {
             case approved -> {
-                label = this.metadata.approvedFeedbackLabel();
+                label = this.getMetadata().approvedFeedbackLabel();
                 style = Button::success;
             }
             case rejected -> {
-                label = this.metadata.rejectedFeedbackLabel();
+                label = this.getMetadata().rejectedFeedbackLabel();
                 style = Button::danger;
             }
             default -> {
-                label = this.metadata.feedbackButtonLabel();
+                label = this.getMetadata().feedbackButtonLabel();
                 style = Button::primary;
             }
         }
@@ -952,7 +952,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     if(!button.getType().equals(AvailableButton.FEEDBACK_BUTTON.name())) return button.get();
 
                     // If so, set it as generic feedback button (Not red or green)
-                    Button review = Button.primary(button.getRawID(), this.metadata.feedbackButtonLabel());
+                    Button review = Button.primary(button.getRawID(), this.getMetadata().feedbackButtonLabel());
 
                     if(button.get().isDisabled()) return review.asDisabled();
 
@@ -992,11 +992,11 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         return switch (reviewEvent) {
             case PlotApprovedEvent ignored -> {
-                String label = hasFeedback? this.metadata.approvedFeedbackLabel() : this.metadata.approvedNoFeedbackLabel();
+                String label = hasFeedback? this.getMetadata().approvedFeedbackLabel() : this.getMetadata().approvedNoFeedbackLabel();
                 yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), label, Button::success, style);
             }
             case PlotRejectedEvent ignored -> {
-                String label = hasFeedback? this.metadata.rejectedFeedbackLabel() : this.metadata.rejectedNoFeedbackLabel();
+                String label = hasFeedback? this.getMetadata().rejectedFeedbackLabel() : this.getMetadata().rejectedNoFeedbackLabel();
                 yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), label, Button::danger, style);
             }
             case PlotReviewEvent ignored -> Optional.empty();

@@ -3,6 +3,7 @@ package asia.buildtheearth.asean.discord.plotsystem;
 import asia.buildtheearth.asean.discord.DiscordSRVBridge;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.*;
 import github.scarsz.discordsrv.dependencies.google.common.util.concurrent.ThreadFactoryBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
@@ -23,10 +24,6 @@ import asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnect
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginListenerProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.ShowcaseWebhook;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LangConfiguration;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LangManager;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.SystemLang;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -36,6 +33,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -97,6 +95,8 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
 
     private static final Debug debugger = new Debug();
 
+    private static final LangMetadata metadata = new LangMetadata();
+
     private YamlConfiguration config;
     private YamlConfiguration webhookConfig;
     private YamlConfiguration showcaseConfig;
@@ -150,6 +150,10 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
 
     public static @NotNull LangManager<MessageLang> getMessagesLang() {
         return getPlugin().langConfig.getMessagesLang();
+    }
+
+    public static LangMetadata getMetadata() {
+       return metadata;
     }
 
     @Override
@@ -258,9 +262,10 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         try {
             if(DatabaseConnection.InitializeDatabase()) {
                 DiscordPS.info("Successfully initialized database connection.");
+                debugger.resolveError(Debug.Error.DATABASE_NOT_INITIALIZED);
             } else {
                 // returned false: handled error
-                DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, "Could not initialize database connection due to a misconfigured config file.");
+                // DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, "Could not initialize database connection due to a misconfigured config file.");
             }
         }
         catch (Exception ex) { // Exception thrown: Unknown error occurred
@@ -286,35 +291,42 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
     }
 
     protected void createConfig() {
-        File createConfig = new File(getDataFolder(), "config.yml");
-        if (!createConfig.exists()) {
-            createConfig.getParentFile().mkdirs();
-            saveResource("config.yml", false);
-        }
-
-        File webhookConfig = new File(getDataFolder(), "webhook.yml");
-        if (!webhookConfig.exists()) {
-            saveResource("webhook.yml", false);
-        }
-
-        File showcaseConfig = new File(getDataFolder(), "showcase.yml");
-        if (!showcaseConfig.exists()) {
-            saveResource("showcase.yml", false);
-        }
-
-        // Load config from resource to the plugin
         this.config = new YamlConfiguration();
         this.webhookConfig = new YamlConfiguration();
         this.showcaseConfig = new YamlConfiguration();
         this.langConfig = new LangConfiguration(this);
+
+        // Load config from resource to the plugin
+        loadConfig(true);
+    }
+
+    protected File prepareConfigFile(String location, boolean create) throws IOException {
+        File file = new File(plugin.getDataFolder(), location);
+
+        if (!file.exists()) {
+            if(!create)
+                throw new IOException("Language file at '" + location + "' does not exist to load.");
+
+            saveResource(location, false);
+        }
+
+        return file;
+    }
+
+    public void loadConfig(boolean create) {
         try {
-            this.langConfig.initLanguageFiles();
-            this.config.load(createConfig);
+            File pluginConfig = prepareConfigFile("config.yml", create);
+            File webhookConfig = prepareConfigFile("webhook.yml", create);
+            File showcaseConfig = prepareConfigFile("showcase.yml", create);
+
+            this.langConfig.loadLanguageFiles(create);
+            this.config.load(pluginConfig);
             this.webhookConfig.load(webhookConfig);
             this.showcaseConfig.load(showcaseConfig);
 
             this.debuggingEnabled = this.config.getBoolean("debugging", true);
 
+            DiscordPS.getDebugger().resolveError(Debug.Error.CONFIG_FILE_FAILED_TO_LOAD);
         } catch (Exception ex) {
             DiscordPS.error(
                 Debug.Error.CONFIG_FILE_FAILED_TO_LOAD,
@@ -430,19 +442,11 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         return new DiscordSRVListener(this);
     }
 
-    public void initWebhook(PlotSystemWebhook webhook) {
-        if(this.webhook != null) {
-            DiscordPS.error("[Internal] Trying to re-assign plugin's PlotSystemWebhook reference, ignoring.");
-            return;
-        }
+    public void assignWebhook(PlotSystemWebhook webhook) {
         this.webhook = webhook;
     }
 
-    public void initShowcase(ShowcaseWebhook showcase) {
-        if(this.showcase != null) {
-            DiscordPS.error("[Internal] Trying to re-assign plugin's ShowcaseWebhook reference, ignoring.");
-            return;
-        }
+    public void assignShowcase(ShowcaseWebhook showcase) {
         this.showcase = showcase;
     }
 

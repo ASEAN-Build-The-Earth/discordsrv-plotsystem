@@ -77,9 +77,12 @@ public final class Debug {
         WEBHOOK_NOT_FOUND_IN_GUILD(
                 ErrorGroup.WEBHOOK_REFS_VALIDATION,
                 "Configured webhook is not found in the main guild."),
-        WEBHOOK_NOT_CONFIGURED(
+        WEBHOOK_MISSING_CONFIGURATION(
                 ErrorGroup.WEBHOOK_REFS_VALIDATION,
-                "Webhook is missing in config."),
+                "Webhook configuration is not set or missing information, use the command `/setup webhook` to set it up."),
+        WEBHOOK_INVALID_CONFIGURATION(
+                ErrorGroup.WEBHOOK_REFS_VALIDATION,
+                "Webhook configuration is invalid."),
         WEBHOOK_CHANNEL_NOT_FORUM(
                 ErrorGroup.WEBHOOK_REFS_VALIDATION,
                 "Webhook channel must be a forum channel."),
@@ -168,14 +171,18 @@ public final class Debug {
      *
      * @param warning The warning to resolve
      */
-    void resolveWarning(@NotNull Warning warning) { this.warning.remove(warning); }
+    public String resolveWarning(@NotNull Warning warning) {
+        return this.warning.remove(warning);
+    }
 
     /**
      * Mark an error resolved, then this error will not appear in the thrown list.
      *
      * @param error The error to resolve
      */
-    void resolveError(@NotNull Error error) { this.error.remove(error); }
+    public String resolveError(@NotNull Error error) {
+        return this.error.remove(error);
+    }
 
     @Contract(pure = true)
     public @NotNull Set<Map.Entry<Error, String>> allThrownErrors() {

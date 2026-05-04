@@ -1,13 +1,16 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.providers;
 
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MetadataInstance;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import asia.buildtheearth.asean.discord.plotsystem.ConfigPaths;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.Unmodifiable;
 
 import java.util.Optional;
 
@@ -24,11 +27,27 @@ public abstract class NotificationProvider {
                               Config plugin,
                               Config errors,
                               String errorTitle,
-                              String errorLabel) {}
+                              String errorLabel) implements MetadataInstance {
+        private static @NotNull @Contract(" -> new") Metadata create() {
+            return new Metadata(
+                Optional.ofNullable(getNotificationContent()),
+                parseConfig(ConfigPaths.NOTIFICATION_PLUGIN, Config.ENABLED),
+                parseConfig(ConfigPaths.NOTIFICATION_ERRORS, Config.ENABLED),
+                DiscordPS.getSystemLang().get(SYSTEM_ERROR),
+                DiscordPS.getSystemLang().get(LABEL_ERROR)
+            );
+        }
+
+        public @NotNull @Unmodifiable MetadataInstance load() {
+            return create();
+        }
+    }
+
+    protected static Metadata getMetadata() {
+        return DiscordPS.getMetadata().getAs(Metadata.class);
+    }
 
     private static Notification<? extends MessageChannel> notification;
-
-    protected static final Metadata METADATA;
 
     private static long getAndValidateChannelID(String channelID) throws IllegalArgumentException {
         Checks.notNull(channelID, "Plot-System notification channel");
@@ -57,16 +76,8 @@ public abstract class NotificationProvider {
         else return defaultValue;
     }
 
-    static {
+    public static void assignNotification() {
         String channelID = DiscordPS.getPlugin().getConfig().getString(ConfigPaths.NOTIFICATION_CHANNEL);
-
-        METADATA = new Metadata(
-            Optional.ofNullable(getNotificationContent()),
-            parseConfig(ConfigPaths.NOTIFICATION_PLUGIN, Config.ENABLED),
-            parseConfig(ConfigPaths.NOTIFICATION_ERRORS, Config.ENABLED),
-            DiscordPS.getSystemLang().get(SYSTEM_ERROR),
-            DiscordPS.getSystemLang().get(LABEL_ERROR)
-        );
 
         try {
             // Parse and verify channel ID from config
@@ -74,13 +85,14 @@ public abstract class NotificationProvider {
 
             // Set the notification channel
             notification = new Notification<>(DiscordPS.getPlugin().getJDA().getTextChannelById(channelIDLong));
+            DiscordPS.getDebugger().resolveWarning(NOTIFICATION_CHANNEL_NOT_SET);
         }
         catch (NumberFormatException ex) {
             DiscordPS.warning(
-                    NOTIFICATION_CHANNEL_NOT_SET,
-                    "Notification channel is set but "
-                            + "failed to parse in configuration for "
-                            + channelID + " (" + ex.getMessage() + ")"
+                NOTIFICATION_CHANNEL_NOT_SET,
+                "Notification channel is set but "
+                + "failed to parse in configuration for "
+                + channelID + " (" + ex.getMessage() + ")"
             );
         }
         catch (IllegalArgumentException ex) {
@@ -88,11 +100,16 @@ public abstract class NotificationProvider {
         }
     }
 
+    static {
+        DiscordPS.getMetadata().register(Metadata.create());
+        NotificationProvider.assignNotification();
+    }
+
     /**
      * Get the notification channel.
      * @return The message channel as an {@link java.util.Optional Optional} because it may be disabled.
      */
     public static java.util.Optional<? extends MessageChannel> getOpt() {
-        return java.util.Optional.ofNullable(notification.channel());
+        return java.util.Optional.ofNullable(notification).map(Notification::channel);
     }
 }

@@ -17,9 +17,13 @@ import java.io.InputStreamReader;
  */
 public class LangConfiguration extends PluginProvider {
 
-    private LanguageFile<SystemLang> systemLang;
+    private final LanguageFile<SystemLang> systemLang = new LanguageFile<>();
 
-    private LanguageFile<MessageLang> messagesLang;
+    private static final String SYSTEM_LANG_FILE = "lang/system.yml";
+
+    private final LanguageFile<MessageLang> messagesLang = new LanguageFile<>();
+
+    private static final String MESSAGE_LANG_FILE = "lang/message.yml";
 
     /**
      * Register a language configuration for this plugin
@@ -48,33 +52,28 @@ public class LangConfiguration extends PluginProvider {
         return this.messagesLang;
     }
 
-    /**
-     * Initialize all language file from resource and load the data into {@link LanguageFile} instance.
-     *
-     * @throws IOException If the resource failed to load
-     * @throws InvalidConfigurationException If the yaml file is invalid
-     */
-    public void initLanguageFiles() throws IOException, InvalidConfigurationException {
-        File systemLang = new File(this.plugin.getDataFolder(), "lang/system.yml");
-        if (!systemLang.exists()) {
-            if(!systemLang.getParentFile().exists())
-                systemLang.getParentFile().mkdirs();
-            this.plugin.saveResource("lang/system.yml", false);
+    public void loadLanguageFiles(boolean create) throws IOException, InvalidConfigurationException {
+        File systemLang = prepareLanguageFile(SYSTEM_LANG_FILE, create);
+        File messagesLang = prepareLanguageFile(MESSAGE_LANG_FILE, create);
+
+        this.tryLoadLang(this.systemLang, systemLang, SYSTEM_LANG_FILE);
+        this.tryLoadLang(this.messagesLang, messagesLang, MESSAGE_LANG_FILE);
+    }
+
+
+    public File prepareLanguageFile(String location, boolean create) throws IOException {
+        File file = new File(this.plugin.getDataFolder(), location);
+
+        if (!file.exists()) {
+            if(!create)
+                throw new IOException("Language file at '" + location + "' does not exist to load.");
+
+            if(!file.getParentFile().exists())
+                file.getParentFile().mkdirs();
+            this.plugin.saveResource(location, false);
         }
 
-        File messagesLang = new File(this.plugin.getDataFolder(), "lang/message.yml");
-        if (!messagesLang.exists()) {
-            if(!messagesLang.getParentFile().exists())
-                messagesLang.getParentFile().mkdirs();
-            this.plugin.saveResource("lang/message.yml", false);
-        }
-
-        // Load config from resource to the plugin
-        this.systemLang = new LanguageFile<>();
-        this.messagesLang = new LanguageFile<>();
-
-        this.tryLoadLang(this.systemLang, systemLang, "lang/system.yml");
-        this.tryLoadLang(this.messagesLang, messagesLang, "lang/message.yml");
+        return file;
     }
 
 

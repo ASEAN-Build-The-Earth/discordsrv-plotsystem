@@ -38,6 +38,8 @@ public class DatabaseConnection {
             "^(?<proto>\\w+):(?<engine>\\w+)://(?<host>.+?)(:(?<port>\\d{1,5}|PORT))?((/\\w+)+|/)\\??(?<params>.+)?$"
     );
 
+    public final static String DEFAULT_TABLE_NAME = "discord_webhook";
+
     private static int connectionClosed, connectionOpened;
 
     @Contract(pure = true)
@@ -127,13 +129,13 @@ public class DatabaseConnection {
         // Validate webhook table and create if not exist.
         try {
             if(webhookTable == null) {
-                validateWebhookTable(getWebhookTableName());
+                validateWebhookTable(DEFAULT_TABLE_NAME);
             }
             else if(StringUtils.isBlank(webhookTable)) {
                 DiscordPS.warning("A configured database webhook table name is blank, "
                         + "please specify it or delete the entry entirely. "
-                        + "Using the default value of '" + getWebhookTableName() + "'");
-                validateWebhookTable(getWebhookTableName());
+                        + "Using the default value of '" + DEFAULT_TABLE_NAME + "'");
+                validateWebhookTable(DEFAULT_TABLE_NAME);
             }
             else {
                 DatabaseConnection.webhookTableName = webhookTable;
