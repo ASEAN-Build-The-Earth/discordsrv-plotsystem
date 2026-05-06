@@ -2,6 +2,7 @@ package asia.buildtheearth.asean.discord.plotsystem.core.providers;
 
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MetadataInstance;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
+import github.scarsz.discordsrv.dependencies.jda.api.JDA;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import asia.buildtheearth.asean.discord.plotsystem.ConfigPaths;
@@ -83,16 +84,24 @@ public abstract class NotificationProvider {
             // Parse and verify channel ID from config
             long channelIDLong = getAndValidateChannelID(channelID);
 
-            // Set the notification channel
-            notification = new Notification<>(DiscordPS.getPlugin().getJDA().getTextChannelById(channelIDLong));
-            DiscordPS.getDebugger().resolveWarning(NOTIFICATION_CHANNEL_NOT_SET);
+            // Safely set the notification channel
+            // (in-case for null pointer if statically invoked too early)
+            JDA jda = DiscordPS.getPlugin().getJDA();
+            if(jda != null) {
+                notification = new Notification<>(jda.getTextChannelById(channelIDLong));
+                DiscordPS.getDebugger().resolveWarning(NOTIFICATION_CHANNEL_NOT_SET);
+            }
+            else DiscordPS.warning(
+                NOTIFICATION_CHANNEL_NOT_SET, "Notification channel disabled: "
+                + "Tried to set notification before JDA is ready... do /reload to re-try."
+            );
         }
         catch (NumberFormatException ex) {
             DiscordPS.warning(
                 NOTIFICATION_CHANNEL_NOT_SET,
                 "Notification channel is set but "
-                + "failed to parse in configuration for "
-                + channelID + " (" + ex.getMessage() + ")"
+                + "failed to parse in configuration for '"
+                + channelID + "' (" + ex.getMessage() + ")"
             );
         }
         catch (IllegalArgumentException ex) {

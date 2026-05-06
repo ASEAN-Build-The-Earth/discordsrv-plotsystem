@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.test.mock;
 
 import github.scarsz.discordsrv.DiscordSRV;
+import github.scarsz.discordsrv.api.ListenerPriority;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.AccountType;
@@ -33,7 +34,8 @@ public class MockDiscordSRV extends DiscordSRV {
 
         api.subscribe(new EventListener() {
             // Assume the plugin is ready on ready event
-            @Subscribe @SuppressWarnings("unused")
+            // Lowest priority means it will run first, which is needed for getJDA() to have non-null value
+            @Subscribe(priority = ListenerPriority.LOWEST) @SuppressWarnings("unused")
             public void discordReadyEvent(DiscordReadyEvent ready) {
 
                 // Mock a JDA instance

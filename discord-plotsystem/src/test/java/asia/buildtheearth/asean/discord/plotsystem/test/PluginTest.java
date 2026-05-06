@@ -11,6 +11,7 @@ import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordCommand
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordEventListener;
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordSRVListener;
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemListener;
+import asia.buildtheearth.asean.discord.plotsystem.core.providers.NotificationProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableTag;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import asia.buildtheearth.asean.discord.plotsystem.test.mock.MockDiscordSRV;
@@ -26,6 +27,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 
 import java.time.LocalDate;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 
@@ -91,7 +93,7 @@ public class PluginTest implements MockPluginServer {
         public void onReady() {
             // Assuming that event is successfully called
             DiscordReadyEvent event = Assertions.assertDoesNotThrow(() ->
-                    MockDiscordSRV.api.callEvent(new DiscordReadyEvent())
+                MockDiscordSRV.api.callEvent(new DiscordReadyEvent())
             );
             // Then the plugin should be ready
             Assumptions.assumingThat(event != null, () -> Assertions.assertAll(
@@ -103,24 +105,61 @@ public class PluginTest implements MockPluginServer {
         }
 
         @Test @Order(6)
-        @DisplayName("No error or warning occurred during DiscordReadyEvent")
-        public void expectedError() {
+        @DisplayName("No error occurred during DiscordReadyEvent")
+        public void expectNoFatalError() {
             Assertions.assertFalse(DiscordPS.getDebugger().hasAnyError(), "Expected no thrown error from the Debugger");
-            Assertions.assertFalse(DiscordPS.getDebugger().hasAnyWarning(), "Expected no thrown warning from the Debugger");
+
+            // IF a warning were to happen, we expect it to be notification provider's static initializer
+            // JUnit may initialize NotificationProvider earlier e.g. by earlier test suite
+            // The warning will be resolved by next test order
+            Assumptions.assumingThat(DiscordPS.getDebugger().hasAnyWarning(), () -> {
+                Assertions.assertTrue(DiscordPS.getDebugger().hasWarning(Debug.Warning.NOTIFICATION_CHANNEL_NOT_SET));
+                Assertions.assertEquals(1, DiscordPS.getDebugger().allThrownWarnings().size());
+            });
         }
 
         @Test @Order(7)
-        @DisplayName("Notification system should be functional")
-        public void notificationExist() {
-            Assertions.assertFalse(DiscordPS.getDebugger().hasWarning(Debug.Warning.NOTIFICATION_CHANNEL_NOT_SET),
-                "Expected the no warning signature 'NOTIFICATION_CHANNEL_NOT_SET' but the signature was thrown"
-            );
-            Assertions.assertTrue(Notification.getOpt().isPresent(),
-                "Expected notification channel to be mocked to a non-null value."
-            );
+        @DisplayName("Warnings thrown (if-any) is expected")
+        public void noUnexpectedWarnings() {
+            Assertions.assertFalse(DiscordPS.getDebugger().hasAnyError(), "Expected no thrown error from the Debugger");
+            Assumptions.assumingThat(DiscordPS.getDebugger().hasAnyWarning(), () -> {
+                Set<Debug.Warning> expected = Set.of(
+                    // IF a warning were to happen, we expect it to be notification provider's static initializer
+                    // JUnit may initialize NotificationProvider earlier e.g. by earlier test suite
+                    // The warning will be resolved by next test order
+                    Debug.Warning.NOTIFICATION_CHANNEL_NOT_SET
+                    // Add expected warning here if project grows
+                );
+
+                for(Debug.Warning warning : expected) {
+                    Assertions.assertTrue(DiscordPS.getDebugger().hasWarning(warning),
+                        warning + " is expected to thrown but not found.");
+                }
+
+                Assertions.assertEquals(expected.size(), DiscordPS.getDebugger().allThrownWarnings().size(),
+                "There are one or more unexpected error in all thrown warning lists: "
+                    + DiscordPS.getDebugger().allThrownWarnings().toString()
+                );
+            });
         }
 
         @Test @Order(8)
+        @DisplayName("Notification system should be functional")
+        public void notificationExist() {
+            // Manually assign notification if not present
+            // (can happen if junit initialized NotificationProvider before JDA is ready)
+            Assumptions.assumingThat(() -> Notification.getOpt().isEmpty(), NotificationProvider::assignNotification);
+
+            // And then, notification should exist
+            Assertions.assertTrue(() -> Notification.getOpt().isPresent(),
+                "Expected notification channel to be mocked to a non-null value."
+            );
+            Assertions.assertFalse(DiscordPS.getDebugger().hasWarning(Debug.Warning.NOTIFICATION_CHANNEL_NOT_SET),
+                "Expected the no warning signature 'NOTIFICATION_CHANNEL_NOT_SET' but the signature was thrown"
+            );
+        }
+
+        @Test @Order(9)
         @DisplayName("ThreadStatus tags is generated")
         public void initAvailableTag() {
             DataArray mockTags = DataArray.empty();
@@ -133,6 +172,13 @@ public class PluginTest implements MockPluginServer {
                 () -> Assertions.assertDoesNotThrow(() -> AvailableTag.resolveAllTag(plugin.getConfig())),
                 () -> Assertions.assertDoesNotThrow(AvailableTag::applyAllTag)
             );
+        }
+
+        @Test @Order(10)
+        @DisplayName("Finally, resolve ALL warnings (if exists) with no fatal error")
+        public void checkoutNoErrorOrWarnings() {
+            Assertions.assertFalse(DiscordPS.getDebugger().hasAnyError(), "Expected no thrown error from the Debugger");
+            Assertions.assertFalse(DiscordPS.getDebugger().hasAnyWarning(), "Expected no thrown warning from the Debugger");
         }
     }
 

@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.test.mock;
 
 import github.scarsz.discordsrv.api.ApiManager;
+import github.scarsz.discordsrv.api.ListenerPriority;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.Event;
 import org.jetbrains.annotations.NotNull;
@@ -28,19 +29,24 @@ public class MockApiManager extends ApiManager {
 
     @Override
     public <E extends Event> E callEvent(E event) {
-        for (Object apiListener : apiListeners) {
-            for (Method method : apiListener.getClass().getMethods()) {
-                if (method.getParameters().length != 1)
-                    continue; // api listener methods always take one parameter
-                if (!method.getParameters()[0].getType().isAssignableFrom(event.getClass()))
-                    continue; // make sure this method wants this event
+        for (ListenerPriority listenerPriority : ListenerPriority.values()) {
+            for (Object apiListener : apiListeners) {
+                for (Method method : apiListener.getClass().getMethods()) {
+                    if (method.getParameters().length != 1)
+                        continue; // api listener methods always take one parameter
+                    if (!method.getParameters()[0].getType().isAssignableFrom(event.getClass()))
+                        continue; // make sure this method wants this event
 
-                Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-                if (subscribeAnnotation == null) continue;
+                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+                    if (subscribeAnnotation == null) continue;
 
-                try { invokeMethod(method, apiListener, event); }
-                catch (InvocationTargetException | IllegalAccessException ex) {
-                    throw new RuntimeException(ex);
+                    if (subscribeAnnotation.priority() != listenerPriority)
+                        continue; // this priority isn't being called right now
+
+                    try { invokeMethod(method, apiListener, event); }
+                    catch (InvocationTargetException | IllegalAccessException ex) {
+                        throw new RuntimeException(ex);
+                    }
                 }
             }
         }
