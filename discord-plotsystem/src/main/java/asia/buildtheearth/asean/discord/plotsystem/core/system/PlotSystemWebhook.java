@@ -202,7 +202,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         // Edit thread's status tag
         CompletableFuture<Optional<DataObject>> editThreadAction = this.webhook
-            .modifyThreadChannel(threadID.get(), threadName, Set.of(tagID), null, null, null, true)
+            .modifyThreadChannel(threadID.get(), threadName, Set.of(tagID), null, null, false, true)
             .submit();
 
         // Optionally add new owner of exist (and not the same as previous owner)

@@ -104,7 +104,7 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
             @NotNull String channelID,
             @Nullable Collection<Long> appliedTags,
             boolean allowSecondAttempt) {
-        return this.modifyThreadChannel(channelID, null, appliedTags, null, null, null, allowSecondAttempt);
+        return this.modifyThreadChannel(channelID, null, appliedTags, null, null, false, allowSecondAttempt);
     }
 
     /** {@inheritDoc} */
