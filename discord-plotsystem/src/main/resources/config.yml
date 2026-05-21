@@ -57,6 +57,30 @@ plot-notification:
   on-plot-inactivity: true
 
 # ========================
+# Plot Forum Options
+# ========================
+plot-forum-settings:
+  # ========================
+  # Plot Reclaiming
+  # Happens when a user create a plot that already exists (abandoned)
+  # ========================
+  reclaim-in-same-thread:
+    # enabled - The same thread will be repurposed for new user,
+    #           messages may be clogged (if not configured to clear)
+    # disabled - A new thread will be created for every plot creation,
+    #            duplicate plot ID will exist (may clog the forum).
+    # if disabled, every config below has no effect.
+    enabled: true
+    # Clear notified notifications sent when reclaiming
+    # listed as plot-notification config, or set to 'true' to clear all notification
+    clear-notification: ["on-plot-created", "on-plot-abandoned", "on-plot-inactivity"]
+  starter-post:
+    # For aesthetic, keep abandoned user's plot card when using reclaim-in-same-thread
+    keep-abandoned-user: false
+    # Keep history messages (lang/message.yml history-messages) in starter post
+    keep-plot-histories: true
+
+# ========================
 # System Notification Settings
 # ========================
 system-notification:

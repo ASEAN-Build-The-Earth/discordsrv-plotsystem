@@ -6,16 +6,16 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
 import org.jetbrains.annotations.NotNull;
 
 public enum PlotNotification implements MessageLang {
-    ON_CREATED("plot-notification.on-plot-created"),
-    ON_SUBMITTED("plot-notification.on-plot-submitted"),
-    ON_REVIEWED("plot-notification.on-plot-reviewed"),
-    ON_APPROVED("plot-notification.on-plot-approved"),
-    ON_REJECTED("plot-notification.on-plot-rejected"),
-    ON_UNDO_REVIEW("plot-notification.on-undo-review"),
-    ON_UNDO_SUBMIT("plot-notification.on-undo-submit"),
-    ON_SHOWCASED("plot-notification.on-plot-showcased"),
-    ON_ABANDONED("plot-notification.on-plot-abandoned"),
-    ON_INACTIVITY("plot-notification.on-plot-inactivity");
+    ON_CREATED("on-plot-created"),
+    ON_SUBMITTED("on-plot-submitted"),
+    ON_REVIEWED("on-plot-reviewed"),
+    ON_APPROVED("on-plot-approved"),
+    ON_REJECTED("on-plot-rejected"),
+    ON_UNDO_REVIEW("on-undo-review"),
+    ON_UNDO_SUBMIT("on-undo-submit"),
+    ON_SHOWCASED("on-plot-showcased"),
+    ON_ABANDONED("on-plot-abandoned"),
+    ON_INACTIVITY("on-plot-inactivity");
 
     private final String path;
 
@@ -25,11 +25,20 @@ public enum PlotNotification implements MessageLang {
 
     @Override
     public @NotNull String getKey() {
+        return "plot-notification." + this.path;
+    }
+
+    public String getPath() {
         return this.path;
     }
 
     @NotNull
     public static PlotNotification from(@NotNull NotificationType type) {
+        return valueOf(type.name());
+    }
+
+    @NotNull
+    public static PlotNotification from(@NotNull AvailableComponent.NotificationComponent type) {
         return valueOf(type.name());
     }
 

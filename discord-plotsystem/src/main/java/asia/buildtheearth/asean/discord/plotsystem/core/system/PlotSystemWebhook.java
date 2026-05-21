@@ -41,6 +41,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static asia.buildtheearth.asean.discord.plotsystem.ConfigPaths.*;
 import static asia.buildtheearth.asean.discord.components.WebhookDataBuilder.WebhookData;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage;
@@ -86,7 +87,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             new RuntimeException("Received null data to create plot.")
         );
 
-        if(!force) {
+        if(!force && this.plugin.getConfig().getBoolean(PLOT_RECLAIM_SAME_ENABLE, true)) {
             Optional<WebhookEntry> existingPlot = WebhookEntry.ifPlotExisted(thread.getPlotID());
             if(existingPlot.isPresent()) return this.addNewExistingPlot(existingPlot.get(), plot, register);
         }
@@ -219,34 +220,9 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         CompletableFuture<Void> addMemberAction = optAddMemberAction.orElse(CompletableFuture.completedFuture(null));
 
         // Clear unnecessary notification message for new owner
-        CompletableFuture<Optional<Void>> fetchHistoryAction = this.webhook.queueNewUpdateAction(
+        CompletableFuture<Optional<Void>> clearNotificationAction = this.webhook.queueNewUpdateAction(
             this.webhook.findSentComponents(threadID.get(), true, AvailableComponent.NOTIFICATION),
-            data -> {
-                RestAction<Void> actions = null;
-
-                Set<String> messagesID = new HashSet<>();
-
-                // Look for single-component message with the type of inactivity notification
-                data.forEach((messageID, layout) -> {
-                    if(layout.getLayout().size() == 1
-                    && layout.getLayout().getFirst() instanceof NotificationComponent component) {
-                        messagesID.add(messageID);
-                    }
-                });
-
-                for (List<String> partition : Iterables.partition(messagesID, 100)) {
-                    List<RestAction<Void>> chunk = partition
-                        .stream()
-                        .map(messageID -> this.webhook.deleteMessage(threadID.get(), messageID, true))
-                        .toList();
-
-                    actions = (actions == null)
-                            ? RestAction.allOf(chunk).map(ok -> null)
-                            : actions.and(RestAction.allOf(chunk));
-                }
-
-                return (actions != null) ? actions.map(Optional::of) : null;
-            }
+            data -> this.clearSentNotification(data, threadID.get())
         );
 
         CompletableFuture<Void> allAction = CompletableFuture.allOf(
@@ -254,7 +230,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             editThreadAction.whenComplete(HANDLE_THREAD_EDIT_ERROR),
             removeMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
             addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
-            fetchHistoryAction.whenComplete(HANDLE_THREAD_EDIT_ERROR)
+            clearNotificationAction.whenComplete(HANDLE_THREAD_EDIT_ERROR)
         );
 
         return allAction.whenComplete((ok, error) -> {
@@ -674,16 +650,17 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * @return Updated data
      */
     @NotNull
-    private static Optional<WebhookData> updateExistingClaim(@SuppressWarnings("deprecation")
-                                                             @NotNull PlotReclaimEvent event,
-                                                             @NotNull Layout component,
-                                                             MemberOwnable owner,
-                                                             AvailableTag tag) {
+    private Optional<WebhookData> updateExistingClaim(@SuppressWarnings("deprecation")
+                                                      @NotNull PlotReclaimEvent event,
+                                                      @NotNull Layout component,
+                                                      MemberOwnable owner,
+                                                      AvailableTag tag) {
         // Update layout data
         List<ComponentV2> updated = new ArrayList<>();
         int latestPosition = 0;
         boolean repeatedLatestMember = false;
         boolean doUploadAvatar = false;
+        boolean keepPastUser = this.plugin.getConfig().getBoolean(PLOT_KEEP_ABANDONED_USER, false);
         Map<UUID, String> savedUUID = new HashMap<>();
 
         for(LayoutComponentProvider<?, ?> layout : component.getLayout()) {
@@ -702,8 +679,13 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     if (repeatedLatestMember) {
                         statusComponent.changeStatusMessage(StatusComponent.DisplayMessage.fromTag(tag));
                         statusComponent.setAccentColor(tag.getColor());
-
-                    } // TODO: Consider editing old status when it got reclaimed
+                    }
+                    else if(!keepPastUser) {
+                        // Skip all status component if we're ignoring past users
+                        // (unless it's the new owner)
+                        latestPosition += 1;
+                        continue;
+                    }
 
                     break;
                 default:
@@ -1108,6 +1090,57 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         return Optional.of(buttons)
                 .filter(data -> !data.isEmpty()).map(ActionRow::of)
                 .map(Collections::singletonList);
+    }
+
+    /**
+     * Send {@link ForumWebhook#deleteMessage(String, String, boolean)}
+     * to any found notification layout configured to be cleared.
+     *
+     * @param data Map of Messages ID and Layout in which will be checked for deletion
+     * @param threadID The thread ID of this data
+     * @return Empty RestAction that is completed when all request has ended (Either success or failure)
+     */
+    @Nullable
+    private RestAction<Optional<Void>> clearSentNotification(@NotNull Map<String, Layout> data,
+                                                             @NotNull String threadID) {
+        RestAction<Void> actions = null;
+        Set<String> messagesID = new HashSet<>();
+
+        // Look for single-component message
+        data.forEach((messageID, layout) -> {
+            if(layout.getLayout().size() == 1
+                    && layout.getLayout().getFirst() instanceof NotificationComponent component) {
+                if(!this.plugin.getConfig().getBoolean(PLOT_RECLAIM_CLEAR_NOTIFICATION, true))
+                    return;
+
+                List<String> setting = this.plugin.getConfig().getStringList(PLOT_RECLAIM_CLEAR_NOTIFICATION);
+
+                if(setting.isEmpty() && this.plugin.getConfig().getBoolean(PLOT_RECLAIM_CLEAR_NOTIFICATION, false)) {
+                    messagesID.add(messageID);
+                    return;
+                }
+
+                AvailableComponent.NotificationComponent type = component.getNotificationType();
+
+                if(type != null) for(String enabled : setting) {
+                    if(PlotNotification.from(type).getPath().equals(enabled))
+                        messagesID.add(messageID);
+                }
+            }
+        });
+
+        for (List<String> partition : Iterables.partition(messagesID, 100)) {
+            List<RestAction<Void>> chunk = partition
+                    .stream()
+                    .map(messageID -> this.webhook.deleteMessage(threadID, messageID, true))
+                    .toList();
+
+            actions = (actions == null)
+                    ? RestAction.allOf(chunk).map(ok -> null)
+                    : actions.and(RestAction.allOf(chunk));
+        }
+
+        return (actions != null) ? actions.map(Optional::of) : null;
     }
 
     /**

@@ -12,6 +12,34 @@ public abstract class ConfigPaths {
     public static final String DATABASE_PASSWORD = DATABASE + "password";
     public static final String DATABASE_WEBHOOK_TABLE = DATABASE + "webhook-table";
 
+    // Plot Forum Setting
+    private static final String PLOT = "plot-forum-settings.";
+    private static final String PLOT_STARTER_POST = PLOT + "starter-post.";
+    private static final String PLOT_RECLAIM_SAME = PLOT + "reclaim-in-same-thread.";
+    public static final String PLOT_RECLAIM_SAME_ENABLE = PLOT_RECLAIM_SAME + "enabled";
+    /**
+     * NOT IMPLEMENTED
+     * {@snippet :
+     * """
+     * # Only leave the starter post
+     * # Warning: this plugin don't keep message history, use at own risk.
+     * purge-all-messages: false
+     * """}
+     */
+    public static final String PLOT_RECLAIM_PURGE_ALL_MESSAGES = PLOT_RECLAIM_SAME + "purge-all-messages";
+    /**
+     * NOT IMPLEMENTED
+     * {@snippet :
+     * """
+     * # Clear each status embeds (the embed with help button)
+     * clear-status-embed: false
+     * """}
+     */
+    public static final String PLOT_RECLAIM_CLEAR_STATUS_EMBED = PLOT_RECLAIM_SAME + "clear-status-embed";
+    public static final String PLOT_RECLAIM_CLEAR_NOTIFICATION = PLOT_RECLAIM_SAME + "clear-notification";
+    public static final String PLOT_KEEP_ABANDONED_USER = PLOT_STARTER_POST + "keep-abandoned-user";
+    public static final String PLOT_KEEP_PLOT_HISTORIES = PLOT_STARTER_POST + "keep-plot-histories";
+
     // Notifications
     public static final String NOTIFICATION = "system-notification.";
     public static final String NOTIFICATION_CHANNEL = NOTIFICATION + "channel-id";

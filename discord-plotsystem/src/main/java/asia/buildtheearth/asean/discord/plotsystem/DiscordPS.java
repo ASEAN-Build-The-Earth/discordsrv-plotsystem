@@ -265,7 +265,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
                 debugger.resolveError(Debug.Error.DATABASE_NOT_INITIALIZED);
             } else {
                 // returned false: handled error
-                // DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, "Could not initialize database connection due to a misconfigured config file.");
+                DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, "Could not initialize database connection due to a misconfigured config file.");
             }
         }
         catch (Exception ex) { // Exception thrown: Unknown error occurred
@@ -393,7 +393,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
 
         RequestBody requestBody = RequestBody.create(MediaType.get("application/json"), jsonObject.toString());
         Route.CompiledRoute route = Route.Channels.CREATE_WEBHOOK.compile(channelID);
-        ForumWebhook.RestResponse<DataObject> response = new ForumWebhook.RestResponse<>(Function.identity());
+        ForumWebhook.ObjectResponse<DataObject> response = new ForumWebhook.ObjectResponse<>(Function.identity());
 
         if(allowSecondAttempt) response.setRetryExecution(() -> createWebhook(channelID, name, avatarURL, false));
 
