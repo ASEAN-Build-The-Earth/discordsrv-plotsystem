@@ -296,7 +296,7 @@ sealed class SetupWebhookCommand extends AbstractSetupWebhookCommand permits Set
             .get(Route.Channels.MODIFY_CHANNEL.getRoute())
             .compile(Long.toUnsignedString(channelID));
 
-        ForumWebhook.RestResponse<Integer> response = new ForumWebhook.RestResponse<>(
+        ForumWebhook.ObjectResponse<Integer> response = new ForumWebhook.ObjectResponse<>(
             data -> data.hasKey("type")? data.getInt("type") : null
         );
 

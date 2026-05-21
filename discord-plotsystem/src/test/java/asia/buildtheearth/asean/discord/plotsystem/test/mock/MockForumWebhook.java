@@ -3,6 +3,7 @@ package asia.buildtheearth.asean.discord.plotsystem.test.mock;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookProvider;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
 import github.scarsz.discordsrv.dependencies.jda.api.JDA;
@@ -16,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
@@ -103,9 +105,21 @@ public abstract class MockForumWebhook implements ForumWebhook {
         return new MockRestAction<>();
     }
 
+    @NotNull
+    public RestAction<Void> deleteMessage(@NotNull String threadID,
+                                          @NotNull String messageID,
+                                          boolean allowSecondAttempt) {
+        return new MockRestAction<>();
+    }
+
     @Override
-    public @NotNull <T> CompletableFuture<Optional<MessageReference>> queueNewUpdateAction(@NotNull RestAction<Optional<T>> restAction, @NotNull Function<T, RestAction<Optional<MessageReference>>> whenComplete) {
-        return new MockOptRestAction<MessageReference>().submit();
+    public @NotNull RestAction<Optional<Map<String, Layout>>> findSentComponents(@NotNull String channelID, boolean allowSecondAttempt, AvailableComponent... filter) {
+        return new MockRestAction<>();
+    }
+
+    @Override
+    public @NotNull <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(@NotNull RestAction<Optional<T>> restAction, @NotNull Function<T, RestAction<Optional<V>>> whenComplete) {
+        return new MockOptRestAction<V>().submit();
     }
 
     public static class MockRestAction<T> implements RestAction<T> {

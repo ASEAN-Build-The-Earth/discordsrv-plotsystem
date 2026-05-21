@@ -190,7 +190,7 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
         }
 
         RequestBody requestBody = RequestBody.create(MediaType.get("application/json"), data.toString());
-        RestResponse<DataObject> response = new RestResponse<>(Function.identity());
+        ObjectResponse<DataObject> response = new ObjectResponse<>(Function.identity());
 
         if(allowSecondAttempt) response.setRetryExecution(() -> modifyThreadChannel(channelID, name, appliedTags, autoArchiveDuration, locked, archived, false));
 
@@ -223,7 +223,7 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
                 .withQueryParams("with_components", String.valueOf(withComponents));
 
         MultipartBody requestBody = webhookData.prepareRequestBody();
-        RestResponse<MessageReference> response = new RestResponse<>(this::packageMessageResponse);
+        ObjectResponse<MessageReference> response = new ObjectResponse<>(this::packageMessageResponse);
 
         if(allowSecondAttempt) response.setRetryExecution(() -> editWebhookMessage(threadID, messageID, webhookData, withComponents, false));
 
@@ -244,7 +244,7 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
                 .compile(webhook.getId(), webhook.getToken(), messageID)
                 .withQueryParams("thread_id", threadID);
 
-        RestResponse<ReceivedMessage> response = new RestResponse<>(data -> this.jdaImpl
+        ObjectResponse<ReceivedMessage> response = new ObjectResponse<>(data -> this.jdaImpl
             .getEntityBuilder()
             .createMessage(data, this.channel, false)
         );
@@ -266,7 +266,7 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
                 .compile(webhook.getId(), webhook.getToken(), threadID)
                 .withQueryParams("thread_id", threadID);
 
-        RestResponse<Layout> response = new RestResponse<>(data -> data
+        ObjectResponse<Layout> response = new ObjectResponse<>(data -> data
             .optArray("components")
             .flatMap(Layout::fromRawData)
             .orElse(null)
@@ -314,7 +314,7 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
             }
 
             MultipartBody requestBody = webhookData.prepareRequestBody();
-            RestResponse<MessageReference> response = new RestResponse<>(this::packageMessageResponse);
+            ObjectResponse<MessageReference> response = new ObjectResponse<>(this::packageMessageResponse);
 
             if(allowSecondAttempt) response.setRetryExecution(() -> newThreadWithMessage(webhookData, appliedTags, withComponents, false));
 
@@ -339,7 +339,7 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
 
         MultipartBody requestBody = webhookData.prepareRequestBody();
 
-        RestResponse<MessageReference> response = new RestResponse<>(this::packageMessageResponse);
+        ObjectResponse<MessageReference> response = new ObjectResponse<>(this::packageMessageResponse);
 
         if(allowSecondAttempt) response.setRetryExecution(() -> sendMessageInThread(threadID, webhookData, withComponents, false));
 
@@ -374,19 +374,81 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
     }
 
     /** {@inheritDoc} */
+    public @NotNull RestAction<Void> deleteMessage(@NotNull String threadID,
+                                                   @NotNull String messageID,
+                                                   boolean allowSecondAttempt) {
+        Checks.isSnowflake(threadID, "Webhook message ID");
+        Checks.isSnowflake(messageID, "Webhook message ID");
+
+        Route.CompiledRoute route = Route.Webhooks.EXECUTE_WEBHOOK_DELETE
+                .compile(webhook.getId(), webhook.getToken(), messageID)
+                .withQueryParams("thread_id", threadID);
+
+        ObjectResponse<Void> response = new ObjectResponse<>(ok -> null);
+
+        DiscordPS.info("Clearing notif message ID " + messageID);
+
+        if(allowSecondAttempt)
+            response.setRetryExecution(() -> deleteMessage(threadID, messageID, false).map(Optional::of));
+
+        return new RestActionImpl<>(this.jdaImpl, route, response::execute).map(ok -> null);
+    }
+
+    /** {@inheritDoc} */
+    @NotNull
+    public RestAction<
+        Optional<Map<String, Layout>>
+    > findSentComponents(@NotNull String channelID,
+                         boolean allowSecondAttempt,
+                         AvailableComponent... filter) {
+        Route.CompiledRoute route = Route.Messages.GET_MESSAGE_HISTORY
+            .compile(channelID)
+            .withQueryParams("limit", "50");
+
+        ArrayResponse<Map<String, Layout>> response = new ArrayResponse<>(messages -> {
+            Map<String, Layout> retrieved = new HashMap<>();
+
+            for (int i = 0; i < messages.length(); i++) {
+                DataObject message = messages.getObject(i);
+                String webhookID = message.getString("webhook_id", null);
+                String messageID = message.getString("id", null);
+
+                // ignore message that is not sent by our webhook
+                if(!this.getWebhook().getId().equals(webhookID) || messageID == null)
+                    continue;
+
+                DiscordPS.info("Found webhook message message ID " + messageID);
+
+                message
+                    .optArray("components")
+                    .flatMap(components -> Layout.fromRawData(components, filter))
+                    .ifPresent(layout -> retrieved.put(messageID, layout));
+            }
+
+            return retrieved.isEmpty()? null : retrieved;
+        });
+
+        if(allowSecondAttempt) response.setRetryExecution(() -> findSentComponents(channelID, false, filter));
+
+        return new RestActionImpl<>(this.getJDA(), route, response::execute);
+    }
+
+
+
+    /** {@inheritDoc} */
     @NotNull
     @Override
-    public <T> CompletableFuture<Optional<MessageReference>> queueNewUpdateAction(
+    public <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(
             @NotNull RestAction<Optional<T>> restAction,
-            @NotNull Function<T, RestAction<Optional<MessageReference>>> whenComplete) {
+            @NotNull Function<T, RestAction<Optional<V>>> whenComplete) {
 
-        CompletableFuture<Optional<MessageReference>> action = new CompletableFuture<>();
+        CompletableFuture<Optional<V>> action = new CompletableFuture<>();
 
         Consumer<T> whenActionComplete = data -> whenComplete.apply(data)
-                .queue(action::complete, action::completeExceptionally);
+            .queue(action::complete, action::completeExceptionally);
 
         Runnable whenActionFailed = () -> action.completeExceptionally(
-                new RuntimeException("update action returned empty")
+            new RuntimeException("update action returned empty")
         );
 
         Consumer<Optional<T>> onSuccess = opt -> opt.ifPresentOrElse(whenActionComplete, whenActionFailed);

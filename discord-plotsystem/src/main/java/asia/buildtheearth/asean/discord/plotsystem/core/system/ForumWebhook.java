@@ -5,6 +5,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.Request;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.Response;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
+import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import github.scarsz.discordsrv.dependencies.jda.internal.entities.ReceivedMessage;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
@@ -14,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -223,6 +225,34 @@ public interface ForumWebhook {
                                      @NotNull String memberID);
 
     /**
+     * Delete a message sent in a thread by this webhook.
+     *
+     * @param threadID The thread ID (snowflake) of the message
+     * @param messageID The message ID (snowflake) to delete
+     * @param allowSecondAttempt Whether to retry once if the request fails.
+     * @return
+    A RestAction representing the completion of the request.
+     */
+    @NotNull
+    RestAction<Void> deleteMessage(@NotNull String threadID,
+                                   @NotNull String messageID,
+                                   boolean allowSecondAttempt);
+
+    /**
+     * Get message history and parse for {@linkplain Layout} components.
+     *
+     * @param channelID Channel ID to find messages, can be a thread.
+     * @param allowSecondAttempt Whether to retry once if the request fails.
+     * @param filter Optional whitelists of {@linkplain Layout} if found as {@linkplain AvailableComponent}
+     * @return Optional if present, a non-empty Map of found message IDs by its {@linkplain Layout}
+     */
+    @NotNull
+    RestAction<Optional<Map<String, Layout>>> findSentComponents(
+            @NotNull String channelID,
+            boolean allowSecondAttempt,
+            AvailableComponent... filter);
+
+    /**
      * Queue a rest action followed by another rest action.
      *
      * @param restAction The rest action to starts with.
@@ -231,26 +261,31 @@ public interface ForumWebhook {
      * @param <T> The type of the action that will be resolved to.
      */
     @NotNull
-    <T> CompletableFuture<Optional<MessageReference>> queueNewUpdateAction(
+    <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(
             @NotNull RestAction<Optional<T>> restAction,
-            @NotNull Function<T, RestAction<Optional<MessageReference>>> whenComplete);
+            @NotNull Function<T, RestAction<Optional<V>>> whenComplete);
+
 
     /**
      * Conventional utility class to handle rest action response.
      *
      * @param <T> Type of the return value of this response.
+     * @param <V> Type of retrieving value of this response.
      */
-    class RestResponse<T> {
+    abstract class RestResponse<T, V> {
         private static final long RETRY_AFTER_MILLIS = 5000;
         private @Nullable Supplier<RestAction<Optional<T>>> retryExecution;
-        private final @NotNull Function<@NotNull DataObject, @Nullable T> response;
+
+        private final @NotNull Function<@NotNull V, @Nullable T> response;
+
+        protected abstract @NotNull Optional<V> retrieve(Response response);
 
         /**
-         * Create a rest action {@link DataObject} response.
+         * Create a rest action response.
          *
-         * @param response The response function.
+         * @param response The response handler (function) when non-null object is retrieved.
          */
-        public RestResponse(@NotNull Function<@NotNull DataObject, @Nullable T> response) {
+        public RestResponse(@NotNull Function<@NotNull V, @Nullable T> response) {
             this.response = response;
         }
 
@@ -286,12 +321,56 @@ public interface ForumWebhook {
                     return this.retryExecution.get().completeAfter(RETRY_AFTER_MILLIS, TimeUnit.MILLISECONDS);
                 }
 
-                return response.optObject().map(this.response);
+                return retrieve(response).map(this.response);
             }
             catch (Throwable ex) {
                 DiscordPS.error("Failed to execute API response of a webhook forum process", ex);
                 return Optional.empty();
             }
+        }
+    }
+
+    /**
+     * {@linkplain RestResponse} that retrieve {@linkplain DataObject} from initial response,
+     * then (if success) {@linkplain RestResponse#execute(Response, Request) execute} it to T.
+     * @param <T> Type of computed response
+     */
+    class ObjectResponse<T> extends RestResponse<T, DataObject> {
+
+        /**
+         * Create a rest action {@link DataObject} response.
+         *
+         * @param response The response handler (function) when non-null object is retrieved.
+         */
+        public ObjectResponse(@NotNull Function<@NotNull DataObject, @Nullable T> response) {
+            super(response);
+        }
+
+        @Override @NotNull
+        protected Optional<DataObject> retrieve(@NotNull Response response) {
+            return response.optObject();
+        }
+    }
+
+    /**
+     * {@linkplain RestResponse} that retrieve {@linkplain DataArray} from initial response,
+     * then (if success) {@linkplain RestResponse#execute(Response, Request) execute} it to T.
+     * @param <T> Type of computed response
+     */
+    class ArrayResponse<T> extends RestResponse<T, DataArray> {
+
+        /**
+         * Create a rest action {@link DataArray} response.
+         *
+         * @param response The response handler (function) when non-null object is retrieved.
+         */
+        public ArrayResponse(@NotNull Function<@NotNull DataArray, @Nullable T> response) {
+            super(response);
+        }
+
+        @Override @NotNull
+        protected Optional<DataArray> retrieve(@NotNull Response response) {
+            return response.optArray();
         }
     }
 }

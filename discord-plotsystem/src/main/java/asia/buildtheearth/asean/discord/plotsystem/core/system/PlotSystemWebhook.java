@@ -5,11 +5,13 @@ import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.*;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
+import github.scarsz.discordsrv.dependencies.google.common.collect.Iterables;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.concurrent.DelayedCompletableFuture;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
@@ -18,14 +20,10 @@ import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponentProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookProvider;
-import asia.buildtheearth.asean.discord.components.api.Container;
 import asia.buildtheearth.asean.discord.components.api.TextDisplay;
 import asia.buildtheearth.asean.discord.components.api.ComponentV2;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.InfoComponent;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.StatusComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.StatusEmbed;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
@@ -220,11 +218,43 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         CompletableFuture<Void> addMemberAction = optAddMemberAction.orElse(CompletableFuture.completedFuture(null));
 
+        // Clear unnecessary notification message for new owner
+        CompletableFuture<Optional<Void>> fetchHistoryAction = this.webhook.queueNewUpdateAction(
+            this.webhook.findSentComponents(threadID.get(), true, AvailableComponent.NOTIFICATION),
+            data -> {
+                RestAction<Void> actions = null;
+
+                Set<String> messagesID = new HashSet<>();
+
+                // Look for single-component message with the type of inactivity notification
+                data.forEach((messageID, layout) -> {
+                    if(layout.getLayout().size() == 1
+                    && layout.getLayout().getFirst() instanceof NotificationComponent component) {
+                        messagesID.add(messageID);
+                    }
+                });
+
+                for (List<String> partition : Iterables.partition(messagesID, 100)) {
+                    List<RestAction<Void>> chunk = partition
+                        .stream()
+                        .map(messageID -> this.webhook.deleteMessage(threadID.get(), messageID, true))
+                        .toList();
+
+                    actions = (actions == null)
+                            ? RestAction.allOf(chunk).map(ok -> null)
+                            : actions.and(RestAction.allOf(chunk));
+                }
+
+                return (actions != null) ? actions.map(Optional::of) : null;
+            }
+        );
+
         CompletableFuture<Void> allAction = CompletableFuture.allOf(
             updateThreadLayoutAction.whenComplete(HANDLE_LAYOUT_EDIT_ERROR),
             editThreadAction.whenComplete(HANDLE_THREAD_EDIT_ERROR),
             removeMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
-            addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR)
+            addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
+            fetchHistoryAction.whenComplete(HANDLE_THREAD_EDIT_ERROR)
         );
 
         return allAction.whenComplete((ok, error) -> {
