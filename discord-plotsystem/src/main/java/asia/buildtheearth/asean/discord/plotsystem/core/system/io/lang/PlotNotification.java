@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang;
 
 import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,5 +31,10 @@ public enum PlotNotification implements MessageLang {
     @NotNull
     public static PlotNotification from(@NotNull NotificationType type) {
         return valueOf(type.name());
+    }
+
+    @NotNull
+    public AvailableComponent.NotificationComponent toComponent() {
+        return valueOf(AvailableComponent.NotificationComponent.class, this.name());
     }
 }

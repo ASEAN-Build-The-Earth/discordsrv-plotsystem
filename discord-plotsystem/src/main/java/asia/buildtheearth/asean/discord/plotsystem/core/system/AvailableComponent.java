@@ -22,7 +22,9 @@ public enum AvailableComponent {
     // Plot status
     STATUS(StatusComponent.class),
     // Showcase information
-    SHOWCASE(ShowcaseComponent.class);
+    SHOWCASE(ShowcaseComponent.class),
+    // Plot's notification components
+    NOTIFICATION(NotificationComponent.class);
 
     public interface SubComponent {
         @Contract(pure = true)
@@ -53,6 +55,21 @@ public enum AvailableComponent {
         SHOWCASE_THUMBNAIL;
         public static final ShowcaseComponent[] VALUES = values();
         public static @Nullable ShowcaseComponent get(int ordinal) { return (ShowcaseComponent) SubComponent.fromOrdinal(ordinal, VALUES); }
+    }
+
+    public enum NotificationComponent implements SubComponent {
+        ON_CREATED,
+        ON_SUBMITTED,
+        ON_REVIEWED,
+        ON_APPROVED,
+        ON_REJECTED,
+        ON_UNDO_REVIEW,
+        ON_UNDO_SUBMIT,
+        ON_SHOWCASED,
+        ON_ABANDONED,
+        ON_INACTIVITY;
+        public static final NotificationComponent[] VALUES = values();
+        public static @Nullable NotificationComponent get(int ordinal) { return (NotificationComponent) SubComponent.fromOrdinal(ordinal, VALUES); }
     }
 
     private final Class<? extends Enum<? extends SubComponent>> components;

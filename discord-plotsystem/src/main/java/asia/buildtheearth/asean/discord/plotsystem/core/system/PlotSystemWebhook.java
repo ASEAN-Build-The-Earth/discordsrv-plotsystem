@@ -374,15 +374,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         if(!this.plugin.getConfig().getBoolean(type.getKey(), true)) return;
 
         // Parse message from language file
-        TextDisplay display = new TextDisplay(content.apply(DiscordPS.getMessagesLang().get(type)));
-
-        Container container = new Container();
-
-        container.addComponent(display);
+        String message = content.apply(DiscordPS.getMessagesLang().get(type));
+        NotificationComponent notification = new NotificationComponent(0, type.toComponent(), message);
 
         WebhookData data = new WebhookDataBuilder()
                 .forceComponentV2()
-                .setComponentsV2(Collections.singletonList(container))
+                .setComponentsV2(Collections.singletonList(notification.build()))
                 .build();
 
         this.webhook.sendMessageInThread(threadID, data, true, true).queue();
