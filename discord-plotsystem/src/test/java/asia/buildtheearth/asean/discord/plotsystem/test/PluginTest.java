@@ -2,9 +2,6 @@ package asia.buildtheearth.asean.discord.plotsystem.test;
 
 import asia.buildtheearth.asean.discord.plotsystem.Debug;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordCommandListener;
@@ -16,6 +13,17 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableTag;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import asia.buildtheearth.asean.discord.plotsystem.test.mock.MockDiscordSRV;
 import asia.buildtheearth.asean.discord.plotsystem.test.mock.MockPluginServer;
+import com.alpsbte.plotsystem.api.event.PlotCreatedEvent;
+import com.alpsbte.plotsystem.api.event.PlotFeedbackUpdatedEvent;
+import com.alpsbte.plotsystem.api.event.PlotReviewUndoneEvent;
+import com.alpsbte.plotsystem.api.event.PlotSubmissionUndoneEvent;
+import com.alpsbte.plotsystem.api.event.PlotSubmittedEvent;
+import com.alpsbte.plotsystem.api.event.PlotRejectedEvent;
+import com.alpsbte.plotsystem.api.model.PlotDifficulty;
+import com.alpsbte.plotsystem.api.model.PlotSnapshot;
+import com.alpsbte.plotsystem.api.model.PlotStatus;
+import com.alpsbte.plotsystem.api.model.PlotType;
+import com.alpsbte.plotsystem.api.model.ReviewSnapshot;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
@@ -190,18 +198,8 @@ public class PluginTest implements MockPluginServer {
         @Test @Order(1)
         @DisplayName("Create plot")
         public void createPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                .callEvent(new PlotCreateEvent(plotID,
-                    new PlotCreateData(
-                        plotID,
-                        UUID.randomUUID().toString(),
-                        PlotCreateData.PlotStatus.ON_GOING,
-                        "MOCK_CITY",
-                        "MOCK_COUNTRY",
-                        new double[] {0, 0}
-                    )
-                )
-            ));
+            plotOwner = UUID.randomUUID();
+            fire(new PlotCreatedEvent(snapshot(PlotStatus.UNFINISHED)));
 
             // Expected plot to be created with ongoing status
             this.expectStatus(ThreadStatus.on_going);
@@ -210,36 +208,28 @@ public class PluginTest implements MockPluginServer {
         @Test @Order(2)
         @DisplayName("Submit Plot")
         public void submitPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotSubmitEvent(plotID))
-            );
+            fire(new PlotSubmittedEvent(snapshot(PlotStatus.UNREVIEWED)));
             this.expectStatus(ThreadStatus.finished);
         }
 
         @Test @Order(3)
         @DisplayName("Reject Plot")
         public void rejectPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotRejectedEvent(plotID))
-            );
+            fire(new PlotRejectedEvent(review(PlotStatus.COMPLETED, null)));
             this.expectStatus(ThreadStatus.rejected);
         }
 
         @Test @Order(4)
         @DisplayName("Undo Review Plot")
         public void undoReviewPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotUndoReviewEvent(plotID))
-            );
+            fire(new PlotReviewUndoneEvent(review(PlotStatus.UNREVIEWED, null)));
             this.expectStatus(ThreadStatus.finished);
         }
 
         @Test @Order(5)
         @DisplayName("Approve Plot")
         public void approvePlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotApprovedEvent(plotID))
-            );
+            fire(new com.alpsbte.plotsystem.api.event.PlotReviewedEvent(review(PlotStatus.COMPLETED, null)));
             this.expectStatus(ThreadStatus.approved);
         }
 
@@ -247,20 +237,10 @@ public class PluginTest implements MockPluginServer {
         @DisplayName("Feedback Plot")
         public void feedbackPlot() {
             String feedback = UUID.randomUUID().toString();
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotFeedbackEvent(plotID, feedback))
-            );
+            fire(new PlotFeedbackUpdatedEvent(review(PlotStatus.COMPLETED, feedback)));
             this.expectStatus(ThreadStatus.approved, feedback);
         }
 
-        @Test @Order(7)
-        @DisplayName("Archive Plot")
-        public void archivePlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotArchiveEvent(plotID, "MockSystem"))
-            );
-            this.expectStatus(ThreadStatus.archived);
-        }
     }
 
     @DisplayName("Test Plot-System #2")
@@ -271,18 +251,8 @@ public class PluginTest implements MockPluginServer {
         @Test @Order(1)
         @DisplayName("Create plot")
         public void createPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance().callEvent(
-                new PlotCreateEvent(plotID,
-                    new PlotCreateData(
-                            plotID,
-                            UUID.randomUUID().toString(),
-                            PlotCreateData.PlotStatus.ON_GOING,
-                            "MOCK_CITY",
-                            "MOCK_COUNTRY",
-                            new double[] {0, 0}
-                    ))
-                )
-            );
+            plotOwner = UUID.randomUUID();
+            fire(new PlotCreatedEvent(snapshot(PlotStatus.UNFINISHED)));
 
             // Expected plot to be created with ongoing status
             this.expectStatus(ThreadStatus.on_going);
@@ -291,36 +261,28 @@ public class PluginTest implements MockPluginServer {
         @Test @Order(2)
         @DisplayName("Submit Plot")
         public void submitPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotSubmitEvent(plotID))
-            );
+            fire(new PlotSubmittedEvent(snapshot(PlotStatus.UNREVIEWED)));
             this.expectStatus(ThreadStatus.finished);
         }
 
         @Test @Order(3)
         @DisplayName("Undo Submit Plot")
         public void undoSubmitPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotUndoSubmitEvent(plotID))
-            );
+            fire(new PlotSubmissionUndoneEvent(snapshot(PlotStatus.UNFINISHED)));
             this.expectStatus(ThreadStatus.on_going);
         }
 
         @Test @Order(4)
         @DisplayName("Re-Submit Plot")
         public void reSubmitPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotSubmitEvent(plotID))
-            );
+            fire(new PlotSubmittedEvent(snapshot(PlotStatus.UNREVIEWED)));
             this.expectStatus(ThreadStatus.finished);
         }
 
         @Test @Order(5)
         @DisplayName("Reject Plot")
         public void rejectPlot() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotRejectedEvent(plotID))
-            );
+            fire(new PlotRejectedEvent(review(PlotStatus.COMPLETED, null)));
             this.expectStatus(ThreadStatus.rejected);
         }
 
@@ -328,28 +290,16 @@ public class PluginTest implements MockPluginServer {
         @DisplayName("Feedback Plot")
         public void feedbackPlot() {
             String feedback = UUID.randomUUID().toString();
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotFeedbackEvent(plotID, feedback))
-            );
+            fire(new PlotFeedbackUpdatedEvent(review(PlotStatus.COMPLETED, feedback)));
             this.expectStatus(ThreadStatus.rejected, feedback);
-        }
-
-        @Test @Order(5)
-        @DisplayName("Notify Inactivity Plot")
-        public void inactivityNotice() {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new InactivityNoticeEvent(plotID, LocalDate.now()))
-            );
         }
 
         @Order(6)
         @DisplayName("Abandon Plot")
-        @EnumSource(AbandonType.class)
+        @EnumSource(com.alpsbte.plotsystem.api.model.PlotAbandonReason.class)
         @ParameterizedTest
-        public void abandonPlot(AbandonType type) {
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance()
-                    .callEvent(new PlotAbandonedEvent(plotID, type))
-            );
+        public void abandonPlot(com.alpsbte.plotsystem.api.model.PlotAbandonReason reason) {
+            fire(new com.alpsbte.plotsystem.api.event.PlotAbandonedEvent(snapshot(PlotStatus.UNCLAIMED), reason));
             this.expectStatus(ThreadStatus.abandoned);
         }
 
@@ -361,26 +311,28 @@ public class PluginTest implements MockPluginServer {
             this.expectStatus(ThreadStatus.abandoned, newOwner, Assertions::assertNotEquals);
 
             // Re-Send a create event to the plot with new owner
-            Assertions.assertDoesNotThrow(() -> DiscordPlotSystemAPI.getInstance().callEvent(
-                new PlotCreateEvent(plotID,
-                    new PlotCreateData(
-                        plotID,
-                        newOwner.toString(),
-                        PlotCreateData.PlotStatus.ON_GOING,
-                        "MOCK_CITY",
-                        "MOCK_COUNTRY",
-                        new double[] {0, 0}
-                    ))
-                )
-            );
+            plotOwner = newOwner;
+            fire(new PlotCreatedEvent(snapshot(PlotStatus.UNFINISHED)));
 
             // Expected plot to be on going with new owner
             this.expectStatus(ThreadStatus.on_going, newOwner, Assertions::assertEquals);
+        }
+
+        @Test @Order(8)
+        @DisplayName("Archive Plot")
+        public void archivePlot() {
+            fire(new com.alpsbte.plotsystem.api.event.PlotArchivedEvent(
+                snapshot(PlotStatus.UNCLAIMED),
+                com.alpsbte.plotsystem.api.model.PlotAbandonReason.SYSTEM,
+                plotOwner
+            ));
+            this.expectStatus(ThreadStatus.archived);
         }
     }
 
     abstract static class EventSystemTest {
         protected static Integer plotID;
+        protected static UUID plotOwner;
         protected static final DiscordSRVListener hook;
         protected static final PlotSystemListener systemListener;
         protected static final DiscordEventListener jdaListener;
@@ -388,7 +340,7 @@ public class PluginTest implements MockPluginServer {
 
         static {
             hook = Assertions.assertDoesNotThrow(plugin::getListenerHook);
-            systemListener = Assertions.assertDoesNotThrow(hook::getPlotSystemListener);
+            systemListener = Assertions.assertDoesNotThrow(plugin::getPlotSystemListener);
             jdaListener = Assertions.assertDoesNotThrow(hook::getEventListener);
             commandListener = Assertions.assertDoesNotThrow(hook::getPluginSlashCommand);
         }
@@ -396,11 +348,34 @@ public class PluginTest implements MockPluginServer {
         @BeforeAll
         public static void randomPlotID() {
             plotID = new Random().nextInt(0, 999);
+            plotOwner = UUID.randomUUID();
         }
 
         @AfterAll
         public static void resetPlotID() {
             plotID = null;
+            plotOwner = null;
+        }
+
+        protected static PlotSnapshot snapshot(PlotStatus status) {
+            return PlotSnapshot.builder()
+                .id(plotID)
+                .owner(plotOwner)
+                .status(status)
+                .type(PlotType.FOCUS_MODE)
+                .difficulty(PlotDifficulty.EASY)
+                .cityProjectId("MOCK_CITY")
+                .countryCode("MOCK_COUNTRY")
+                .lastActivity(LocalDate.now())
+                .build();
+        }
+
+        protected static ReviewSnapshot review(PlotStatus status, String feedback) {
+            return new ReviewSnapshot(plotID, snapshot(status), UUID.randomUUID(), 1, 1, feedback);
+        }
+
+        protected static void fire(org.bukkit.event.Event event) {
+            Assertions.assertDoesNotThrow(() -> server.getPluginManager().callEvent(event));
         }
 
         protected void expectStatus(ThreadStatus expected, UUID owner, BiConsumer<Object, Object> comparison) {

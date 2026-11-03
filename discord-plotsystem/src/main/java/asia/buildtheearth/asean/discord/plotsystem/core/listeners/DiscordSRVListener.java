@@ -172,14 +172,12 @@ public class DiscordSRVListener extends PluginListenerProvider {
     }
 
     /**
-     * Subscribe the plugin with plot-system listener,
-     * then print blocking message to notify the plugin status.
+     * Wire the Plot-System listener to the ready webhook, then notify plugin status.
      *
-     * @see DiscordPS#subscribe(Object)
      * @see #notifyPluginReady(String, Throwable)
      */
     private void onPluginReady() {
-        DiscordPS.getPlugin().subscribe(this.newPlotSystemListener(this.plugin.getWebhook()));
+        this.plugin.getPlotSystemListener().setWebhook(this.plugin.getWebhook());
 
         Notification.notify(PLUGIN_STARTED);
 

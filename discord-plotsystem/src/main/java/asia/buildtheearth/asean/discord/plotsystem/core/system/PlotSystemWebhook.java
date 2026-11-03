@@ -2,7 +2,7 @@ package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.components.PluginComponent;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
@@ -13,7 +13,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.But
 import github.scarsz.discordsrv.dependencies.jda.api.utils.concurrent.DelayedCompletableFuture;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.*;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponentProvider;
@@ -80,7 +80,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     protected CompletableFuture<Void> newThreadForPlotID(@NotNull PlotSystemThread thread,
-                                                         @Nullable PlotCreateData plot,
+                                                         @Nullable PlotSnapshotData plot,
                                                          boolean register,
                                                          boolean force) {
 
@@ -125,7 +125,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     public CompletableFuture<Void> createAndRegisterNewPlot(int plotID,
-                                                            @NotNull PlotCreateData plotData) {
+                                                            @NotNull PlotSnapshotData plotData) {
         return this.createAndRegisterNewPlot(new PlotSystemThread(plotID), plotData);
     }
 
@@ -137,7 +137,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     public CompletableFuture<Void> forceRegisterNewPlot(@NotNull PlotSystemThread thread,
-                                                        @NotNull PlotCreateData plotData) {
+                                                        @NotNull PlotSnapshotData plotData) {
         return this.newThreadForPlotID(thread, plotData, true, true);
     }
 
@@ -149,7 +149,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     public CompletableFuture<Void> createAndRegisterNewPlot(@NotNull PlotSystemThread thread,
-                                                            @NotNull PlotCreateData plotData) {
+                                                            @NotNull PlotSnapshotData plotData) {
         return this.newThreadForPlotID(thread, plotData, true, false);
     }
 
@@ -162,7 +162,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     public CompletableFuture<Void> createNewUntrackedPlot(@NotNull PlotSystemThread thread,
-                                                          @NotNull PlotCreateData plotData) {
+                                                          @NotNull PlotSnapshotData plotData) {
         return this.newThreadForPlotID(thread, plotData, false, true);
     }
 
@@ -171,7 +171,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     protected CompletableFuture<Void> addNewExistingPlot(@NotNull PlotSystemThread thread,
-                                                         @NotNull PlotCreateData plot,
+                                                         @NotNull PlotSnapshotData plot,
                                                          @Nullable String removeMemberID,
                                                          @Nullable Consumer<PlotData> onSuccess) {
         Optional<String> threadID = thread.getOptID().map(Long::toUnsignedString);
@@ -456,7 +456,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 );
 
                 Notification.notify(
-                    PlotMessage.getAbandonMessage(event.getType()),
+                    PlotMessage.getAbandonMessage(event.getReason()),
                     plot.threadID(),
                     String.valueOf(event.getPlotID())
                 );
@@ -536,32 +536,50 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     }
 
     /**
-     * Send notification to a plot for inactivity notice using {@link InactivityNoticeEvent}
+     * Deliver an integration-owned inactivity reminder to a tracked plot thread.
      *
-     * @param event The {@link InactivityNoticeEvent} containing the plot ID and abandonment timestamp
+     * <p>Honours {@code plot-notification.on-plot-inactivity} and Plot-System's
+     * cancellable {@link com.alpsbte.plotsystem.api.event.PlotNotificationIntentEvent}.</p>
+     *
+     * @return {@code true} when Discord accepted the reminder for delivery
      */
-    @SuppressWarnings("deprecation")
-    public void onPlotInactivity(@NotNull InactivityNoticeEvent event) {
-        WebhookEntry.ifPlotExisted(event.getPlotID()).ifPresent(entry -> {
-            String threadID = Long.toUnsignedString(entry.threadID());
-            String owner = parseOwnerMention(entry);
-            Instant timestamp = switch (event.getTimestamp()) {
-                case java.time.LocalDate date -> date.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
-                case java.time.LocalDateTime dateTime -> dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant();
-                case java.time.ZonedDateTime zonedDateTime -> zonedDateTime.toInstant();
-                case java.time.OffsetDateTime offsetDateTime -> offsetDateTime.toInstant();
-                default -> throw new IllegalArgumentException(
-                    "Unsupported timestamp given by: " + event.getClass().getSimpleName()
-                    + " type: " + event.getTimestamp().getClass()
-                );
-            };
+    public CompletableFuture<Boolean> sendInactivityReminder(@NotNull InactivityNoticeEvent event) {
+        PlotNotification notification = PlotNotification.ON_INACTIVITY;
+        if(!this.plugin.getConfig().getBoolean(notification.getKey(), true)) {
+            return CompletableFuture.completedFuture(false);
+        }
+        if(!NotificationIntents.allow(NotificationType.ON_INACTIVITY, event.getPlotID())) {
+            return CompletableFuture.completedFuture(false);
+        }
 
-            onNotification(NotificationType.ON_INACTIVITY, event.getPlotID(), notification ->
-                this.sendNotification(notification, threadID, content -> content
-                    .replace(Format.OWNER, owner)
-                    .replace(Format.TIMESTAMP, String.valueOf(timestamp.getEpochSecond())))
-            );
-        });
+        Optional<WebhookEntry> optionalEntry = WebhookEntry.ifPlotExisted(event.getPlotID());
+        if(optionalEntry.isEmpty()) return CompletableFuture.completedFuture(false);
+
+        WebhookEntry entry = optionalEntry.get();
+        String owner = parseOwnerMention(entry);
+        String timestamp = event.getAbandonmentAt() == null
+            ? ""
+            : String.valueOf(event.getAbandonmentAt().getEpochSecond());
+        String abandonment = event.getAbandonmentAt() == null
+            ? DiscordPS.getMessagesLang().get(PlotNotification.INACTIVITY_ABANDONMENT_NONE)
+            : DiscordPS.getMessagesLang().get(PlotNotification.INACTIVITY_ABANDONMENT_SCHEDULED)
+                .replace(Format.TIMESTAMP, timestamp);
+        String message = DiscordPS.getMessagesLang().get(notification)
+            .replace(Format.OWNER, owner)
+            .replace(Format.DAYS, String.valueOf(event.getInactivityDays()))
+            .replace(Format.ABANDONMENT, abandonment)
+            .replace(Format.TIMESTAMP, timestamp);
+
+        Container container = new Container();
+        container.addComponent(new TextDisplay(message));
+        WebhookData data = new WebhookDataBuilder()
+            .forceComponentV2()
+            .setComponentsV2(Collections.singletonList(container))
+            .build();
+
+        return this.webhook.sendMessageInThread(Long.toUnsignedString(entry.threadID()), data, true, true)
+            .submit()
+            .thenApply(ignored -> true);
     }
 
     /**

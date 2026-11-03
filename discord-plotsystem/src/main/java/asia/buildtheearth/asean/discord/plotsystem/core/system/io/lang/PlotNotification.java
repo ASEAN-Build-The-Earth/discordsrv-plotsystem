@@ -1,6 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.NotificationType;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
 import org.jetbrains.annotations.NotNull;
 
@@ -14,7 +14,9 @@ public enum PlotNotification implements MessageLang {
     ON_UNDO_SUBMIT("plot-notification.on-undo-submit"),
     ON_SHOWCASED("plot-notification.on-plot-showcased"),
     ON_ABANDONED("plot-notification.on-plot-abandoned"),
-    ON_INACTIVITY("plot-notification.on-plot-inactivity");
+    ON_INACTIVITY("plot-notification.on-plot-inactivity"),
+    INACTIVITY_ABANDONMENT_NONE("plot-notification.on-plot-inactivity-abandonment-none"),
+    INACTIVITY_ABANDONMENT_SCHEDULED("plot-notification.on-plot-inactivity-abandonment-scheduled");
 
     private final String path;
 

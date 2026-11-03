@@ -4,9 +4,8 @@ import asia.buildtheearth.asean.discord.components.PluginComponent;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
 import asia.buildtheearth.asean.discord.components.buttons.PluginButton;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotNotificationEvent;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MetadataInstance;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.LangPaths;
@@ -17,7 +16,6 @@ import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.components.api.ComponentV2;
@@ -124,7 +122,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
 
     /**
      * Create new thread for the given plot ID,
-     * will fall back to {@link AbstractPlotSystemWebhook#addNewExistingPlot(WebhookEntry, PlotCreateData, boolean)}
+     * will fall back to {@link AbstractPlotSystemWebhook#addNewExistingPlot(WebhookEntry, PlotSnapshotData, boolean)}
      * if an entry already existed indication a re-claim plot.
      *
      * @param thread   The plot ID to be created
@@ -135,7 +133,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      * @return Null only if plot entry does not exist per plot-system database, else a handled completable future.
      */
     protected abstract CompletableFuture<Void> newThreadForPlotID(@NotNull PlotSystemThread thread,
-                                                                  @NotNull PlotCreateData plot,
+                                                                  @NotNull PlotSnapshotData plot,
                                                                   boolean register,
                                                                   boolean force);
 
@@ -180,14 +178,14 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      */
     @Nullable
     protected abstract CompletableFuture<Void> addNewExistingPlot(@NotNull PlotSystemThread thread,
-                                                                  @NotNull PlotCreateData plot,
+                                                                  @NotNull PlotSnapshotData plot,
                                                                   @Nullable String removeMemberID,
                                                                   @Nullable Consumer<PlotData> onSuccess);
 
     /**
      * Suppose that a plot entry exist,
      * fetch it with from the existing entry and register if enabled.
-     * This will fetch the plot as {@link asia.buildtheearth.asean.discord.plotsystem.api.events.PlotReclaimEvent} internally.
+     * This will fetch the plot as {@link PlotReclaimEvent} internally.
      *
      * @param entry The existing entry to be reclaimed as
      * @param register Whether to register this plot to database ot make untracked
@@ -195,7 +193,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      */
     @Nullable
     protected CompletableFuture<Void> addNewExistingPlot(@NotNull WebhookEntry entry,
-                                                         @NotNull PlotCreateData plot,
+                                                         @NotNull PlotSnapshotData plot,
                                                          boolean register) {
         final Consumer<PlotData> registerNewPlot = plotData -> this.registerNewPlot(plotData, entry.plotID(), entry.threadID());
         final PlotSystemThread thread = new PlotSystemThread(entry.plotID(), entry.threadID());
@@ -374,11 +372,16 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
     }
 
     /**
-     * Dispatches a plot notification event and handles message display logic if not cancelled.
+     * Delivers a plot-owner notification when enabled in {@code plot-notification.*}.
+     *
+     * <p>Before delivery, fires Plot-System's cancellable
+     * {@link com.alpsbte.plotsystem.api.event.PlotNotificationIntentEvent}. Prefer
+     * config toggles for permanent disablement; use that event for dynamic third-party
+     * veto. Lifecycle events themselves remain observe-only.</p>
      *
      * <p>Conventionally using the sender for forwarding to one of {@link #sendNotification(PlotNotification, String, Function)}
      * and using the received {@link asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage PlotMessage}
-     * To send {@link Notification} to the system channel</p>
+     * to send {@link Notification} to the system channel.</p>
      *
      * @param type     The {@link NotificationType} representing the notification to send
      * @param plotID   The ID of the plot this notification is related to
@@ -387,7 +390,6 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      * @param sender   A bi-consumer to handle the delivery logic of the notification,
      *                 accepting the {@link PlotNotification} and its resolved {@code PlotMessage}
      *
-     * @see PlotNotificationEvent
      * @see NotificationType
      * @see asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage
      */
@@ -395,40 +397,27 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
                                int plotID,
                                @NotNull Function<@NotNull NotificationType, asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage> message,
                                @NotNull BiConsumer<@NotNull PlotNotification, asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage> sender) {
-        @SuppressWarnings("deprecation")
-        PlotNotificationEvent notification = DiscordPS.getPlugin().callEvent(
-            new PlotNotificationEvent(plotID, type)
-        );
-
-        if(notification == null || notification.isCancelled()) return;
-
+        if(!NotificationIntents.allow(type, plotID)) return;
         sender.accept(PlotNotification.from(type), message.apply(type));
     }
 
     /**
-     * Dispatches a plot notification event and handles delivery if not cancelled.
+     * Delivers a plot-owner notification when enabled in {@code plot-notification.*}.
      *
-     * <p>Conventionally using the sender for forwarding to one of {@link #sendNotification(PlotNotification, String, Function)}
-     * and optionally send {@link Notification} to the system channel</p>
+     * <p>Before delivery, fires Plot-System's cancellable
+     * {@link com.alpsbte.plotsystem.api.event.PlotNotificationIntentEvent}.</p>
      *
      * @param type     The {@link NotificationType} representing the notification to send
      * @param plotID   The ID of the plot this notification is related to
      * @param sender   A consumer to handle the delivery logic of the notification,
      *                 accepting the {@link PlotNotification} instance
      *
-     * @see PlotNotificationEvent
      * @see NotificationType
      */
     public void onNotification(@NotNull NotificationType type,
                                int plotID,
                                @NotNull Consumer<@NotNull PlotNotification> sender) {
-        @SuppressWarnings("deprecation")
-        PlotNotificationEvent notification = DiscordPS.getPlugin().callEvent(
-            new PlotNotificationEvent(plotID, type)
-        );
-
-        if(notification == null || notification.isCancelled()) return;
-
+        if(!NotificationIntents.allow(type, plotID)) return;
         sender.accept(PlotNotification.from(type));
     }
 

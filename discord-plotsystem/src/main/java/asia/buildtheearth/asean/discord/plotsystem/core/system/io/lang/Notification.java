@@ -1,7 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.events.AbandonType;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.NotificationType;
+import com.alpsbte.plotsystem.api.model.PlotAbandonReason;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.NotificationLang;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.SystemLang;
 import org.jetbrains.annotations.Contract;
@@ -160,16 +160,16 @@ public class Notification {
         }
 
         /**
-         * Get the abandon message for each abandon type.
+         * Get the abandon message for each Plot-System abandon reason.
          *
-         * @param type The possible abandon type
+         * @param reason The Plot-System abandon reason
          * @return An enum definition for {@link NotificationLang}
          */
-        public static PlotMessage getAbandonMessage(AbandonType type) {
-            return switch (type) {
-                case INACTIVE -> PLOT_INACTIVE_ABANDONED;
-                case MANUALLY -> PLOT_MANUALLY_ABANDONED;
-                case COMMANDS -> PLOT_COMMANDS_ABANDONED;
+        public static PlotMessage getAbandonMessage(PlotAbandonReason reason) {
+            return switch (reason) {
+                case INACTIVITY -> PLOT_INACTIVE_ABANDONED;
+                case MANUAL -> PLOT_MANUALLY_ABANDONED;
+                case COMMAND -> PLOT_COMMANDS_ABANDONED;
                 case null, default -> PLOT_SYSTEM_ABANDONED;
             };
         }

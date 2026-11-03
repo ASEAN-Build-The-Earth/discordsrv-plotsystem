@@ -1,8 +1,8 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotEvent;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.PlotEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.HistoryMessage;
@@ -25,10 +25,10 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.No
  * Plot-System forum thread manager,
  * provide 3 major structure for creating/modifying Plot-System thread.
  *
- * <p>{@linkplain  PlotSystemWebhook#newThreadForPlotID(PlotSystemThread, PlotCreateData, boolean, boolean) #newThreadForPlotID}
+ * <p>{@linkplain  PlotSystemWebhook#newThreadForPlotID(PlotSystemThread, PlotSnapshotData, boolean, boolean) #newThreadForPlotID}
  * Implementation: </p>
  * <blockquote>{@snippet :
- * public void newThreadForPlotID(PlotCreateData data, PlotSystemThread thread) {
+ * public void newThreadForPlotID(PlotSnapshotData data, PlotSystemThread thread) {
  *     // 1st: Retrieve plot data from thread provider
  *     PlotData plotData = thread.getProvider().apply(data);
  *
@@ -72,7 +72,7 @@ public class PlotSystemThread {
     private static final PlotInfoModifier DEFAULT_THREAD_CREATED_STATUS = (owner, info) -> info.addHistory(INITIAL_HISTORY.apply(owner.getOwnerMentionOrName()));
 
     /**
-     * The plot data provider (usually {@link PlotData#PlotData(PlotCreateData)})
+     * The plot data provider (usually {@link PlotData#PlotData(PlotSnapshotData)})
      * which can be modified before passing the instance.
      */
     private @Nullable PlotDataProvider provider;
@@ -161,7 +161,7 @@ public class PlotSystemThread {
     /**
      * Get the {@link PlotData} provider for this thread.
      *
-     * @return A defined provider (default to {@link PlotData#PlotData(PlotCreateData)})
+     * @return A defined provider (default to {@link PlotData#PlotData(PlotSnapshotData)})
      */
     public @NotNull PlotDataProvider getProvider() {
         return this.provider == null? PlotData::new : this.provider;
@@ -220,7 +220,7 @@ public class PlotSystemThread {
      * Provider for all {@link PlotData} usage.
      */
     @FunctionalInterface
-    public interface PlotDataProvider extends Function<PlotCreateData, PlotData> {
+    public interface PlotDataProvider extends Function<PlotSnapshotData, PlotData> {
         /**
          * Apply the provider for plot data.
          *
@@ -228,7 +228,7 @@ public class PlotSystemThread {
          * @return A new plot data instance constructed from the provider
          */
         @Override
-        PlotData apply(PlotCreateData plotData);
+        PlotData apply(PlotSnapshotData plotData);
     }
 
     /**

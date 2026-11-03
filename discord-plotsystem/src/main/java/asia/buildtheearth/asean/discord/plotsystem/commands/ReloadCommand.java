@@ -57,6 +57,9 @@ public final class ReloadCommand extends CommandData implements SlashCommand<Int
         // This reload every config file and memo metadata
         DiscordPS.getPlugin().loadConfig(false);
         DiscordPS.getMetadata().reload();
+        if(DiscordPS.getPlugin().getInactivityReminderManager() != null) {
+            DiscordPS.getPlugin().getInactivityReminderManager().refresh();
+        }
 
         hook.sendMessage("reloaded all configurations").setEphemeral(true).queue();
 

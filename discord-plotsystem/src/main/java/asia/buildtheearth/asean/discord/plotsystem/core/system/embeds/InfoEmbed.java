@@ -4,7 +4,7 @@ import github.scarsz.discordsrv.dependencies.commons.io.FilenameUtils;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
 import github.scarsz.discordsrv.dependencies.jda.api.EmbedBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.*;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotData;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;

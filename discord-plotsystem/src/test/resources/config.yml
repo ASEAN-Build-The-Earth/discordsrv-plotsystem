@@ -1,5 +1,9 @@
 # Debugging is used for error/warning expectation in each test cases
 debugging: true
+inactivity-notification-enabled: true
+inactivity-notification-time: "12:00"
+inactivity-notification-days: 7
+inactivity-notification-timezone: "UTC"
 # Using in-memory SQLite database as unit tester
 database:
   url: "jdbc:sqlite://:memory:/"
