@@ -616,12 +616,23 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         }
 
         // Send notification to owner when feedback button is set
+        long feedbackUserID = resolveFeedbackUserID(action.entry());
+        long feedbackMessageID = action.entry().messageID();
         MessageUpdater messageUpdater = message -> {
-            if(message.getActionRows().isEmpty()) return Optional.empty();
+            if(message.getActionRows().isEmpty()) {
+                Button button = style.apply(
+                    AvailableButton.FEEDBACK_BUTTON.resolve(feedbackMessageID, feedbackUserID, action.plotID()),
+                    label
+                );
+                return Optional.of(new WebhookDataBuilder()
+                    .setComponents(Collections.singletonList(ActionRow.of(button)))
+                    .build());
+            }
 
             ActionRow componentRow = message.getActionRows().getFirst();
 
-            return this.fetchReviewButton(componentRow, action.plotID(), label, style, Function.identity())
+            return this.fetchReviewButton(
+                    componentRow, action.plotID(), feedbackMessageID, feedbackUserID, label, style, Function.identity())
                     .map(new WebhookDataBuilder()::setComponents)
                     .map(WebhookDataBuilder::build);
         };
@@ -912,7 +923,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         ActionRow componentRow = message.getActionRows().getFirst();
 
         Optional<Collection<? extends ActionRow>> interactions = switch (event) {
-            case PlotReviewEvent review -> fetchReviewButton(componentRow, review, entry.feedback());
+            case PlotReviewEvent review -> fetchReviewButton(componentRow, review, entry);
             case null, default -> fetchInteractionButton(event, componentRow);
         };
 
@@ -988,14 +999,14 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     }
 
     /**
-     * Retrieve a {@link PlotReviewEvent} and a feedback message and fetch a review button in the given {@linkplain ActionRow}.
+     * Retrieve a {@link PlotReviewEvent} and fetch a review button in the given {@linkplain ActionRow}.
      *
      * <p>This will either add a disabled button if the feedback is {@code null} or blank,
      * or an enabled button referencing to the feedback data.</p>
      *
      * @param actionRow The action row to be checked and apply new button to.
      * @param reviewEvent The event instance (Must be review event)
-     * @param feedback The feedback message of this review (can be {@code null})
+     * @param entry Plot webhook entry (for feedback text and owner identity)
      * @return Optional of the modified {@linkplain ActionRow}
      * @param <T> The type of the review event, currently only {@link PlotApprovedEvent} and {@link PlotRejectedEvent} is functional.
      */
@@ -1003,19 +1014,21 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     private <T extends PlotReviewEvent>
     Optional<Collection<? extends ActionRow>> fetchReviewButton(@NotNull ActionRow actionRow,
                                                                 @NotNull T reviewEvent,
-                                                                @Nullable String feedback) {
+                                                                @NotNull WebhookEntry entry) {
         // Plot Reviews: Check and update feedback button
-        boolean hasFeedback = StringUtils.isNotBlank(feedback);
+        boolean hasFeedback = StringUtils.isNotBlank(entry.feedback());
         Function<Button, Button> style = hasFeedback? Button::asEnabled : Button::asDisabled;
+        long userID = resolveFeedbackUserID(entry);
+        long messageID = entry.messageID();
 
         return switch (reviewEvent) {
             case PlotApprovedEvent ignored -> {
                 String label = hasFeedback? this.getMetadata().approvedFeedbackLabel() : this.getMetadata().approvedNoFeedbackLabel();
-                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), label, Button::success, style);
+                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), messageID, userID, label, Button::success, style);
             }
             case PlotRejectedEvent ignored -> {
                 String label = hasFeedback? this.getMetadata().rejectedFeedbackLabel() : this.getMetadata().rejectedNoFeedbackLabel();
-                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), label, Button::danger, style);
+                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), messageID, userID, label, Button::danger, style);
             }
             case PlotReviewEvent ignored -> Optional.empty();
         };
@@ -1030,6 +1043,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      *
      * @param actionRow The action row to be checked and apply new button to.
      * @param plotID The plotID of this reviewing button.
+     * @param messageID Fallback message ID when no help button exists to copy identity from.
+     * @param userID Fallback Discord user ID ({@code 0} when the owner is not linked).
      * @param label New button label text.
      * @param style New button style as its reference function.
      *              ({@link Button#primary(String, String) Button::primary},
@@ -1041,6 +1056,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @NotNull
     private Optional<Collection<? extends ActionRow>> fetchReviewButton(@NotNull ActionRow actionRow, int plotID,
+                                                                        long messageID, long userID,
                                                                         @NotNull String label,
                                                                         @NotNull BiFunction<String, String, Button> style,
                                                                         @NotNull Function<Button, Button> modifier) {
@@ -1069,8 +1085,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     .map(Collections::singletonList);
         }
 
-        return this.addFeedbackButton(actionRow, (messageID, userID) -> modifier.apply(
-                style.apply(AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID), label)
+        return this.addFeedbackButton(actionRow, messageID, userID, (msgID, usrID) -> modifier.apply(
+                style.apply(AvailableButton.FEEDBACK_BUTTON.resolve(msgID, usrID, plotID), label)
         ));
     }
 
@@ -1078,27 +1094,63 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     /**
      * Fetch a new feedback button into message.
      *
+     * @param fallbackMessageID Used when the row has no help button to copy IDs from
+     * @param fallbackUserID Used when the row has no help button ({@code 0} = unlinked owner)
      * @param onButtonSet Invoke when setting button with message ID and owner ID, use this to supply button style.
      * @return The updated component data built as {@link WebhookData}
      */
     @NotNull
     private Optional<Collection<? extends ActionRow>> addFeedbackButton(@NotNull ActionRow componentRow,
+                                                                        long fallbackMessageID,
+                                                                        long fallbackUserID,
                                                                         @NotNull BiFunction<Long, Long, Button> onButtonSet) {
         List<Button> buttons = new ArrayList<>();
+        boolean[] createdFromHelp = { false };
 
         fetchButtons(componentRow, (component, optButton) -> {
             optButton // Find settings from attached help button then apply it as a new feedback button
                     .filter(button -> button.getType().equals(AvailableButton.HELP_BUTTON.name()))
                     .map(button -> onButtonSet.apply(button.getIDLong(), button.getUserIDLong()))
-                    .ifPresent(buttons::add);
+                    .ifPresent(button -> {
+                        buttons.add(button);
+                        createdFromHelp[0] = true;
+                    });
 
             // Retain all component(s) of the message
             if(component != null) buttons.add(component);
         });
 
+        if(!createdFromHelp[0]) {
+            buttons.add(0, onButtonSet.apply(fallbackMessageID, fallbackUserID));
+        }
+
         return Optional.of(buttons)
                 .filter(data -> !data.isEmpty()).map(ActionRow::of)
                 .map(Collections::singletonList);
+    }
+
+    /**
+     * Resolve the Discord user ID stored on a feedback button.
+     * Falls back to {@code 0} when the plot owner has no linked Discord account.
+     */
+    private static long resolveFeedbackUserID(@NotNull WebhookEntry entry) {
+        if(entry.ownerID() != null) {
+            try {
+                return Long.parseUnsignedLong(entry.ownerID());
+            }
+            catch (NumberFormatException ignored) {
+                // fall through to live lookup
+            }
+        }
+        try {
+            Member member = DiscordPS.getPlugin().getAsDiscordMember(
+                Bukkit.getOfflinePlayer(UUID.fromString(entry.ownerUUID())));
+            if(member != null) return member.getIdLong();
+        }
+        catch (RuntimeException ignored) {
+            // keep unlinked sentinel
+        }
+        return 0L;
     }
 
     /**

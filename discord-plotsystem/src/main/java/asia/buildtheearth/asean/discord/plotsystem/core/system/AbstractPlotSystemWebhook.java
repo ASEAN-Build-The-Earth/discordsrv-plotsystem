@@ -274,7 +274,8 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      *     <li>{@code approved} Approval feedback button</li>
      *     <li>{@code rejected} Rejected reason button</li>
      * </ul>
-     * <p>Note: interactive button will not be added if owner does not have a discord account.</p>
+     * <p>Note: help stays linked-account-only. Feedback/reason buttons are always attached;
+     * unlinked owners get user id {@code 0} and see a link prompt when clicked.</p>
      *
      * @param plotID The plot ID of this interaction
      * @param messageID The message ID to attach this interaction
@@ -303,21 +304,18 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
                 this.getMetadata().rejectedFeedbackLabel())
         );
 
-        // Interactive row if the owner has linked discord to interact with it
-        Function<Member, List<ActionRow>> interactiveRow = member -> switch (status) {
-            case on_going, finished -> List.of(interactionRow.apply(member.getIdLong()));
-            case approved -> List.of(approvedRow.apply(member.getIdLong()));
-            case rejected -> List.of(rejectedRow.apply(member.getIdLong()));
+        // Feedback buttons stay available even when the owner is not Discord-linked (user id 0).
+        // Help stays interactive-only when linked, otherwise documentation only.
+        long feedbackUserID = owner.getOwnerDiscord().map(Member::getIdLong).orElse(0L);
+
+        return switch (status) {
+            case on_going, finished -> owner.getOwnerDiscord()
+                .map(member -> List.of(interactionRow.apply(member.getIdLong())))
+                .orElseGet(() -> List.of(documentationRow));
+            case approved -> List.of(approvedRow.apply(feedbackUserID));
+            case rejected -> List.of(rejectedRow.apply(feedbackUserID));
             default -> null;
         };
-
-        // Static row if owner has no linked discord account
-        List<ActionRow> staticRow = switch (status) {
-            case on_going, finished, rejected -> List.of(documentationRow);
-            default -> null;
-        };
-
-        return owner.getOwnerDiscord().map(interactiveRow).orElse(staticRow);
     }
 
     /**

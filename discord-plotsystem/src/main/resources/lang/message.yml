@@ -127,12 +127,18 @@ build-team:
 # Interaction Messages
 # Available:
 # - plot-button-bad-owner: when a member interact with an un-authorized button
+# - plot-button-not-linked: when feedback was attached before the owner linked Discord
 # - plot-feedback-get-failed: when an internal exception occurred trying to get feedback data of a plot
 # ============================================
 interactions:
   plot-button-bad-owner:
     - "You don't own this plot"
     - "Go build a plot!"
+  plot-button-not-linked:
+    - "Discord account not linked"
+    - |
+      Link your Minecraft account to Discord to view this feedback.
+      Use your server's DiscordSRV link command (for example `/discord link`), then try again.
   plot-feedback-get-failed:
     - "Error :("
     - |

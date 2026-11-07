@@ -257,7 +257,12 @@ public class PlotSystemThread {
             WebhookEntry entry;
             try {
                 List<WebhookEntry> entries = WebhookEntry.getByPlotID(event.getPlotID());
-                if(entries.isEmpty()) throw new SQLException("Entry for plot ID: " + event.getPlotID() + " Does not exist.");
+                if(entries.isEmpty()) {
+                    // Plots that predate DiscordPlotSystem (or were never registered) are expected.
+                    DiscordPS.debug("Skipping " + event.getClass().getSimpleName()
+                        + " for plot " + event.getPlotID() + " (no Discord webhook entry)");
+                    return null;
+                }
                 entry = entries.getFirst();
             }
             catch (SQLException ex) {
