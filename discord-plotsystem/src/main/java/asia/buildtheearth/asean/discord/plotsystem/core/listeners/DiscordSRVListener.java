@@ -12,6 +12,7 @@ import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import github.scarsz.discordsrv.api.Subscribe;
 import github.scarsz.discordsrv.api.events.DiscordReadyEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.PlotCommand;
+import asia.buildtheearth.asean.discord.plotsystem.core.providers.AbstractWebhookProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginListenerProvider;
 import asia.buildtheearth.asean.discord.plotsystem.commands.SetupCommand;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.*;
@@ -126,21 +127,29 @@ public class DiscordSRVListener extends PluginListenerProvider {
             DiscordPS.getDebugger().resolveError(Debug.Error.WEBHOOK_INVALID_CONFIGURATION);
         }
         catch (RuntimeException ex) {
-            if(!DiscordPS.getDebugger().hasError(Debug.Error.WEBHOOK_MISSING_CONFIGURATION)) DiscordPS.error(
+            if(isMissingWebhookConfiguration(ex)) {
+                DiscordPS.error(Debug.Error.WEBHOOK_MISSING_CONFIGURATION, ex.getMessage());
+            }
+            else DiscordPS.error(
                 Debug.Error.WEBHOOK_INVALID_CONFIGURATION,
                 "Failed to initialize and validate webhook reference, maybe it is configured incorrectly?", ex
             );
         }
 
-        // Initialize showcase webhook
-        try {
-            ForumWebhookImpl showcaseWebhook = new ForumWebhookImpl(this.plugin.getJDA(), this.plugin.getShowcaseConfig());
-            this.plugin.assignShowcase(new ShowcaseWebhook(showcaseWebhook));
-
-            DiscordPS.getDebugger().resolveWarning(Debug.Warning.SHOWCASE_WEBHOOK_NOT_CONFIGURED);
-        }
-        catch (RuntimeException ex) {
+        // Showcase is optional: never raise the fatal main-webhook missing-config error for it.
+        if(!AbstractWebhookProvider.hasRequiredWebhookSettings(this.plugin.getShowcaseConfig())) {
             DiscordPS.warning(Debug.Warning.SHOWCASE_WEBHOOK_NOT_CONFIGURED);
+        }
+        else {
+            try {
+                ForumWebhookImpl showcaseWebhook = new ForumWebhookImpl(this.plugin.getJDA(), this.plugin.getShowcaseConfig());
+                this.plugin.assignShowcase(new ShowcaseWebhook(showcaseWebhook));
+
+                DiscordPS.getDebugger().resolveWarning(Debug.Warning.SHOWCASE_WEBHOOK_NOT_CONFIGURED);
+            }
+            catch (RuntimeException ex) {
+                DiscordPS.warning(Debug.Warning.SHOWCASE_WEBHOOK_NOT_CONFIGURED);
+            }
         }
 
         // Webhook is initialized, validate its functionalities
@@ -169,6 +178,11 @@ public class DiscordSRVListener extends PluginListenerProvider {
         }
 
         return false;
+    }
+
+    private static boolean isMissingWebhookConfiguration(@NotNull RuntimeException ex) {
+        String message = ex.getMessage();
+        return message != null && message.contains("is not set");
     }
 
     /**
