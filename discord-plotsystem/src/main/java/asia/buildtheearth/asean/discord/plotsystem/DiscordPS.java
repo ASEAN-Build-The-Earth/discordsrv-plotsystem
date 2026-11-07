@@ -289,9 +289,9 @@ public class DiscordPS extends JavaPlugin implements DiscordSRVBridge {
             if(DatabaseConnection.InitializeDatabase()) {
                 DiscordPS.info("Successfully initialized database connection.");
                 debugger.resolveError(Debug.Error.DATABASE_NOT_INITIALIZED);
-            } else {
-                // returned false: handled error
-                // DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, "Could not initialize database connection due to a misconfigured config file.");
+            } else if(!debugger.hasError(Debug.Error.DATABASE_NOT_INITIALIZED)) {
+                DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED,
+                    "Could not initialize database connection due to a misconfigured config file.");
             }
         }
         catch (Exception ex) { // Exception thrown: Unknown error occurred

@@ -1,6 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
+import asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnection;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.MemberOwnable;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
@@ -50,9 +51,23 @@ public class PlotSystemListener implements Listener {
 
     public synchronized void setWebhook(@NotNull PlotSystemWebhook webhook) {
         this.webhook = webhook;
+        if(!DatabaseConnection.isInitialized()) {
+            DiscordPS.warning("Plot webhook is ready but the database is not initialized; "
+                + pendingEvents.size() + " queued plot event(s) will wait until database.* is configured.");
+            return;
+        }
+        flushPendingEvents();
+    }
+
+    /**
+     * Drain events that arrived before both the webhook and database were ready.
+     */
+    public synchronized void flushPendingEvents() {
+        PlotSystemWebhook target = webhook;
+        if(target == null || !DatabaseConnection.isInitialized()) return;
         while(!pendingEvents.isEmpty()) {
             Consumer<PlotSystemWebhook> queuedEvent = pendingEvents.removeFirst();
-            queueTask(() -> queuedEvent.accept(webhook));
+            queueTask(() -> queuedEvent.accept(target));
         }
     }
 
@@ -142,8 +157,16 @@ public class PlotSystemListener implements Listener {
     private synchronized void queue(PlotSystemEvents.PlotEvent event, Consumer<PlotSystemWebhook> action) {
         DiscordPS.debug("Got event: " + event.getClass().getSimpleName());
         PlotSystemWebhook target = webhook;
-        if(target == null) pendingEvents.addLast(action);
-        else this.queueTask(() -> action.accept(target));
+        if(target == null) {
+            pendingEvents.addLast(action);
+            return;
+        }
+        if(!DatabaseConnection.isInitialized()) {
+            DiscordPS.warning("Ignoring " + event.getClass().getSimpleName()
+                + " because the database is not initialized. Configure database.* in config.yml.");
+            return;
+        }
+        this.queueTask(() -> action.accept(target));
     }
 
     private static @Nullable Integer reviewPlotId(@Nullable ReviewSnapshot review, @NotNull String eventName) {

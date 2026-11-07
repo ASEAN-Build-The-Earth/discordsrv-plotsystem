@@ -74,6 +74,9 @@ public final class ReloadCommand extends CommandData implements SlashCommand<Int
                     hook.sendMessage("Successfully initialized database connection.").setEphemeral(true).queue();
                     DiscordPS.info("Successfully initialized database connection.");
                     DiscordPS.getDebugger().resolveError(Debug.Error.DATABASE_NOT_INITIALIZED);
+                    if(DiscordPS.getPlugin().getPlotSystemListener() != null) {
+                        DiscordPS.getPlugin().getPlotSystemListener().flushPendingEvents();
+                    }
                 } else {
                     // returned false: handled error
                     hook.sendMessage("Could not initialize database connection due to a misconfigured config file.").setEphemeral(true).queue();
