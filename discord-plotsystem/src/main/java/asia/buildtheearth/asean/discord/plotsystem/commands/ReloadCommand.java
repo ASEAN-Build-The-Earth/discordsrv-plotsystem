@@ -57,6 +57,9 @@ public final class ReloadCommand extends CommandData implements SlashCommand<Int
         // This reload every config file and memo metadata
         DiscordPS.getPlugin().loadConfig(false);
         DiscordPS.getMetadata().reload();
+        if(DiscordPS.getPlugin().getInactivityReminderManager() != null) {
+            DiscordPS.getPlugin().getInactivityReminderManager().refresh();
+        }
 
         hook.sendMessage("reloaded all configurations").setEphemeral(true).queue();
 
@@ -71,6 +74,9 @@ public final class ReloadCommand extends CommandData implements SlashCommand<Int
                     hook.sendMessage("Successfully initialized database connection.").setEphemeral(true).queue();
                     DiscordPS.info("Successfully initialized database connection.");
                     DiscordPS.getDebugger().resolveError(Debug.Error.DATABASE_NOT_INITIALIZED);
+                    if(DiscordPS.getPlugin().getPlotSystemListener() != null) {
+                        DiscordPS.getPlugin().getPlotSystemListener().flushPendingEvents();
+                    }
                 } else {
                     // returned false: handled error
                     hook.sendMessage("Could not initialize database connection due to a misconfigured config file.").setEphemeral(true).queue();

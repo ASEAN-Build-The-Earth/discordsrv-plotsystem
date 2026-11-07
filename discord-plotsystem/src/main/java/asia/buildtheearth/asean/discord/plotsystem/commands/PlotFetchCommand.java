@@ -1,7 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
@@ -10,12 +9,13 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Act
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.selections.SelectOption;
 import github.scarsz.discordsrv.dependencies.jda.internal.utils.Checks;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotEvent;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotUndoReviewEvent;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.PlotEvent;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.PlotUndoReviewEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotFetch;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.*;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSnapshotLookup;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -24,6 +24,7 @@ import org.jetbrains.annotations.Nullable;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -221,11 +222,11 @@ final class PlotFetchCommand extends AbstractPlotFetchCommand {
      * @param receiver An action consumer to edit message as the creation status
      */
     @Contract(pure = true)
-    private void createPlot(@NotNull BiFunction<PlotSystemThread, PlotCreateData, CompletableFuture<Void>> creator,
+    private void createPlot(@NotNull BiFunction<PlotSystemThread, PlotSnapshotData, CompletableFuture<Void>> creator,
                             @NotNull String userID,
                             @NotNull OnPlotFetch interaction,
                             @NotNull CompletableFuture<Message> receiver) {
-        Consumer<PlotCreateData> onSuccess = plot -> {
+        Consumer<PlotSnapshotData> onSuccess = plot -> {
             // Edit defer embed as successful
             receiver.thenAccept(this::acceptSuccessful);
 
@@ -253,7 +254,7 @@ final class PlotFetchCommand extends AbstractPlotFetchCommand {
 
     /**
      * Create a new plot thread from plot ID,
-     * practically the same as {@link PlotSystemWebhook#createAndRegisterNewPlot(int, PlotCreateData)}
+     * practically the same as {@link PlotSystemWebhook#createAndRegisterNewPlot(int, PlotSnapshotData)}
      *
      * @param creator The plot creator reference to call for
      * @param plotID The plot ID to be created
@@ -261,45 +262,46 @@ final class PlotFetchCommand extends AbstractPlotFetchCommand {
      * @param onSuccess Action to do after plot successfully created, invoked with the initial message
      * @param onFailure Invoked if an error occurred
      */
-    private void createPlot(@NotNull BiFunction<PlotSystemThread, PlotCreateData, CompletableFuture<Void>> creator,
+    private void createPlot(@NotNull BiFunction<PlotSystemThread, PlotSnapshotData, CompletableFuture<Void>> creator,
                             int plotID,
                             @Nullable ThreadStatus status,
-                            @NotNull Consumer<PlotCreateData> onSuccess,
+                            @NotNull Consumer<PlotSnapshotData> onSuccess,
                             @NotNull Consumer<Throwable> onFailure) {
-        PlotSystemThread thread;
-        PlotCreateData plot;
+        PlotSnapshotLookup.get(plotID).whenComplete((snapshot, lookupError) -> {
+            if(lookupError != null) {
+                onFailure.accept(lookupError instanceof CompletionException completion && completion.getCause() != null
+                    ? completion.getCause() : lookupError);
+                return;
+            }
 
-        try {
-            thread = new PlotSystemThread(plotID);
-            plot = DiscordPlotSystemAPI.getDataProvider().getData(plotID);
-
+            PlotSnapshotData plot = snapshot.orElse(null);
             if(plot == null) {
                 onFailure.accept(Error.PLOT_FETCH_RETURNED_NULL.get());
                 return;
-            } else if (plot.ownerUUID() == null) {
+            }
+            if(plot.ownerUUID() == null) {
                 onFailure.accept(Error.PLOT_FETCH_UNKNOWN_OWNER.get());
                 return;
             }
 
-            thread.setProvider(data -> {
-                PlotData plotData = new PlotData(plot);
-                if(status != null)
-                    plotData.setPrimaryStatus(status, true);
-                return plotData;
-            });
-        }
-        catch (IllegalArgumentException ex) {
-            onFailure.accept(ex);
-            return;
-        }
+            try {
+                PlotSystemThread thread = new PlotSystemThread(plotID);
+                thread.setProvider(data -> {
+                    PlotData plotData = new PlotData(plot);
+                    if(status != null) plotData.setPrimaryStatus(status, true);
+                    return plotData;
+                });
 
-        CompletableFuture<Void> createAction =  creator.apply(thread, plot);
-
-        if(createAction == null)
-            onFailure.accept(Error.PLOT_CREATE_RETURNED_NULL.get());
-        else createAction.whenComplete((ok, error) -> {
-            if(error != null) onFailure.accept(error);
-            else onSuccess.accept(plot);
+                CompletableFuture<Void> createAction = creator.apply(thread, plot);
+                if(createAction == null) onFailure.accept(Error.PLOT_CREATE_RETURNED_NULL.get());
+                else createAction.whenComplete((ok, error) -> {
+                    if(error != null) onFailure.accept(error);
+                    else onSuccess.accept(plot);
+                });
+            }
+            catch (RuntimeException ex) {
+                onFailure.accept(ex);
+            }
         });
     }
 }

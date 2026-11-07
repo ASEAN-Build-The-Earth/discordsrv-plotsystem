@@ -1,6 +1,11 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
+import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
+import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInteraction;
+import github.scarsz.discordsrv.DiscordSRV;
+import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageEmbed;
 import github.scarsz.discordsrv.dependencies.jda.api.events.interaction.ButtonClickEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.handlers.*;
 import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
@@ -12,6 +17,9 @@ import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Available interactive buttons with each enum being the button type
@@ -110,14 +118,49 @@ public enum AvailableButton implements ComponentProvider, AvailableButtonHandler
 
         // Exit immediately for un-authorized owner
         if(!button.getUserID().equals(event.getUser().getId())) {
-            getHandler().onInteractedBadOwner(event);
-            return;
+            // user id 0 = owner was not Discord-linked when the button was created
+            if(button.getUserIDLong() == 0L) {
+                if(isClickerLinkedPlotOwner(button, event)) {
+                    // Owner linked after the fact — allow the interaction
+                }
+                else {
+                    MessageEmbed notLinked = DiscordPS.getMessagesLang()
+                        .getEmbedBuilder(PlotInteraction.INTERACTED_NOT_LINKED)
+                        .setColor(Constants.RED)
+                        .build();
+                    event.deferReply(true).addEmbeds(notLinked).queue();
+                    return;
+                }
+            }
+            else {
+                getHandler().onInteractedBadOwner(event);
+                return;
+            }
         }
 
         switch(getHandler()) {
             case InteractiveButtonHandler interactive -> interactive.onInteracted(button, event, interactions);
             case SimpleButtonHandler simple -> simple.onInteracted(button, event);
             case PluginButtonHandler ignored -> throw new IllegalStateException("Button handler has no implementation");
+        }
+    }
+
+    /**
+     * Whether the clicker is the Minecraft plot owner and has since linked Discord.
+     */
+    private static boolean isClickerLinkedPlotOwner(@NotNull PluginButton button, @NotNull ButtonClickEvent event) {
+        Integer plotID = button.getIntPayload();
+        if(plotID == null) return false;
+        try {
+            List<WebhookEntry> entries = WebhookEntry.getByPlotID(plotID);
+            if(entries.isEmpty()) return false;
+            UUID ownerUUID = UUID.fromString(entries.getFirst().ownerUUID());
+            String linkedDiscord = DiscordSRV.getPlugin().getAccountLinkManager().getDiscordId(ownerUUID);
+            return event.getUser().getId().equals(linkedDiscord);
+        }
+        catch (SQLException | RuntimeException ex) {
+            DiscordPS.debug("Failed to resolve linked owner for feedback button: " + ex.getMessage());
+            return false;
         }
     }
 

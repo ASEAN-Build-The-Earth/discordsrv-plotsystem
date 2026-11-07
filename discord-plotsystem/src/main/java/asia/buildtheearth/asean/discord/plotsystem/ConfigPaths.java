@@ -12,6 +12,12 @@ public abstract class ConfigPaths {
     public static final String DATABASE_PASSWORD = DATABASE + "password";
     public static final String DATABASE_WEBHOOK_TABLE = DATABASE + "webhook-table";
 
+    // Inactivity reminders
+    public static final String INACTIVITY_NOTIFICATION_ENABLED = "inactivity-notification-enabled";
+    public static final String INACTIVITY_NOTIFICATION_TIME = "inactivity-notification-time";
+    public static final String INACTIVITY_NOTIFICATION_DAYS = "inactivity-notification-days";
+    public static final String INACTIVITY_NOTIFICATION_TIMEZONE = "inactivity-notification-timezone";
+
     // Notifications
     public static final String NOTIFICATION = "system-notification.";
     public static final String NOTIFICATION_CHANNEL = NOTIFICATION + "channel-id";

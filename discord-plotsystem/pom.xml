@@ -13,14 +13,14 @@
     <name>Discord Plot-System Plugin</name>
     <description>
     Minecraft server plugin for Discord Plot-System integration via DiscordSRV;
-    use the discord-plotsystem-api module for external integration.
+    listens to lifecycle events from Plot-System's public API.
     </description>
     <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/</url>
     <artifactId>discord-plotsystem</artifactId>
     <packaging>jar</packaging>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <build.number>${project.parent.version}</build.number>
     </properties>
@@ -45,6 +45,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>25</source>
+                    <target>25</target>
+                </configuration>
             </plugin>
             <!-- Shade Dependencies-->
             <plugin>
@@ -259,12 +263,12 @@
             <version>4.0.3</version>
             <scope>compile</scope>
         </dependency>
-        <!-- This Plugin's API -->
+        <!-- Plot-System API -->
         <dependency>
-            <groupId>asia.buildtheearth.asean.discord</groupId>
-            <artifactId>discord-plotsystem-api</artifactId>
-            <version>${project.parent.version}</version>
-            <scope>compile</scope>
+            <groupId>com.alpsbte</groupId>
+            <artifactId>plot-system-api</artifactId>
+            <version>5.3.0-SNAPSHOT+002.sha.e122631</version>
+            <scope>provided</scope>
         </dependency>
         <!-- JUnit 5 Test Runner -->
         <dependency>

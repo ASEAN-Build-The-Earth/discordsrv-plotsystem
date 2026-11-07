@@ -1,7 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.events.AbandonType;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
+import com.alpsbte.plotsystem.api.model.PlotAbandonReason;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,17 +28,16 @@ public enum HistoryMessage implements MessageLang {
     }
 
     /**
-     * Get the abandon message for each abandon type.
+     * Get the abandon message for each Plot-System abandon reason.
      *
-     * @param type The possible abandon type
+     * @param reason The Plot-System abandon reason
      * @return An enum definition for {@link HistoryMessage}
-     * @see AbandonType
      */
-    public static HistoryMessage getAbandonMessage(AbandonType type) {
-        return switch (type) {
-            case INACTIVE -> ON_ABANDONED_INACTIVE;
-            case MANUALLY -> ON_ABANDONED_MANUALLY;
-            case COMMANDS -> ON_ABANDONED_COMMANDS;
+    public static HistoryMessage getAbandonMessage(PlotAbandonReason reason) {
+        return switch (reason) {
+            case INACTIVITY -> ON_ABANDONED_INACTIVE;
+            case MANUAL -> ON_ABANDONED_MANUALLY;
+            case COMMAND -> ON_ABANDONED_COMMANDS;
             case null, default -> ON_ABANDONED_SYSTEM;
         };
     }

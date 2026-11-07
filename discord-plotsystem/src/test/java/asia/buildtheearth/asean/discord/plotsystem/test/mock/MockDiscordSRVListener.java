@@ -57,6 +57,10 @@ public class MockDiscordSRVListener extends DiscordSRVListener {
      */
     public static class MockPlotSystemListener extends PlotSystemListener {
 
+        public MockPlotSystemListener() {
+            super();
+        }
+
         public MockPlotSystemListener(PlotSystemWebhook webhook) {
             super(webhook);
         }

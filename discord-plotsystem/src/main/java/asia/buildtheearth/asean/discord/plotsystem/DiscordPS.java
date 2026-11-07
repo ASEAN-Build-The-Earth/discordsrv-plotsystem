@@ -16,18 +16,19 @@ import github.scarsz.discordsrv.dependencies.okhttp3.RequestBody;
 import github.scarsz.discordsrv.util.SchedulerUtil;
 import github.scarsz.discordsrv.DiscordSRV;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.ApiEvent;
 import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
 import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordSRVListener;
+import asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemListener;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnection;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.PluginListenerProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.ShowcaseWebhook;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.InactivityReminderManager;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.HandlerList;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -37,27 +38,27 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
+import java.util.logging.Logger;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PluginMessage;
 
 /**
- * Main entry point and implementation class for the Discord Plot-System plugin.
+ * Main entry point for the Discord Plot-System plugin.
  *
- * <p><strong>Note:</strong> This class is the core implementation of the API and should generally not be used directly.
- * Use {@link DiscordPlotSystemAPI} instead to interact with the plugin externally.</p>
+ * <p>Plot lifecycle events are supplied by Plot-System's public Bukkit API.
+ * This class wires DiscordSRV, webhooks, and integration-owned inactivity reminders.</p>
  *
  * <p><strong>Package Overview:</strong></p>
  *
  * <p><strong>{@code asia.buildtheearth.asean.discord.plotsystem.core}</strong><br/> Core logic and system internals</p>
  * <ul><li>{@code system} — Handles internal plugin mechanics,
  *     including Plot-System webhook and event coordination</li>
- *     <li>{@code providers} — Abstract base providers used across the plugin
- *     (e.g. for data creation and external integration)</li>
+ *     <li>{@code providers} — Abstract base providers used across the plugin</li>
  *     <li>{@code listeners} — Contains all internal event listeners:
  *         <ul><li>{@link DiscordSRVListener DiscordSRVListener}
  *             — Main startup hook; listens for JDA readiness to initialize the plugin</li>
  *             <li>{@link asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemListener PlotSystemListener}
- *             — Listens for plot-related API events via {@link DiscordPlotSystemAPI}</li>
+ *             — Listens for Plot System lifecycle events</li>
  *             <li>{@link asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordCommandListener DiscordCommandListener}
  *             — Handles Discord slash command executions</li>
  *          </ul>
@@ -85,15 +86,15 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.No
  * <p><strong>{@code asia.buildtheearth.asean.discord.plotsystem.utils}</strong><br/>
  * General-purpose utilities that support the rest of the system, not critical to core operations</p>
  *
- * @see DiscordPlotSystemAPI
  */
-public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge {
+public class DiscordPS extends JavaPlugin implements DiscordSRVBridge {
     public static final String VERSION = "1.2.3";
     public static final String DISCORD_SRV_VERSION = "1.29.0";
 
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
 
     private static final Debug debugger = new Debug();
+    protected static volatile DiscordPS plugin;
 
     private static final LangMetadata metadata = new LangMetadata();
 
@@ -107,6 +108,10 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
     private DiscordSRVListener discordSrvHook = null;
 
     private PlotSystemWebhook webhook = null;
+
+    protected PlotSystemListener plotSystemListener;
+
+    private InactivityReminderManager inactivityReminderManager;
 
     private ShowcaseWebhook showcase = null;
 
@@ -132,6 +137,14 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         return this.webhook;
     }
 
+    public PlotSystemListener getPlotSystemListener() {
+        return this.plotSystemListener;
+    }
+
+    public @Nullable InactivityReminderManager getInactivityReminderManager() {
+        return this.inactivityReminderManager;
+    }
+
     public @Nullable ShowcaseWebhook getShowcase() {
         return this.showcase;
     }
@@ -141,7 +154,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
     }
 
     public static DiscordPS getPlugin() {
-        return (DiscordPS) plugin;
+        return plugin;
     }
 
     public static @NotNull LangManager<SystemLang> getSystemLang() {
@@ -163,10 +176,23 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
 
         // Create configs
         createConfig();
+        this.registerPlotSystemListener();
 
         // Initialize plugin
         Thread initThread = createInitThread();
         initThread.start();
+    }
+
+    protected void registerPlotSystemListener() {
+        this.plotSystemListener = new PlotSystemListener();
+        getServer().getPluginManager().registerEvents(this.plotSystemListener, this);
+        this.registerInactivityReminderManager();
+    }
+
+    protected void registerInactivityReminderManager() {
+        this.inactivityReminderManager = new InactivityReminderManager(this);
+        getServer().getPluginManager().registerEvents(this.inactivityReminderManager, this);
+        this.inactivityReminderManager.start();
     }
 
     @Override
@@ -199,7 +225,6 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
                             discordSrvHook.getPluginSlashCommand().clearCommands();
                             this.removeSlashCommandProvider(discordSrvHook.getPluginSlashCommand());
                         }
-                        this.unsubscribe(discordSrvHook.getPlotSystemListener());
                         this.unsubscribeSRV(discordSrvHook);
                     }
                     catch (RuntimeException ex) {
@@ -208,6 +233,7 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
                 }
 
                 // Close all database connections
+                if(inactivityReminderManager != null) inactivityReminderManager.close();
                 DatabaseConnection.shutdown();
 
                 // shutdown scheduler tasks
@@ -263,9 +289,9 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
             if(DatabaseConnection.InitializeDatabase()) {
                 DiscordPS.info("Successfully initialized database connection.");
                 debugger.resolveError(Debug.Error.DATABASE_NOT_INITIALIZED);
-            } else {
-                // returned false: handled error
-                // DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED, "Could not initialize database connection due to a misconfigured config file.");
+            } else if(!debugger.hasError(Debug.Error.DATABASE_NOT_INITIALIZED)) {
+                DiscordPS.error(Debug.Error.DATABASE_NOT_INITIALIZED,
+                    "Could not initialize database connection due to a misconfigured config file.");
             }
         }
         catch (Exception ex) { // Exception thrown: Unknown error occurred
@@ -323,6 +349,25 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
             this.config.load(pluginConfig);
             this.webhookConfig.load(webhookConfig);
             this.showcaseConfig.load(showcaseConfig);
+
+            boolean configUpdated = false;
+            if(!this.config.contains(ConfigPaths.INACTIVITY_NOTIFICATION_ENABLED)) {
+                this.config.set(ConfigPaths.INACTIVITY_NOTIFICATION_ENABLED, true);
+                configUpdated = true;
+            }
+            if(!this.config.contains(ConfigPaths.INACTIVITY_NOTIFICATION_TIME)) {
+                this.config.set(ConfigPaths.INACTIVITY_NOTIFICATION_TIME, "12:00");
+                configUpdated = true;
+            }
+            if(!this.config.contains(ConfigPaths.INACTIVITY_NOTIFICATION_DAYS)) {
+                this.config.set(ConfigPaths.INACTIVITY_NOTIFICATION_DAYS, 7);
+                configUpdated = true;
+            }
+            if(!this.config.contains(ConfigPaths.INACTIVITY_NOTIFICATION_TIMEZONE)) {
+                this.config.set(ConfigPaths.INACTIVITY_NOTIFICATION_TIMEZONE, "");
+                configUpdated = true;
+            }
+            if(configUpdated) this.config.save(pluginConfig);
 
             this.debuggingEnabled = this.config.getBoolean("debugging", true);
 
@@ -413,7 +458,6 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
     /**
      * {@inheritDoc}
      */
-    @Override
     public boolean isReady() {
         return getWebhook() != null
             && isDiscordSrvHookEnabled()
@@ -467,14 +511,6 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         return this.discordSrvHook;
     }
 
-    @Override
-    public <E extends ApiEvent> @Nullable E callEvent(E event) {
-        if(!isReady() || (isReady() && discordSrvHook.getPlotSystemListener() == null))
-            return null;
-
-        return super.callEvent(event);
-    }
-
     /**
      * Safely retrieve player's linked account
      * and return null if no linked account exist or an error occurred.
@@ -490,24 +526,24 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
 
     // Debugging messages
     public static void debug(String message) {
-        if(getPlugin().isDebuggingEnabled()) DiscordPlotSystemAPI.info(message);
+        if(getPlugin().isDebuggingEnabled()) getPlugin().getLogger().info(message);
     }
     public static void info(String message) {
-        DiscordPlotSystemAPI.info(message);
+        logger().info(message);
     }
     public static void warning(@NotNull Debug.Warning signature) {
-        DiscordPlotSystemAPI.warning(signature.getDefaultMessage());
+        logger().warning(signature.getDefaultMessage());
         getDebugger().putWarning(signature);
     }
     public static void warning(@NotNull Debug.Warning signature, String message) {
-        DiscordPlotSystemAPI.warning(message);
+        logger().warning(message);
         getDebugger().putWarning(signature, message);
     }
     public static void warning(String message) {
-        DiscordPlotSystemAPI.warning(message);
+        logger().warning(message);
     }
     public static void error(@NotNull Debug.Error signature) {
-        DiscordPlotSystemAPI.error(signature.getDefaultMessage());
+        logger().severe(signature.getDefaultMessage());
         getDebugger().putError(signature);
     }
     public static void error(@NotNull Debug.Error signature, Throwable throwable) {
@@ -519,17 +555,21 @@ public class DiscordPS extends DiscordPlotSystemAPI implements DiscordSRVBridge 
         getDebugger().putError(signature, message);
     }
     public static void error(@NotNull Debug.Error signature, String message) {
-        DiscordPlotSystemAPI.error(message);
+        logger().severe(message);
         getDebugger().putError(signature, message);
     }
     public static void error(String message) {
-        DiscordPlotSystemAPI.error(message);
+        logger().severe(message);
     }
     public static void error(Throwable throwable) {
-        logThrowable(throwable, DiscordPS::error);
+        logger().log(java.util.logging.Level.SEVERE, "An exception occurred", throwable);
     }
     public static void error(String message, Throwable throwable) {
-        DiscordPlotSystemAPI.error(message);
-        DiscordPlotSystemAPI.error(throwable);
+        logger().log(java.util.logging.Level.SEVERE, message, throwable);
+    }
+
+    private static Logger logger() {
+        DiscordPS instance = plugin;
+        return instance == null ? Logger.getLogger("DiscordPlotSystem") : instance.getLogger();
     }
 }

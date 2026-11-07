@@ -3,7 +3,7 @@ version: '1.2.3'
 main: asia.buildtheearth.asean.discord.plotsystem.DiscordPS
 api-version: '1.21'
 prefix: DiscordPlotSystem
-depend: [DiscordSRV]
+depend: [DiscordSRV, Plot-System]
 authors: [tintinkung]
 description: Minecraft server plugin for Discord Plot-System integration via DiscordSRV
 website: https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem

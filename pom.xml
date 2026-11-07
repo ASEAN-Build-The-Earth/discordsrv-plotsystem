@@ -17,9 +17,7 @@
     <name>DiscordSRV Plot-System Project</name>
     <description>
         Discord integration for the Build The Earth project's Plot-System plugin
-        using DiscordSRV; this parent project includes
-        the API module (discord-plotsystem-api)
-        and the implementation plugin (discord-plotsystem).
+        using DiscordSRV; this parent project includes the implementation plugin.
     </description>
     <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/</url>
     <inceptionYear>2025</inceptionYear>
@@ -52,11 +50,7 @@
     </developers>
 
     <!-- Maven Central Modules -->
-    <!-- asia.buildtheearth.asean.discord.discordsrv-plotsystem  -->
-    <!-- asia.buildtheearth.asean.discord.discord-plotsystem-api -->
-    <!-- asia.buildtheearth.asean.discord.discord-plotsystem     -->
     <modules>
-        <module>discord-plotsystem-api</module>
         <module>discord-plotsystem</module>
     </modules>
     <build>
@@ -68,8 +62,8 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.8.1</version>
                     <configuration>
-                        <source>21</source>
-                        <target>21</target>
+                        <source>25</source>
+                        <target>25</target>
                     </configuration>
                 </plugin>
                 <!-- Jar Shading Plugin -->

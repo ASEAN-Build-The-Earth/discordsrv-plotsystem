@@ -10,7 +10,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataArray;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.*;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponentProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotData;
@@ -95,12 +95,14 @@ public final class InfoComponent
         this.register(INFO_TITLE, id -> new TextDisplay(id,
             makeTitle(data.getPlot().plotID(), data.getPlot().cityProjectID(), data.getPlot().countryCode())
         ));
-        this.register(INFO_LOCATION, id -> {
-            Button plotLinkButton = Button.link("https://www.google.com/maps/place/" + data.getGeoCoordinates(), getMetadata().googleMapLabel());
-            TextButtonSection field = new TextButtonSection(id, plotLinkButton);
-            field.addTextDisplay(new TextDisplay(makeLocation(data.getDisplayCords())));
-            return field;
-        });
+        if(!StringUtils.isBlank(data.getGeoCoordinates())) {
+            this.register(INFO_LOCATION, id -> {
+                Button plotLinkButton = Button.link("https://www.google.com/maps/place/" + data.getGeoCoordinates(), getMetadata().googleMapLabel());
+                TextButtonSection field = new TextButtonSection(id, plotLinkButton);
+                field.addTextDisplay(new TextDisplay(makeLocation(data.getDisplayCords())));
+                return field;
+            });
+        }
         this.register(INFO_SEPARATOR, id -> new Separator(id, true));
         this.register(INFO_HISTORY, id -> new TextDisplay(id, this.histories.toString()));
 
@@ -195,7 +197,7 @@ public final class InfoComponent
             case PlotRejectedEvent ignored -> formatHistoryMessage(HistoryMessage.ON_REJECTED);
             case PlotUndoSubmitEvent ignored -> formatHistoryMessage(HistoryMessage.ON_UNDO_SUBMIT);
             case PlotUndoReviewEvent ignored -> formatHistoryMessage(HistoryMessage.ON_UNDO_REVIEW);
-            case PlotAbandonedEvent reason -> formatHistoryMessage(HistoryMessage.getAbandonMessage(reason.getType()));
+            case PlotAbandonedEvent reason -> formatHistoryMessage(HistoryMessage.getAbandonMessage(reason.getReason()));
             case PlotArchiveEvent archive -> formatHistoryMessage(HistoryMessage.ON_ARCHIVED, archive.getOwner());
             case PlotReclaimEvent reclaim -> formatHistoryMessage(HistoryMessage.ON_RECLAIMED, reclaim.getOwner());
             case null, default -> formatHistoryMessage(HistoryMessage.ON_SYSTEM_FETCH);
