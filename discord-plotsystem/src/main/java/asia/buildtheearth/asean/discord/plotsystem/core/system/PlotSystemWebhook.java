@@ -1149,28 +1149,23 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     private Set<String> mapClearableMessagesID(@NotNull Map<String, Layout> messages) {
-        // Look for single-component message
+        if(!this.plugin.getConfig().getBoolean(PLOT_RECLAIM_CLEAR_NOTIFICATION, true))
+            return null;
+
+        List<String> setting = this.plugin.getConfig().getStringList(PLOT_RECLAIM_CLEAR_NOTIFICATION);
+        boolean allClearable = setting.isEmpty(); // config enabled it, not as a type whitelists
+
+        Set<String> whitelists = new HashSet<>(setting);
         Set<String> messagesID = new HashSet<>();
         messages.forEach((messageID, layout) -> {
-            if(layout.getLayout().size() == 1
-                    && layout.getLayout().getFirst() instanceof NotificationComponent component) {
-                if(!this.plugin.getConfig().getBoolean(PLOT_RECLAIM_CLEAR_NOTIFICATION, true))
-                    return;
+            if(layout.getLayout().size() != 1
+                    || !(layout.getLayout().getFirst() instanceof NotificationComponent component))
+                return;
 
-                List<String> setting = this.plugin.getConfig().getStringList(PLOT_RECLAIM_CLEAR_NOTIFICATION);
+            AvailableComponent.NotificationComponent type = component.getNotificationType();
 
-                if(setting.isEmpty() && this.plugin.getConfig().getBoolean(PLOT_RECLAIM_CLEAR_NOTIFICATION, false)) {
-                    messagesID.add(messageID);
-                    return;
-                }
-
-                AvailableComponent.NotificationComponent type = component.getNotificationType();
-
-                if(type != null) for(String enabled : setting) {
-                    if(PlotNotification.from(type).getPath().equals(enabled))
-                        messagesID.add(messageID);
-                }
-            }
+            if(allClearable || (type != null && whitelists.contains(PlotNotification.from(type).getPath())))
+                messagesID.add(messageID);
         });
 
         return messagesID.isEmpty()? null : messagesID;
