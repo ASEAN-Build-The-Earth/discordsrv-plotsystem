@@ -62,7 +62,7 @@ public abstract class LayoutComponentProvider<T extends ComponentV2, V extends E
      *
      * @return The enum
      */
-    public AvailableComponent getType() {
+    public AvailableComponent getLayoutType() {
         return type;
     }
 

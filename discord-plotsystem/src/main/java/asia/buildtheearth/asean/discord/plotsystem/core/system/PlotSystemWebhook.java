@@ -5,11 +5,13 @@ import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.*;
 import github.scarsz.discordsrv.dependencies.commons.lang3.StringUtils;
+import github.scarsz.discordsrv.dependencies.google.common.collect.Iterables;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.*;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.Button;
+import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.concurrent.DelayedCompletableFuture;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
@@ -18,14 +20,10 @@ import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponentProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookProvider;
-import asia.buildtheearth.asean.discord.components.api.Container;
 import asia.buildtheearth.asean.discord.components.api.TextDisplay;
 import asia.buildtheearth.asean.discord.components.api.ComponentV2;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.InfoComponent;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.StatusComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.embeds.StatusEmbed;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
@@ -43,6 +41,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static asia.buildtheearth.asean.discord.plotsystem.ConfigPaths.*;
 import static asia.buildtheearth.asean.discord.components.WebhookDataBuilder.WebhookData;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.ErrorMessage;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage;
@@ -88,7 +87,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             new RuntimeException("Received null data to create plot.")
         );
 
-        if(!force) {
+        if(!force && this.plugin.getConfig().getBoolean(PLOT_RECLAIM_SAME_ENABLE, true)) {
             Optional<WebhookEntry> existingPlot = WebhookEntry.ifPlotExisted(thread.getPlotID());
             if(existingPlot.isPresent()) return this.addNewExistingPlot(existingPlot.get(), plot, register);
         }
@@ -98,7 +97,9 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         String threadName = thread.getApplier().apply(plotData);
 
         InfoComponent infoComponent = new InfoComponent(0, plotData);
-        StatusComponent statusComponent = new StatusComponent(1, plotData);
+        StatusComponent statusComponent = plotData.getAvatarFile().map(File::getName)
+            .map(attachment -> new StatusComponent(1, plotData, attachment))
+            .orElseGet(() -> new StatusComponent(1, plotData, plotData.getAvatarURL()));
 
         // Optional modification to info component if provided
         thread.getModifier().accept(plotData, infoComponent);
@@ -199,12 +200,13 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         CompletableFuture<Optional<MessageReference>> updateThreadLayoutAction = this.webhook.queueNewUpdateAction(
             this.webhook.getInitialLayout(threadID.get(), true).map(optLayout -> optLayout.flatMap(layoutUpdater)),
-            data -> this.webhook.editInitialThreadMessage(threadID.get(), data, true)
+            data -> this.webhook.editInitialThreadMessage(threadID.get(), data, true),
+            "ForumWebhook#getInitialLayout returns empty during #addNewExistingPlot.updateThreadLayoutAction"
         );
 
         // Edit thread's status tag
         CompletableFuture<Optional<DataObject>> editThreadAction = this.webhook
-            .modifyThreadChannel(threadID.get(), threadName, Set.of(tagID), null, null, null, true)
+            .modifyThreadChannel(threadID.get(), threadName, Set.of(tagID), null, null, false, true)
             .submit();
 
         // Optionally add new owner of exist (and not the same as previous owner)
@@ -220,15 +222,23 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         CompletableFuture<Void> addMemberAction = optAddMemberAction.orElse(CompletableFuture.completedFuture(null));
 
+        // Clear unnecessary notification message for new owner
+        CompletableFuture<Optional<Void>> clearNotificationAction = this.webhook.queueNewUpdateAction(
+            this.findClearableNotification(threadID.get()),
+            data -> this.clearSentMessages(data, threadID.get())
+        );
+
         CompletableFuture<Void> allAction = CompletableFuture.allOf(
             updateThreadLayoutAction.whenComplete(HANDLE_LAYOUT_EDIT_ERROR),
             editThreadAction.whenComplete(HANDLE_THREAD_EDIT_ERROR),
             removeMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
-            addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR)
+            addMemberAction.whenComplete(HANDLE_EDIT_MEMBER_ERROR),
+            clearNotificationAction.whenComplete(HANDLE_THREAD_EDIT_ERROR)
         );
 
         return allAction.whenComplete((ok, error) -> {
-            if(error != null) ON_PLOT_OVERRIDING_EXCEPTION.accept(error);
+            // TODO: Same reason as in #updatePlot
+            // if(error != null) ON_PLOT_OVERRIDING_EXCEPTION.accept(error);
             if(onSuccess != null) onSuccess.accept(plotData);
         });
     }
@@ -334,7 +344,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // 1st update the thread layout components (the one that display main plot information)
         final CompletableFuture<Optional<MessageReference>> updateLayoutAction = this.webhook.queueNewUpdateAction(
             this.webhook.getInitialLayout(threadID, true).map(optLayout -> optLayout.flatMap(layoutUpdater)),
-            data -> this.webhook.editInitialThreadMessage(threadID, data, true)
+            data -> this.webhook.editInitialThreadMessage(threadID, data, true),
+            "ForumWebhook#getInitialLayout returns empty during #updatePlot.updateLayoutAction"
         );
 
         // 2nd update thread data, in this case is the status tag
@@ -343,7 +354,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // 3rd update the tracker status message
         final CompletableFuture<Optional<MessageReference>> updateMessageAction = this.webhook.queueNewUpdateAction(
             this.webhook.getWebhookMessage(threadID, messageID, true).map(optMessage -> optMessage.flatMap(messageUpdater)),
-            data -> this.webhook.editThreadMessage(threadID, messageID, data, true)
+            data -> this.webhook.editThreadMessage(threadID, messageID, data, true),
+            "ForumWebhook#getWebhookMessage returns empty during #updatePlot.updateMessageAction"
         );
 
         // Wait for all action to complete and return it whether error or not
@@ -355,7 +367,10 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         );
 
         return allAction.handle((success, error) -> {
-            if(error != null) ON_PLOT_UPDATE_EXCEPTION.accept(event, error);
+            // TODO: This is the handler if SOME action throw an error,
+            //       it already got handled by each respective .whenComplete
+            //       but it might be useful to send an overall error notif
+            // if(error != null) ON_PLOT_UPDATE_EXCEPTION.accept(event, error);
 
             this.updateEntryStatus(action.entry().messageID(), status, event);
 
@@ -374,15 +389,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         if(!this.plugin.getConfig().getBoolean(type.getKey(), true)) return;
 
         // Parse message from language file
-        TextDisplay display = new TextDisplay(content.apply(DiscordPS.getMessagesLang().get(type)));
-
-        Container container = new Container();
-
-        container.addComponent(display);
+        String message = content.apply(DiscordPS.getMessagesLang().get(type));
+        NotificationComponent notification = new NotificationComponent(0, type.toComponent(), message);
 
         WebhookData data = new WebhookDataBuilder()
                 .forceComponentV2()
-                .setComponentsV2(Collections.singletonList(container))
+                .setComponentsV2(Collections.singletonList(notification.build()))
                 .build();
 
         this.webhook.sendMessageInThread(threadID, data, true, true).queue();
@@ -611,7 +623,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // Queue the action
         CompletableFuture<Optional<MessageReference>> setFeedbackAction = this.webhook.queueNewUpdateAction(
             this.webhook.getWebhookMessage(action.threadID(), action.messageID(), true).map(opt -> opt.flatMap(messageUpdater)),
-            data -> this.webhook.editThreadMessage(action.threadID(), action.messageID(), data, true)
+            data -> this.webhook.editThreadMessage(action.threadID(), action.messageID(), data, true),
+            "ForumWebhook#getWebhookMessage returns empty during #setFeedback.setFeedbackAction"
         );
 
         setFeedbackAction.whenComplete((success, failed) -> {
@@ -647,16 +660,18 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * @return Updated data
      */
     @NotNull
-    private static Optional<WebhookData> updateExistingClaim(@SuppressWarnings("deprecation")
-                                                             @NotNull PlotReclaimEvent event,
-                                                             @NotNull Layout component,
-                                                             MemberOwnable owner,
-                                                             AvailableTag tag) {
+    private Optional<WebhookData> updateExistingClaim(@SuppressWarnings("deprecation")
+                                                      @NotNull PlotReclaimEvent event,
+                                                      @NotNull Layout component,
+                                                      MemberOwnable owner,
+                                                      AvailableTag tag) {
         // Update layout data
+        UUID ownerUUID = owner.getOwner().getUniqueId();
         List<ComponentV2> updated = new ArrayList<>();
         int latestPosition = 0;
         boolean repeatedLatestMember = false;
-        boolean doUploadAvatar = false;
+        boolean doUploadAvatar = true;
+        boolean keepPastUser = this.plugin.getConfig().getBoolean(PLOT_KEEP_ABANDONED_USER, false);
         Map<UUID, String> savedUUID = new HashMap<>();
 
         for(LayoutComponentProvider<?, ?> layout : component.getLayout()) {
@@ -666,17 +681,24 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     infoComponent.setAccentColor(tag.getColor());
                     break;
                 case StatusComponent statusComponent:
-                    savedUUID.put(statusComponent.getThumbnailOwner(), statusComponent.getThumbnailURL());
+                    statusComponent.getThumbnailAttachment()
+                        .<Consumer<UUID>>map(filename -> saved -> savedUUID.put(saved, filename))
+                        .ifPresent(saved -> saved.accept(statusComponent.getThumbnailOwner()));
                     // Latest status component
                     if (latestPosition + 1 == component.getLayout().size()) {
-                        repeatedLatestMember = owner.getOwner().getUniqueId().equals(statusComponent.getThumbnailOwner());
+                        repeatedLatestMember = ownerUUID.equals(statusComponent.getThumbnailOwner());
                     }
 
                     if (repeatedLatestMember) {
                         statusComponent.changeStatusMessage(StatusComponent.DisplayMessage.fromTag(tag));
                         statusComponent.setAccentColor(tag.getColor());
-
-                    } // TODO: Consider editing old status when it got reclaimed
+                    }
+                    else if(!keepPastUser) {
+                        // Skip all status component if we're ignoring past users
+                        // (unless it's the new owner)
+                        latestPosition += 1;
+                        continue;
+                    }
 
                     break;
                 default:
@@ -687,29 +709,40 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             updated.add(layout.build());
         }
 
-        // Add new claim owner to the status
+        // Add new claim owner to the status &
+        // check if attachment for avatar is already in the message
+        String attachmentFile = null;
         if(!repeatedLatestMember) {
+            if (savedUUID.containsKey(ownerUUID))
+                // First we look if this owner has previously
+                // claimed this plot before, so we don't have
+                // to modify attachment files of this component
+                attachmentFile = savedUUID.get(ownerUUID);
 
-            // Check if attachment for avatar is already in the message
-            UUID plotOwner = owner.getOwner().getUniqueId();
-            String avatarURL = null;
+            if (attachmentFile == null) {
+                // No previous owner avatar file attached
+                if(owner.getAvatarFile().isPresent())
+                    attachmentFile = owner.getAvatarFile().get().getName();
+                else
+                    // Cannot restore avatar attachment, nothing to upload
+                    doUploadAvatar = false;
+            }
 
-            // If avatar is not saved, upload a new one
-            if (savedUUID.containsKey(plotOwner))
-                avatarURL = savedUUID.get(plotOwner);
-            else doUploadAvatar = true;
-
-            if (avatarURL == null) avatarURL = owner.getAvatarAttachmentOrURL();
-
-            StatusComponent newClaim = new StatusComponent(
-                    latestPosition,
-                    tag.toStatus(),
-                    plotOwner,
+            StatusComponent newClaim;
+            if (attachmentFile != null)
+                newClaim = new StatusComponent(
+                    latestPosition, tag.toStatus(), ownerUUID,
                     owner.getOwnerMentionOrName(),
-                    avatarURL
+                    attachmentFile
+                );
+            else newClaim = new StatusComponent( // Fallback URL
+                    latestPosition, tag.toStatus(), ownerUUID,
+                    owner.getOwnerMentionOrName(),
+                    owner.getAvatarURL()
             );
             updated.add(newClaim.build());
         }
+        else doUploadAvatar = false; // new claim is repeating
 
         WebhookData updatedData = new WebhookDataBuilder()
                 .suppressMentions()
@@ -719,11 +752,17 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 .build();
 
         if(doUploadAvatar) {
-            savedUUID.keySet().forEach(UUID -> {
-                if(UUID != null && !UUID.equals(owner.getOwner().getUniqueId()))
-                    new MemberOwnable(UUID.toString()).getAvatarFile().ifPresent(updatedData::addFile);
+            // Restore all avatar attachments if it is modified by new owner's avatar
+            savedUUID.forEach((UUID, apiName) -> {
+                if(UUID == null || UUID.equals(ownerUUID))
+                    return;
+                MemberOwnable ownable = new MemberOwnable(UUID.toString());
+                // TODO: This API call would fails if we can't restore an attachment file here
+                //       Maybe here would be nice to attach a fallback- static data URI (same as in #fetchLayoutData)
+                ownable.getAvatarFile().ifPresent(avatar -> updatedData.addFile(avatar, apiName));
             });
-            owner.getAvatarFile().ifPresent(updatedData::addFile);
+            // Add our new owner's avatar attachment
+            updatedData.addFile(owner.getAvatarFile().get(), attachmentFile);
         }
 
         return Optional.of(updatedData);
@@ -795,7 +834,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // Update layout data
         List<ComponentV2> updated = new ArrayList<>();
         List<File> imageList = new ArrayList<>();
-        List<String> ownerList = new ArrayList<>();
+        Map<UUID, String> ownerList = new HashMap<>();
 
         for(LayoutComponentProvider<?, ?> layout : component.getLayout()) {
             switch (layout) {
@@ -822,7 +861,9 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 // Check for status and sync it with event type
                 case StatusComponent statusComponent:
                     if(statusComponent.getThumbnailOwner() != null) {
-                        ownerList.add(statusComponent.getThumbnailOwner().toString());
+                        statusComponent.getThumbnailAttachment()
+                            .<Consumer<UUID>>map(filename -> saved -> ownerList.put(saved, filename))
+                            .ifPresent(saved -> saved.accept(statusComponent.getThumbnailOwner()));
                         // If owner is confirmed to not be right, skip the process
                         if(!statusComponent.getThumbnailOwner().equals(owner.getOwner().getUniqueId()))
                             break;
@@ -856,7 +897,10 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
             // Reference to previous attachment will get reset if there are new file attached.
             // We have to attach it back to the message to restore the attachment data.
-            ownerList.forEach(member -> new MemberOwnable(member).getAvatarFile().ifPresent(updatedData::addFile));
+            ownerList.forEach((UUID, apiName) -> {
+                MemberOwnable ownable = new MemberOwnable(UUID.toString());
+                ownable.getAvatarFile().ifPresent(avatar -> updatedData.addFile(avatar, apiName));
+            });
         }
 
         return Optional.of(updatedData);
@@ -1081,6 +1125,81 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         return Optional.of(buttons)
                 .filter(data -> !data.isEmpty()).map(ActionRow::of)
                 .map(Collections::singletonList);
+    }
+
+    /**
+     * Filter recent (50 messages) history and filter for sent notification messages,
+     * only clearable as configured in <code>config.yml</code>
+     *
+     * @param threadID THe threadID of the plot
+     * @return Rest action to a set of messages ID, empty Optional if none is found.
+     */
+    @NotNull
+    private RestAction<Optional<Set<String>>> findClearableNotification(String threadID) {
+        return this.webhook
+            .findSentComponents(threadID, true, AvailableComponent.NOTIFICATION)
+            .map(components -> components.map(this::mapClearableMessagesID));
+    }
+
+    /**
+     * Map messages component as what is configured to be clearable per <code>config.yml</code>.
+     *
+     * @param messages result of {@link ForumWebhook#findSentComponents}
+     * @return Set of messages ID that satisfies clearable message, null if none is filtered.
+     */
+    @Nullable
+    private Set<String> mapClearableMessagesID(@NotNull Map<String, Layout> messages) {
+        if(!this.plugin.getConfig().getBoolean(PLOT_RECLAIM_CLEAR_NOTIFICATION, true))
+            return null;
+
+        List<String> setting = this.plugin.getConfig().getStringList(PLOT_RECLAIM_CLEAR_NOTIFICATION);
+        boolean allClearable = setting.isEmpty(); // config enabled it, not as a type whitelists
+
+        Set<String> whitelists = new HashSet<>(setting);
+        Set<String> messagesID = new HashSet<>();
+        messages.forEach((messageID, layout) -> {
+            if(layout.getLayout().size() != 1
+                    || !(layout.getLayout().getFirst() instanceof NotificationComponent component))
+                return;
+
+            AvailableComponent.NotificationComponent type = component.getNotificationType();
+
+            if(allClearable || (type != null && whitelists.contains(PlotNotification.from(type).getPath())))
+                messagesID.add(messageID);
+        });
+
+        return messagesID.isEmpty()? null : messagesID;
+    }
+
+    /**
+     * Send {@link ForumWebhook#deleteMessage(String, String, boolean)}
+     * to all given message IDs.
+     *
+     * @param messagesID Set of Messages ID be deleted
+     * @param threadID The thread ID of this data
+     * @return A rest action
+     */
+    @NotNull
+    private RestAction<Optional<Void>> clearSentMessages(@NotNull Set<String> messagesID,
+                                                         @NotNull String threadID) {
+        Iterator<List<String>> partitions = Iterables.partition(messagesID, 100).iterator();
+        RestAction<Void> actions = null;
+
+        if (!partitions.hasNext())
+            throw new IllegalStateException("Messages ID to clear notification must not be empty");
+        while (partitions.hasNext()) {
+            List<String> partition = partitions.next();
+            List<RestAction<Void>> chunk = partition
+                    .stream()
+                    .map(messageID -> this.webhook.deleteMessage(threadID, messageID, true))
+                    .toList();
+
+            actions = (actions == null)
+                    ? RestAction.allOf(chunk).map(ok -> null)
+                    : actions.and(RestAction.allOf(chunk));
+        }
+
+        return actions.map(Optional::of);
     }
 
     /**

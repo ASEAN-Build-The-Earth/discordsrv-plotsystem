@@ -7,7 +7,7 @@
   <parent>
     <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.4</version>
   </parent>
 
   <name>Discord Plot-System API</name>
@@ -160,7 +160,7 @@
     <dependency>
       <groupId>org.spigotmc</groupId>
       <artifactId>spigot-api</artifactId>
-      <version>1.21.3-R0.1-SNAPSHOT</version>
+      <version>1.21.3-R0.1-20241203.162251-46</version>
       <scope>provided</scope>
     </dependency>
     <!-- JUnit 5 Test Runner -->

@@ -13,6 +13,15 @@ available-tag:
   approved: "approved"
   archived: "archived"
   abandoned: "abandoned"
+plot-forum-settings:
+  reclaim-in-same-thread:
+    enabled: true
+    purge-all-messages: false
+    clear-status-embed: false
+    clear-notification: ["on-plot-created", "on-plot-abandoned", "on-plot-inactivity"]
+  starter-post:
+    keep-abandoned-user: false
+    keep-plot-histories: true
 system-notification:
   # Notification channel snowflake must be the same as MockSnowflake enum
   # see asia.buildtheearth.asean.discord.plotsystem.test.mock.MockSnowflake

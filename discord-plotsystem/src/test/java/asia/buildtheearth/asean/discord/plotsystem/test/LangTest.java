@@ -8,7 +8,7 @@ import github.scarsz.discordsrv.DiscordSRV;
 import org.junit.jupiter.api.*;
 import org.mockbukkit.mockbukkit.ServerMock;
 
-@DisplayName("Plugin")
+@DisplayName("Languages")
 @TestClassOrder(ClassOrderer.OrderAnnotation.class)
 public class LangTest implements MockPluginServer {
 
