@@ -97,7 +97,9 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         String threadName = thread.getApplier().apply(plotData);
 
         InfoComponent infoComponent = new InfoComponent(0, plotData);
-        StatusComponent statusComponent = new StatusComponent(1, plotData);
+        StatusComponent statusComponent = plotData.getAvatarFile().map(File::getName)
+            .map(attachment -> new StatusComponent(1, plotData, attachment))
+            .orElseGet(() -> new StatusComponent(1, plotData, plotData.getAvatarURL()));
 
         // Optional modification to info component if provided
         thread.getModifier().accept(plotData, infoComponent);
@@ -656,10 +658,11 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                                                       MemberOwnable owner,
                                                       AvailableTag tag) {
         // Update layout data
+        UUID ownerUUID = owner.getOwner().getUniqueId();
         List<ComponentV2> updated = new ArrayList<>();
         int latestPosition = 0;
         boolean repeatedLatestMember = false;
-        boolean doUploadAvatar = false;
+        boolean doUploadAvatar = true;
         boolean keepPastUser = this.plugin.getConfig().getBoolean(PLOT_KEEP_ABANDONED_USER, false);
         Map<UUID, String> savedUUID = new HashMap<>();
 
@@ -670,10 +673,12 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     infoComponent.setAccentColor(tag.getColor());
                     break;
                 case StatusComponent statusComponent:
-                    savedUUID.put(statusComponent.getThumbnailOwner(), statusComponent.getThumbnailURL());
+                    statusComponent.getThumbnailAttachment()
+                        .<Consumer<UUID>>map(filename -> saved -> savedUUID.put(saved, filename))
+                        .ifPresent(saved -> saved.accept(statusComponent.getThumbnailOwner()));
                     // Latest status component
                     if (latestPosition + 1 == component.getLayout().size()) {
-                        repeatedLatestMember = owner.getOwner().getUniqueId().equals(statusComponent.getThumbnailOwner());
+                        repeatedLatestMember = ownerUUID.equals(statusComponent.getThumbnailOwner());
                     }
 
                     if (repeatedLatestMember) {
@@ -696,29 +701,40 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             updated.add(layout.build());
         }
 
-        // Add new claim owner to the status
+        // Add new claim owner to the status &
+        // check if attachment for avatar is already in the message
+        String attachmentFile = null;
         if(!repeatedLatestMember) {
+            if (savedUUID.containsKey(ownerUUID))
+                // First we look if this owner has previously
+                // claimed this plot before, so we don't have
+                // to modify attachment files of this component
+                attachmentFile = savedUUID.get(ownerUUID);
 
-            // Check if attachment for avatar is already in the message
-            UUID plotOwner = owner.getOwner().getUniqueId();
-            String avatarURL = null;
+            if (attachmentFile == null) {
+                // No previous owner avatar file attached
+                if(owner.getAvatarFile().isPresent())
+                    attachmentFile = owner.getAvatarFile().get().getName();
+                else
+                    // Cannot restore avatar attachment, nothing to upload
+                    doUploadAvatar = false;
+            }
 
-            // If avatar is not saved, upload a new one
-            if (savedUUID.containsKey(plotOwner))
-                avatarURL = savedUUID.get(plotOwner);
-            else doUploadAvatar = true;
-
-            if (avatarURL == null) avatarURL = owner.getAvatarAttachmentOrURL();
-
-            StatusComponent newClaim = new StatusComponent(
-                    latestPosition,
-                    tag.toStatus(),
-                    plotOwner,
+            StatusComponent newClaim;
+            if (attachmentFile != null)
+                newClaim = new StatusComponent(
+                    latestPosition, tag.toStatus(), ownerUUID,
                     owner.getOwnerMentionOrName(),
-                    avatarURL
+                    attachmentFile
+                );
+            else newClaim = new StatusComponent( // Fallback URL
+                    latestPosition, tag.toStatus(), ownerUUID,
+                    owner.getOwnerMentionOrName(),
+                    owner.getAvatarURL()
             );
             updated.add(newClaim.build());
         }
+        else doUploadAvatar = false; // new claim is repeating
 
         WebhookData updatedData = new WebhookDataBuilder()
                 .suppressMentions()
@@ -728,11 +744,17 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 .build();
 
         if(doUploadAvatar) {
-            savedUUID.keySet().forEach(UUID -> {
-                if(UUID != null && !UUID.equals(owner.getOwner().getUniqueId()))
-                    new MemberOwnable(UUID.toString()).getAvatarFile().ifPresent(updatedData::addFile);
+            // Restore all avatar attachments if it is modified by new owner's avatar
+            savedUUID.forEach((UUID, apiName) -> {
+                if(UUID == null || UUID.equals(ownerUUID))
+                    return;
+                MemberOwnable ownable = new MemberOwnable(UUID.toString());
+                // TODO: This API call would fails if we can't restore an attachment file here
+                //       Maybe here would be nice to attach a fallback- static data URI (same as in #fetchLayoutData)
+                ownable.getAvatarFile().ifPresent(avatar -> updatedData.addFile(avatar, apiName));
             });
-            owner.getAvatarFile().ifPresent(updatedData::addFile);
+            // Add our new owner's avatar attachment
+            updatedData.addFile(owner.getAvatarFile().get(), attachmentFile);
         }
 
         return Optional.of(updatedData);
@@ -804,7 +826,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // Update layout data
         List<ComponentV2> updated = new ArrayList<>();
         List<File> imageList = new ArrayList<>();
-        List<String> ownerList = new ArrayList<>();
+        Map<UUID, String> ownerList = new HashMap<>();
 
         for(LayoutComponentProvider<?, ?> layout : component.getLayout()) {
             switch (layout) {
@@ -831,7 +853,9 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 // Check for status and sync it with event type
                 case StatusComponent statusComponent:
                     if(statusComponent.getThumbnailOwner() != null) {
-                        ownerList.add(statusComponent.getThumbnailOwner().toString());
+                        statusComponent.getThumbnailAttachment()
+                            .<Consumer<UUID>>map(filename -> saved -> ownerList.put(saved, filename))
+                            .ifPresent(saved -> saved.accept(statusComponent.getThumbnailOwner()));
                         // If owner is confirmed to not be right, skip the process
                         if(!statusComponent.getThumbnailOwner().equals(owner.getOwner().getUniqueId()))
                             break;
@@ -865,7 +889,10 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
             // Reference to previous attachment will get reset if there are new file attached.
             // We have to attach it back to the message to restore the attachment data.
-            ownerList.forEach(member -> new MemberOwnable(member).getAvatarFile().ifPresent(updatedData::addFile));
+            ownerList.forEach((UUID, apiName) -> {
+                MemberOwnable ownable = new MemberOwnable(UUID.toString());
+                ownable.getAvatarFile().ifPresent(avatar -> updatedData.addFile(avatar, apiName));
+            });
         }
 
         return Optional.of(updatedData);

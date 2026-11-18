@@ -20,17 +20,21 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
 import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.awt.Color;
+import java.net.URL;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent.STATUS;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent.StatusComponent.*;
 
 public final class StatusComponent
-    extends LayoutComponentProvider<Container, AvailableComponent.StatusComponent>
-    implements LayoutComponent<Container> {
+        extends LayoutComponentProvider<Container, AvailableComponent.StatusComponent>
+        implements LayoutComponent<Container> {
 
     private final int packedID;
     private Color accentColor;
@@ -38,6 +42,7 @@ public final class StatusComponent
     private String thumbnailURL;
     private UUID thumbnailOwner;
     private String ownerName;
+    private @Nullable String attachment = null;
 
     /**
      * Create an empty status component with minimum data.
@@ -54,23 +59,72 @@ public final class StatusComponent
     }
 
     /**
-     * Create a complete status component by {@link PlotData}
+     * Create a complete status component by {@link PlotData},
+     * <strong>attaching</strong> avatar thumbnail image file.
      *
      * @param layout The layout position of this component
      * @param data The plot data to apply to this status
+     * @param avatarFilename Owner's avatar URL to be displayed as thumbnail
      */
-    public StatusComponent(int layout, @NotNull PlotData data) {
+    public StatusComponent(int layout,
+                           @NotNull PlotData data,
+                           @NotNull String avatarFilename) {
         this(
-            layout,
-            data.getPrimaryStatus(),
-            data.getOwner().getUniqueId(),
-            data.getOwnerMentionOrName(),
-            data.getAvatarAttachmentOrURL()
+                layout,
+                data.getPrimaryStatus(),
+                data.getOwner().getUniqueId(),
+                data.getOwnerMentionOrName(),
+                avatarFilename
         );
     }
 
     /**
-     * Create a complete status component
+     * Create a complete status component by {@link PlotData},
+     *      * displaying <strong>HTTP URL</strong> avatar thumbnail image.
+     *
+     * @param layout The layout position of this component
+     * @param data The plot data to apply to this status
+     * @param avatarURL Owner's avatar URL to be displayed as thumbnail
+     */
+    public StatusComponent(int layout,
+                           @NotNull PlotData data,
+                           @NotNull URL avatarURL) {
+        this(
+                layout,
+                data.getPrimaryStatus(),
+                data.getOwner().getUniqueId(),
+                data.getOwnerMentionOrName(),
+                avatarURL
+        );
+    }
+
+    /**
+     * Create a complete status component,
+     * <strong>attaching</strong> avatar thumbnail image file.
+     *
+     * @param layout The layout position of this component
+     * @param status The primary status for this component
+     * @param ownerUUID The plot owner as UUID
+     * @param ownerName The formatted owner name to be displayed
+     * @param avatarFilename Owner's avatar URL to be displayed as thumbnail
+     */
+    public StatusComponent(int layout,
+                           @NotNull ThreadStatus status,
+                           @NotNull UUID ownerUUID,
+                           @NotNull String ownerName,
+                           @NotNull String avatarFilename) {
+        this(STATUS.pack(layout), layout, status.toTag().getColor());
+
+        this.attachment = avatarFilename;
+
+        this.registerStatusInfo(DisplayMessage.fromStatus(status), ownerUUID, ownerName);
+        this.setThumbnailAttachment(avatarFilename);
+        this.register(STATUS_THUMBNAIL, this::registerStatusThumbnail);
+    }
+
+    /**
+     * Create a complete status component,
+     * displaying <strong>HTTP URL</strong> avatar thumbnail image.
      *
      * @param layout The layout position of this component
      * @param status The primary status for this component
@@ -82,20 +136,33 @@ public final class StatusComponent
                            @NotNull ThreadStatus status,
                            @NotNull UUID ownerUUID,
                            @NotNull String ownerName,
-                           @NotNull String avatarURL) {
+                           @NotNull URL avatarURL) {
         this(STATUS.pack(layout), layout, status.toTag().getColor());
+        this.setThumbnailURL(avatarURL.toString());
+        this.registerStatusInfo(DisplayMessage.fromStatus(status), ownerUUID, ownerName);
+        this.register(STATUS_THUMBNAIL, this::registerStatusThumbnail);
+    }
 
+    private TextThumbnailSection registerStatusThumbnail(int packedID) {
+        return registerStatusThumbnail(packedID, this.pack(STATUS_INFO));
+    }
+
+    private TextThumbnailSection registerStatusThumbnail(int packedID, int displayID) {
         // Save ownerData in thumbnail description field,
         // so we can parse for avatar owner when rebuilding this component
-        this.statusMessage = DisplayMessage.fromStatus(status);
-        this.thumbnailOwner = ownerUUID;
-        this.thumbnailURL = avatarURL;
-        this.ownerName = ownerName;
+        String identifier = this.thumbnailOwner == null? this.ownerName : this.thumbnailOwner.toString();
+        String description = this.attachment != null? identifier + ':' + this.attachment : identifier;
+        Thumbnail thumbnail = new Thumbnail(this.thumbnailURL, description);
+        TextDisplay text = new TextDisplay(displayID, this.statusMessage.getMessage(this.ownerName));
+        return new TextThumbnailSection(packedID, thumbnail).addTextDisplay(text);
+    }
 
-        this.register(STATUS_THUMBNAIL,
-            id -> new TextThumbnailSection(id, new Thumbnail(this.thumbnailURL, this.thumbnailOwner.toString()))
-                .addTextDisplay(new TextDisplay(this.pack(STATUS_INFO), this.statusMessage.getMessage(this.ownerName)))
-        );
+    private void registerStatusInfo(@NotNull StatusMessage status,
+                                    @NotNull UUID ownerUUID,
+                                    @NotNull String ownerName) {
+        this.statusMessage = status;
+        this.thumbnailOwner = ownerUUID;
+        this.ownerName = ownerName;
     }
 
     /**
@@ -132,30 +199,75 @@ public final class StatusComponent
         return new StatusComponent(id, layout, color, components);
     }
 
+    /**
+     * Set the container accent color of this component
+     *
+     * @param accentColor The color
+     */
     public void setAccentColor(Color accentColor) {
         this.accentColor = accentColor;
     }
 
+    /**
+     * Change the display message
+     *
+     * @param displayMessage All possible display messages
+     */
     public void changeStatusMessage(DisplayMessage displayMessage) {
         this.statusMessage = displayMessage;
     }
 
+    /**
+     * Get this component's owner UUID
+     *
+     * @return The Minecraft player's UUID
+     */
     public UUID getThumbnailOwner() {
         return thumbnailOwner;
     }
 
+    /**
+     * Get the thumbnail URL, may either be <code>attachment://</code>
+     * if {@link #getThumbnailAttachment} exists, or an http URL.
+     *
+     * @return Discord attachment compatible URL
+     */
     public String getThumbnailURL() {
         return thumbnailURL;
     }
 
+    /**
+     * Get the thumbnail attachment filename if this component attached it as a file.
+     *
+     * @return The filename if exist
+     */
+    public Optional<String> getThumbnailAttachment() {
+        return Optional.ofNullable(this.attachment);
+    }
+
+    /**
+     * Set the thumbnail as HTTP URL
+     *
+     * @param url an HTTP url
+     */
     public void setThumbnailURL(String url) {
         this.thumbnailURL = url;
+        this.attachment = null;
     }
 
+    /**
+     * Set the thumbnail image as attachment file upload.
+     *
+     * @param filename The filename that is uploaded for this component
+     */
     public void setThumbnailAttachment(String filename) {
-        this.setThumbnailURL("attachment://" + filename);
+        this.thumbnailURL = "attachment://" + filename;
+        this.attachment = filename;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public Container build() {
         return super.build(Container::addComponent);
     }
@@ -168,14 +280,30 @@ public final class StatusComponent
             case STATUS_INFO:
             case STATUS_THUMBNAIL: {
                 DataObject media = component.getObject("accessory").getObject("media");
+                DataObject thumbnail = component.getArray("components").getObject(0);
                 String description = component.getObject("accessory").getString("description");
                 String url = media.getString("url");
                 String proxyURL = media.getString("proxy_url");
 
+                // This will be retrieved if this thumbnail is a file attachment
+                String attachmentID = media.getString("attachment_id", null);
+
                 // Extract owner data from description (snowflake or UUID)
+                final StatusMessage content = () -> thumbnail.getString("content");
+                String memberUUID, attachment = null;
                 try {
-                    this.thumbnailOwner = UUID.fromString(description);
-                    this.ownerName = new MemberOwnable(description).getOwnerMentionOrName();
+                    String[] parts = description.split(Pattern.quote(":"), 2);
+                    if (parts.length > 0) {
+                        memberUUID = parts[0];
+                        if (parts.length == 2)
+                            attachment = parts[1];
+                    }
+                    else throw new IllegalArgumentException("Malformed identifier description");
+
+                    MemberOwnable ownable = new MemberOwnable(memberUUID);
+                    this.registerStatusInfo(content,
+                            ownable.getOwner().getUniqueId(),
+                            ownable.getOwnerMentionOrName());
                 }
                 catch (IllegalArgumentException ex) {
                     // Invalid UUID string, possible outdated data version
@@ -183,24 +311,22 @@ public final class StatusComponent
                     this.ownerName = description;
                 }
 
-                // Check for sent plot image attachment
-                FileUtil.matchFilenameByURL(url, Constants.BUILDER_AVATAR_FILE, this::setThumbnailAttachment, failure ->
-                    // Fallback to proxy URL if failed
-                    FileUtil.matchFilenameByURL(proxyURL, Constants.BUILDER_AVATAR_FILE, this::setThumbnailAttachment, ignored ->
-                        // Accept raw URL if nothing match
-                        this.setThumbnailURL(failure)
-                    )
-                );
+                if (attachment != null)
+                    // attachment filename is retrieved, it can be reused inside component
+                    this.setThumbnailAttachment(attachment);
+                else if (attachmentID != null) {
+                    // thumbnail is of attachment type, but can't determine its filename
+                    FileUtil.matchFilenameByURL(url, Constants.BUILDER_AVATAR_FILE, this::setThumbnailAttachment, failure ->
+                        FileUtil.matchFilenameByURL(proxyURL, Constants.BUILDER_AVATAR_FILE, this::setThumbnailAttachment, ignored ->
+                            this.setThumbnailURL(failure)
+                        )
+                    );
+                } // else the thumbnail is a normal http URL
+                else this.setThumbnailURL(url);
 
-                // Restore display message
-                int displayID = component.getArray("components").getObject(0).getInt("id");
-                this.statusMessage = () -> component.getArray("components").getObject(0).getString("content");
-
-                // Register the builder
-                this.register(STATUS_THUMBNAIL, id -> new TextThumbnailSection(id,
-                    new Thumbnail(this.thumbnailURL, this.thumbnailOwner == null? this.ownerName : this.thumbnailOwner.toString()))
-                        .addTextDisplay(new TextDisplay(displayID, this.statusMessage.getMessage(this.ownerName)))
-                );
+                // Restore ID & register thumbnail
+                int displayID = thumbnail.getInt("id");
+                this.register(STATUS_THUMBNAIL, id -> this.registerStatusThumbnail(id, displayID));
                 break;
             }
             case null, default: throw new IllegalArgumentException("Unknown sub type parsing StatusComponent");

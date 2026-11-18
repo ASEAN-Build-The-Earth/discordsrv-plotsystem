@@ -21,8 +21,12 @@ import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInfor
 import asia.buildtheearth.asean.discord.plotsystem.utils.FileUtil;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent.SHOWCASE;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent.ShowcaseComponent.SHOWCASE_INFO;
@@ -39,6 +43,7 @@ public final class ShowcaseComponent
     private String ownerName;
     private String showcaseMessage;
     private String googleMapURL;
+    private @Nullable String attachment = null;
 
     public static @NotNull String makeShowcaseMessage(int plotID,
                                                       @NotNull String threadID,
@@ -93,10 +98,12 @@ public final class ShowcaseComponent
                 this.ownerName
         );
 
-        this.register(SHOWCASE_THUMBNAIL,
-                id -> new TextThumbnailSection(id, new Thumbnail(this.thumbnailURL, this.thumbnailOwner.toString()))
-                        .addTextDisplay(new TextDisplay(this.pack(SHOWCASE_INFO), this.showcaseMessage))
-        );
+        owner.getAvatarFile()
+            .map(File::getName)
+            .ifPresentOrElse(this::setThumbnailAttachment,
+                () -> this.setThumbnailURL(owner.getAvatarURL().toString())
+            );
+        this.register(SHOWCASE_THUMBNAIL, this::registerShowcaseThumbnail);
     }
 
     /**
@@ -119,6 +126,20 @@ public final class ShowcaseComponent
         super.rebuild(components.remove(lastIndex), this::rebuildComponent);
     }
 
+    private TextThumbnailSection registerShowcaseThumbnail(int packedID) {
+        return registerShowcaseThumbnail(packedID, this.pack(SHOWCASE_INFO));
+    }
+
+    private TextThumbnailSection registerShowcaseThumbnail(int packedID, int displayID) {
+        // Save ownerData in thumbnail description field,
+        // so we can parse for avatar owner when rebuilding this component
+        String identifier = this.thumbnailOwner == null? this.ownerName : this.thumbnailOwner.toString();
+        String description = this.attachment != null? identifier + ':' + this.attachment : identifier;
+        Thumbnail thumbnail = new Thumbnail(this.thumbnailURL, description);
+        TextDisplay text = new TextDisplay(displayID, this.showcaseMessage);
+        return new TextThumbnailSection(packedID, thumbnail).addTextDisplay(text);
+    }
+
     /**
      * Rebuild a new status component from raw data
      *
@@ -136,14 +157,58 @@ public final class ShowcaseComponent
         return new ShowcaseComponent(id, layout, components);
     }
 
+
+    /**
+     * Get this component's owner UUID
+     *
+     * @return The Minecraft player's UUID
+     */
+    public UUID getThumbnailOwner() {
+        return thumbnailOwner;
+    }
+
+    /**
+     * Get the thumbnail URL, may either be <code>attachment://</code>
+     * if {@link #getThumbnailAttachment} exists, or an http URL.
+     *
+     * @return Discord attachment compatible URL
+     */
+    public String getThumbnailURL() {
+        return thumbnailURL;
+    }
+
+    /**
+     * Get the thumbnail attachment filename if this component attached it as a file.
+     *
+     * @return The filename if exist
+     */
+    public Optional<String> getThumbnailAttachment() {
+        return Optional.ofNullable(this.attachment);
+    }
+
+    /**
+     * Set the thumbnail as HTTP URL
+     *
+     * @param url an HTTP url
+     */
     public void setThumbnailURL(String url) {
         this.thumbnailURL = url;
+        this.attachment = null;
     }
 
+    /**
+     * Set the thumbnail image as attachment file upload.
+     *
+     * @param filename The filename that is uploaded for this component
+     */
     public void setThumbnailAttachment(String filename) {
-        this.setThumbnailURL("attachment://" + filename);
+        this.attachment = filename;
+        this.thumbnailURL = "attachment://" + filename;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public Container build() {
         return super.build(Container::addComponent).addActionRow(ActionRow.of(
             Button.link(this.googleMapURL, DiscordPS.getMessagesLang().get(PlotInformation.MAP_LABEL))
@@ -158,13 +223,26 @@ public final class ShowcaseComponent
             case STATUS_INFO:
             case STATUS_THUMBNAIL: {
                 DataObject media = component.getObject("accessory").getObject("media");
+                DataObject thumbnail = component.getArray("components").getObject(0);
                 String description = component.getObject("accessory").getString("description");
                 String url = media.getString("url");
                 String proxyURL = media.getString("proxy_url");
 
+                // This will be retrieved if this thumbnail is a file attachment
+                String attachmentID = media.getString("attachment_id", null);
+
                 // Extract owner data from description (snowflake or UUID)
+                String memberUUID, attachment = null;
                 try {
-                    MemberOwnable owner = new MemberOwnable(description);
+                    String[] parts = description.split(Pattern.quote(":"), 2);
+                    if (parts.length > 0) {
+                        memberUUID = parts[0];
+                        if (parts.length == 2)
+                            attachment = parts[1];
+                    }
+                    else throw new IllegalArgumentException("Malformed identifier description");
+
+                    MemberOwnable owner = new MemberOwnable(memberUUID);
                     this.thumbnailOwner = UUID.fromString(description);
                     this.ownerName = (owner.isOwnerHasDiscord() ? owner.getOwnerMentionOrName()
                             + " (" + owner.getOwner().getName() + ")"
@@ -175,24 +253,25 @@ public final class ShowcaseComponent
                     this.ownerName = description;
                 }
 
-                // Check for sent plot image attachment
-                FileUtil.matchFilenameByURL(url, Constants.BUILDER_AVATAR_FILE, this::setThumbnailAttachment, failure ->
-                        // Fallback to proxy URL if failed
+                if (attachment != null)
+                    // attachment filename is retrieved, it can be reused inside component
+                    this.setThumbnailAttachment(attachment);
+                else if (attachmentID != null) {
+                    // thumbnail is of attachment type, but can't determine its filename
+                    FileUtil.matchFilenameByURL(url, Constants.BUILDER_AVATAR_FILE, this::setThumbnailAttachment, failure ->
                         FileUtil.matchFilenameByURL(proxyURL, Constants.BUILDER_AVATAR_FILE, this::setThumbnailAttachment, ignored ->
-                                // Accept raw URL if nothing match
-                                this.setThumbnailURL(failure)
+                            this.setThumbnailURL(failure)
                         )
-                );
+                    );
+                } // else the thumbnail is a normal http URL
+                else this.setThumbnailURL(url);
 
                 // Restore display message
-                int displayID = component.getArray("components").getObject(0).getInt("id");
-                this.showcaseMessage = component.getArray("components").getObject(0).getString("content");
+                this.showcaseMessage = thumbnail.getString("content");
 
                 // Register the builder
-                this.register(SHOWCASE_THUMBNAIL, id -> new TextThumbnailSection(id,
-                        new Thumbnail(this.thumbnailURL, this.thumbnailOwner == null ? this.ownerName : this.thumbnailOwner.toString()))
-                        .addTextDisplay(new TextDisplay(displayID, this.showcaseMessage))
-                );
+                int displayID = thumbnail.getInt("id");
+                this.register(SHOWCASE_THUMBNAIL, id -> this.registerShowcaseThumbnail(id, displayID));
                 break;
             }
             case null, default:
