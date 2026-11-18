@@ -386,8 +386,6 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
 
         ObjectResponse<Void> response = new ObjectResponse<>(ok -> null);
 
-        DiscordPS.info("Clearing notif message ID " + messageID);
-
         if(allowSecondAttempt)
             response.setRetryExecution(() -> deleteMessage(threadID, messageID, false).map(Optional::of));
 
@@ -417,8 +415,6 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
                 if(!this.getWebhook().getId().equals(webhookID) || messageID == null)
                     continue;
 
-                DiscordPS.info("Found webhook message message ID " + messageID);
-
                 message
                     .optArray("components")
                     .flatMap(components -> Layout.fromRawData(components, filter))
@@ -433,23 +429,35 @@ public class ForumWebhookImpl extends AbstractWebhookProvider implements ForumWe
         return new RestActionImpl<>(this.getJDA(), route, response::execute);
     }
 
-
+    /** {@inheritDoc} */
+    @NotNull @Override
+    public <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(
+            @NotNull RestAction<Optional<T>> restAction,
+            @NotNull Function<T, @NotNull RestAction<Optional<V>>> whenComplete) {
+        return queueNewUpdateAction(restAction, whenComplete, null);
+    }
 
     /** {@inheritDoc} */
     @NotNull
     @Override
     public <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(
             @NotNull RestAction<Optional<T>> restAction,
-            @NotNull Function<T, RestAction<Optional<V>>> whenComplete) {
+            @NotNull Function<T, @NotNull RestAction<Optional<V>>> whenComplete,
+            @Nullable String strictThrows) {
 
         CompletableFuture<Optional<V>> action = new CompletableFuture<>();
 
-        Consumer<T> whenActionComplete = data -> whenComplete.apply(data)
-            .queue(action::complete, action::completeExceptionally);
+        Consumer<T> whenActionComplete = data -> {
+            @NotNull RestAction<Optional<V>> followUp = whenComplete.apply(data);
+            followUp.queue(action::complete, action::completeExceptionally);
+        };
 
-        Runnable whenActionFailed = () -> action.completeExceptionally(
-            new RuntimeException("update action returned empty")
-        );
+        Runnable whenActionFailed = () -> {
+            if (strictThrows != null)
+                action.completeExceptionally(new NoSuchElementException(strictThrows));
+            else
+                action.complete(Optional.empty());
+        };
 
         Consumer<Optional<T>> onSuccess = opt -> opt.ifPresentOrElse(whenActionComplete, whenActionFailed);
 

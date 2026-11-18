@@ -118,8 +118,13 @@ public abstract class MockForumWebhook implements ForumWebhook {
     }
 
     @Override
-    public @NotNull <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(@NotNull RestAction<Optional<T>> restAction, @NotNull Function<T, RestAction<Optional<V>>> whenComplete) {
+    public @NotNull <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(@NotNull RestAction<Optional<T>> restAction, @NotNull Function<T, RestAction<Optional<V>>> whenComplete, String strictThrows) {
         return new MockOptRestAction<V>().submit();
+    }
+
+    @Override
+    public @NotNull <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(@NotNull RestAction<Optional<T>> restAction, @NotNull Function<T, RestAction<Optional<V>>> whenComplete) {
+        return queueNewUpdateAction(restAction, whenComplete, null);
     }
 
     public static class MockRestAction<T> implements RestAction<T> {

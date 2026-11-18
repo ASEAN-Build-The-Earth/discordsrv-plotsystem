@@ -257,14 +257,29 @@ public interface ForumWebhook {
      *
      * @param restAction The rest action to starts with.
      * @param whenComplete The follow-up action to do after the first action complete successfully, invoking with its result.
+     * @param strictThrows Optional for strict queuing: throws an exception to said message if restAction fails
      * @return The combined action that is completed with the follow-up action.
      * @param <T> The type of the action that will be resolved to.
      */
     @NotNull
     <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(
             @NotNull RestAction<Optional<T>> restAction,
-            @NotNull Function<T, RestAction<Optional<V>>> whenComplete);
+            @NotNull Function<T, @NotNull RestAction<Optional<V>>> whenComplete,
+            @Nullable String strictThrows);
 
+    /**
+     * Queue a rest action followed by another rest action.
+     *
+     * @param restAction The rest action to starts with.
+     * @param whenComplete The follow-up action to do after the first action complete successfully, invoking with its result.
+     *                     Would result in empty Optional if the rest action fails.
+     * @return The combined action that is completed with the follow-up action.
+     * @param <T> The type of the action that will be resolved to.
+     */
+    @NotNull
+    <T, V> CompletableFuture<Optional<V>> queueNewUpdateAction(
+            @NotNull RestAction<Optional<T>> restAction,
+            @NotNull Function<T, @NotNull RestAction<Optional<V>>> whenComplete);
 
     /**
      * Conventional utility class to handle rest action response.

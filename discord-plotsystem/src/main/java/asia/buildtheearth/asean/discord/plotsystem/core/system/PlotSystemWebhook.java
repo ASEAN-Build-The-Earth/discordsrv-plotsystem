@@ -200,7 +200,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         CompletableFuture<Optional<MessageReference>> updateThreadLayoutAction = this.webhook.queueNewUpdateAction(
             this.webhook.getInitialLayout(threadID.get(), true).map(optLayout -> optLayout.flatMap(layoutUpdater)),
-            data -> this.webhook.editInitialThreadMessage(threadID.get(), data, true)
+            data -> this.webhook.editInitialThreadMessage(threadID.get(), data, true),
+            "ForumWebhook#getInitialLayout returns empty during #addNewExistingPlot.updateThreadLayoutAction"
         );
 
         // Edit thread's status tag
@@ -223,8 +224,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
 
         // Clear unnecessary notification message for new owner
         CompletableFuture<Optional<Void>> clearNotificationAction = this.webhook.queueNewUpdateAction(
-            this.webhook.findSentComponents(threadID.get(), true, AvailableComponent.NOTIFICATION),
-            data -> this.clearSentNotification(data, threadID.get())
+            this.findClearableNotification(threadID.get()),
+            data -> this.clearSentMessages(data, threadID.get())
         );
 
         CompletableFuture<Void> allAction = CompletableFuture.allOf(
@@ -236,7 +237,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         );
 
         return allAction.whenComplete((ok, error) -> {
-            if(error != null) ON_PLOT_OVERRIDING_EXCEPTION.accept(error);
+            // TODO: Same reason as in #updatePlot
+            // if(error != null) ON_PLOT_OVERRIDING_EXCEPTION.accept(error);
             if(onSuccess != null) onSuccess.accept(plotData);
         });
     }
@@ -342,7 +344,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // 1st update the thread layout components (the one that display main plot information)
         final CompletableFuture<Optional<MessageReference>> updateLayoutAction = this.webhook.queueNewUpdateAction(
             this.webhook.getInitialLayout(threadID, true).map(optLayout -> optLayout.flatMap(layoutUpdater)),
-            data -> this.webhook.editInitialThreadMessage(threadID, data, true)
+            data -> this.webhook.editInitialThreadMessage(threadID, data, true),
+            "ForumWebhook#getInitialLayout returns empty during #updatePlot.updateLayoutAction"
         );
 
         // 2nd update thread data, in this case is the status tag
@@ -351,7 +354,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // 3rd update the tracker status message
         final CompletableFuture<Optional<MessageReference>> updateMessageAction = this.webhook.queueNewUpdateAction(
             this.webhook.getWebhookMessage(threadID, messageID, true).map(optMessage -> optMessage.flatMap(messageUpdater)),
-            data -> this.webhook.editThreadMessage(threadID, messageID, data, true)
+            data -> this.webhook.editThreadMessage(threadID, messageID, data, true),
+            "ForumWebhook#getWebhookMessage returns empty during #updatePlot.updateMessageAction"
         );
 
         // Wait for all action to complete and return it whether error or not
@@ -363,7 +367,10 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         );
 
         return allAction.handle((success, error) -> {
-            if(error != null) ON_PLOT_UPDATE_EXCEPTION.accept(event, error);
+            // TODO: This is the handler if SOME action throw an error,
+            //       it already got handled by each respective .whenComplete
+            //       but it might be useful to send an overall error notif
+            // if(error != null) ON_PLOT_UPDATE_EXCEPTION.accept(event, error);
 
             this.updateEntryStatus(action.entry().messageID(), status, event);
 
@@ -616,7 +623,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         // Queue the action
         CompletableFuture<Optional<MessageReference>> setFeedbackAction = this.webhook.queueNewUpdateAction(
             this.webhook.getWebhookMessage(action.threadID(), action.messageID(), true).map(opt -> opt.flatMap(messageUpdater)),
-            data -> this.webhook.editThreadMessage(action.threadID(), action.messageID(), data, true)
+            data -> this.webhook.editThreadMessage(action.threadID(), action.messageID(), data, true),
+            "ForumWebhook#getWebhookMessage returns empty during #setFeedback.setFeedbackAction"
         );
 
         setFeedbackAction.whenComplete((success, failed) -> {
@@ -1120,21 +1128,30 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     }
 
     /**
-     * Send {@link ForumWebhook#deleteMessage(String, String, boolean)}
-     * to any found notification layout configured to be cleared.
+     * Filter recent (50 messages) history and filter for sent notification messages,
+     * only clearable as configured in <code>config.yml</code>
      *
-     * @param data Map of Messages ID and Layout in which will be checked for deletion
-     * @param threadID The thread ID of this data
-     * @return Empty RestAction that is completed when all request has ended (Either success or failure)
+     * @param threadID THe threadID of the plot
+     * @return Rest action to a set of messages ID, empty Optional if none is found.
+     */
+    @NotNull
+    private RestAction<Optional<Set<String>>> findClearableNotification(String threadID) {
+        return this.webhook
+            .findSentComponents(threadID, true, AvailableComponent.NOTIFICATION)
+            .map(components -> components.map(this::mapClearableMessagesID));
+    }
+
+    /**
+     * Map messages component as what is configured to be clearable per <code>config.yml</code>.
+     *
+     * @param messages result of {@link ForumWebhook#findSentComponents}
+     * @return Set of messages ID that satisfies clearable message, null if none is filtered.
      */
     @Nullable
-    private RestAction<Optional<Void>> clearSentNotification(@NotNull Map<String, Layout> data,
-                                                             @NotNull String threadID) {
-        RestAction<Void> actions = null;
-        Set<String> messagesID = new HashSet<>();
-
+    private Set<String> mapClearableMessagesID(@NotNull Map<String, Layout> messages) {
         // Look for single-component message
-        data.forEach((messageID, layout) -> {
+        Set<String> messagesID = new HashSet<>();
+        messages.forEach((messageID, layout) -> {
             if(layout.getLayout().size() == 1
                     && layout.getLayout().getFirst() instanceof NotificationComponent component) {
                 if(!this.plugin.getConfig().getBoolean(PLOT_RECLAIM_CLEAR_NOTIFICATION, true))
@@ -1156,7 +1173,27 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             }
         });
 
-        for (List<String> partition : Iterables.partition(messagesID, 100)) {
+        return messagesID.isEmpty()? null : messagesID;
+    }
+
+    /**
+     * Send {@link ForumWebhook#deleteMessage(String, String, boolean)}
+     * to all given message IDs.
+     *
+     * @param messagesID Set of Messages ID be deleted
+     * @param threadID The thread ID of this data
+     * @return A rest action
+     */
+    @NotNull
+    private RestAction<Optional<Void>> clearSentMessages(@NotNull Set<String> messagesID,
+                                                         @NotNull String threadID) {
+        Iterator<List<String>> partitions = Iterables.partition(messagesID, 100).iterator();
+        RestAction<Void> actions = null;
+
+        if (!partitions.hasNext())
+            throw new IllegalStateException("Messages ID to clear notification must not be empty");
+        while (partitions.hasNext()) {
+            List<String> partition = partitions.next();
             List<RestAction<Void>> chunk = partition
                     .stream()
                     .map(messageID -> this.webhook.deleteMessage(threadID, messageID, true))
@@ -1167,7 +1204,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     : actions.and(RestAction.allOf(chunk));
         }
 
-        return (actions != null) ? actions.map(Optional::of) : null;
+        return actions.map(Optional::of);
     }
 
     /**
