@@ -22,7 +22,11 @@ package asia.buildtheearth.asean.discord.plotsystem.api.events;
  * @see PlotUndoReviewEvent
  * @see PlotArchiveEvent
  * @see PlotNotificationEvent
+ *
+ * @deprecated API is deprecated for official Plot-System's API module.
+ *             DiscordPlotSystemAPI will no longer release starting by 1.3.0.
  */
+@Deprecated(since = "1.2.5")
 public abstract class PlotEvent extends ApiEvent {
 
     private final int plotID;

@@ -5,8 +5,10 @@ package asia.buildtheearth.asean.discord.plotsystem.api.events;
  *
  * <p>Notification messages are managed by the main plugin configuration</p>
  *
- * @see PlotNotificationEvent
+ * @deprecated API is deprecated for official Plot-System's API module.
+ *             DiscordPlotSystemAPI will no longer release starting by 1.3.0.
  */
+@Deprecated(since = "1.2.5")
 public enum NotificationType {
     /** Triggered when a plot is first created or reclaimed */
     ON_CREATED,

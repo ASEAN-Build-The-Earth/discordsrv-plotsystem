@@ -15,7 +15,11 @@ package asia.buildtheearth.asean.discord.plotsystem.api;
  *                       smybteapi <code>toGeo</code> endpoint</a> for conversion.
  *
  * @see asia.buildtheearth.asean.discord.plotsystem.api.events.PlotCreateEvent
+ *
+ * @deprecated API is deprecated for official Plot-System's API module.
+ *             DiscordPlotSystemAPI will no longer release starting by 1.3.0.
  */
+@Deprecated(since = "1.2.5")
 public record PlotCreateData(
     int plotID,
     String ownerUUID,

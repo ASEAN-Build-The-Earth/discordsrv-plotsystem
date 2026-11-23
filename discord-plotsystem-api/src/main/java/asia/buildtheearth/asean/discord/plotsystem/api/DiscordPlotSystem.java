@@ -6,11 +6,10 @@ import org.bukkit.plugin.Plugin;
 /**
  * Plugin's API interface.
  *
- * @see #isReady()
- * @see #subscribe(Object)
- * @see #unsubscribe(Object)
- * @see #callEvent(ApiEvent)
+ * @deprecated API is deprecated for official Plot-System's API module.
+ *             DiscordPlotSystemAPI will no longer release starting by 1.3.0.
  */
+@Deprecated(since = "1.2.5")
 public interface DiscordPlotSystem extends Plugin {
 
     /**

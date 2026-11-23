@@ -1,4 +1,4 @@
-# Discord — [Plot-System](https://github.com/ASEAN-Build-The-Earth/Plot-System) Integration w/ [DiscordSRV](https://github.com/DiscordSRV/DiscordSRV)
+# [DEPRECATED] Discord — [Plot-System](https://github.com/ASEAN-Build-The-Earth/Plot-System) Integration w/ [DiscordSRV](https://github.com/DiscordSRV/DiscordSRV)
 ![Discord](https://img.shields.io/discord/690908396404080650?style=flat&logo=discord&label=Discord&labelColor=E0E3FF&color=5865F2)
 
 [![Maven Central](https://img.shields.io/maven-central/v/asia.buildtheearth.asean.discord/discordsrv-plotsystem?label=Plugin)](https://central.sonatype.com/artifact/asia.buildtheearth.asean.discord/discord-plotsystem)
@@ -7,6 +7,14 @@
 [![GitHub license](https://img.shields.io/github/license/ASEAN-Build-The-Earth/discordsrv-plotsystem)](https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/blob/main/LICENSE)
 
 An extension plugin for [DiscordSRV](https://github.com/DiscordSRV/DiscordSRV) designed to integrate with the Build The Earth project's Plot-System.
+
+> [!IMPORTANT]
+> This `legacy/1.2.5` branch is **DEPRECATED** for **ENDING** Maven releases.
+> Following releases will be migrated to Gradle and publish as a new GitHub package,
+> and using the new PlotSystem API; __there are no need to release in Maven Central anymore__.
+> 
+> This is also the last version which publish `discord-plotsystem-api`
+> that is also **deprecated** for official PlotSystem API (Starting version `5.3.0`)
 
 > [!NOTE]
 > Refer to the [Wiki](https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/wiki) page for detailed explanation of the system!
@@ -56,7 +64,7 @@ Artifacts are published to [Maven Central](https://central.sonatype.com/search?q
 <dependency>
     <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discord-plotsystem-api</artifactId>
-    <version>1.2.4</version>
+    <version>1.2.5</version>
     <scope>provided</scope>
 </dependency>
 ```

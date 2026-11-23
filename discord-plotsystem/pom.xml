@@ -7,11 +7,14 @@
     <parent>
         <groupId>asia.buildtheearth.asean.discord</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.2.4</version>
+        <version>1.2.5</version>
     </parent>
 
-    <name>Discord Plot-System Plugin</name>
+    <name>[DEPRECATED] Discord Plot-System Plugin</name>
     <description>
+    [RELEASE NOTICE]: Project will no loner publish as Maven POM library,
+    for further release starting 1.3.0 please check our the project page.
+
     Minecraft server plugin for Discord Plot-System integration via DiscordSRV;
     use the discord-plotsystem-api module for external integration.
     </description>

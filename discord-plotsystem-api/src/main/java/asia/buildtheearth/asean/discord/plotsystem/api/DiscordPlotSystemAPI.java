@@ -9,33 +9,11 @@ import java.util.function.Consumer;
 
 /**
  * Main entry point for interacting with the Discord Plot System API.
- * <p>Use {@link DiscordPlotSystemAPI#getInstance()} to access plot-related events and API operations.</p>
- * <p>Use {@link DiscordPlotSystemAPI#registerProvider(PlotCreateProvider)} register a custom data provider for each plot creation.</p>
  *
- * <p>Registering data provider</p>
- * <blockquote>{@snippet :
- * DiscordPlotSystemAPI.registerProvider(new PlotCreateProvider() {
- *      @Override
- *     public PlotCreateData getData(Object rawData) {
- *         return null;
- *     }
- *     @Override
- *     public PlotCreateData getData(int plotID) {
- *         return null;
- *     }
- * });}</blockquote>
- *
- * <p>Creating a new plot</p>
- * <blockquote>{@snippet :
- * DiscordPlotSystemAPI.getInstance().callEvent(
- *     new asia.buildtheearth.asean.discord.plotsystem.api.events.PlotCreateEvent(1)
- * );}</blockquote>
- *
- * @see #getInstance()
- * @see #registerProvider(PlotCreateProvider)
- * @see #callEvent(ApiEvent)
- * @see asia.buildtheearth.asean.discord.plotsystem.api.events.PlotEvent
+ * @deprecated API is deprecated for official Plot-System's API module.
+ *             DiscordPlotSystemAPI will no longer release starting by 1.3.0.
  */
+@Deprecated(since = "1.2.5")
 public abstract class DiscordPlotSystemAPI extends JavaPlugin implements DiscordPlotSystem {
 
     /**

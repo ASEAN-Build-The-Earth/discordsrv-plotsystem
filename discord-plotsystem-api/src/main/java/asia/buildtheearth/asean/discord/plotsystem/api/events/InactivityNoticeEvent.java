@@ -13,7 +13,6 @@ import java.time.temporal.TemporalAccessor;
  *
  * @see PlotNotificationEvent
  */
-@SuppressWarnings("deprecation")
 public final class InactivityNoticeEvent extends PlotNotificationEvent {
 
     TemporalAccessor timestamp;

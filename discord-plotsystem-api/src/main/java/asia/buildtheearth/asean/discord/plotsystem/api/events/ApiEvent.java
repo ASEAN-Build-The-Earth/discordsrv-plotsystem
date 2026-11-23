@@ -4,9 +4,10 @@ package asia.buildtheearth.asean.discord.plotsystem.api.events;
  * Superclass of all DiscordPlotSystem API events.
  * Extended by all events dispatched through the DiscordPlotSystem event system.
  *
- * @see PlotEvent For all plot-related events
- * @see asia.buildtheearth.asean.discord.plotsystem.api.ApiSubscribe For how to listen to events
+ * @deprecated API is deprecated for official Plot-System's API module.
+ *             DiscordPlotSystemAPI will no longer release starting by 1.3.0.
  */
+@Deprecated(since = "1.2.5")
 public abstract class ApiEvent {
     /**
      * Constructs a new {@link ApiEvent}.

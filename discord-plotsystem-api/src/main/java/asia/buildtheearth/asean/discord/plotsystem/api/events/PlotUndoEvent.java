@@ -5,7 +5,10 @@ package asia.buildtheearth.asean.discord.plotsystem.api.events;
  *
  * @see PlotUndoSubmitEvent
  * @see PlotUndoReviewEvent
+ * @deprecated API is deprecated for official Plot-System's API module.
+ *             DiscordPlotSystemAPI will no longer release starting by 1.3.0.
  */
+@Deprecated(since = "1.2.5")
 public abstract sealed class PlotUndoEvent extends PlotEvent
     permits PlotUndoSubmitEvent, PlotUndoReviewEvent {
 

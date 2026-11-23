@@ -7,12 +7,15 @@
   <parent>
     <groupId>asia.buildtheearth.asean.discord</groupId>
     <artifactId>discordsrv-plotsystem</artifactId>
-    <version>1.2.4</version>
+    <version>1.2.5</version>
   </parent>
 
-  <name>Discord Plot-System API</name>
+  <name>[DEPRECATED] Discord Plot-System API</name>
   <description>
-    API for Discord Plot-System; use this module as a dependency in applications
+    [DEPRECATED]: API is deprecated and replaced by official Plot-System's API module.
+    Discord Plot-System API will no longer publish any new release starting by 1.3.0.
+
+    [DEPRECATED] API for Discord Plot-System; use this module as a dependency in applications
     or plugins that interact with the main Discord Plot-System implementation.
   </description>
   <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/</url>
