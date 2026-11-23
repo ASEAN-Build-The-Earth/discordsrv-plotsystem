@@ -1199,7 +1199,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     : actions.and(RestAction.allOf(chunk));
         }
 
-        return actions.map(Optional::of);
+        return actions.map(Optional::ofNullable);
     }
 
     /**
