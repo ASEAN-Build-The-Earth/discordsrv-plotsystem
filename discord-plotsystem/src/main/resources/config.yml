@@ -17,6 +17,15 @@ database:
   password: ""
   webhook-table: "discord_webhook"
 
+# Discord-owned reminders for plots that have been inactive for at least this many full days.
+# Reminders are persisted and reconciled with Plot-System. Delivery also requires
+# plot-notification.on-plot-inactivity: true.
+# Timezone: blank = JVM/system default; otherwise an IANA zone id (e.g. Europe/Berlin).
+inactivity-notification-enabled: true
+inactivity-notification-time: "12:00"
+inactivity-notification-days: 7
+inactivity-notification-timezone: ""
+
 # Forum channel tags
 # Required all tags to be configured
 # Values must match the exact name of the tag in discord or a snowflake ID

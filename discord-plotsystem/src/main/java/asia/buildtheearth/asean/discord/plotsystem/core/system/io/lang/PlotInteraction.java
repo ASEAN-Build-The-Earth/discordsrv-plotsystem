@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 
 public enum PlotInteraction implements MessageLang {
     INTERACTED_BAD_OWNER("interactions.plot-button-bad-owner"),
+    INTERACTED_NOT_LINKED("interactions.plot-button-not-linked"),
     HELP_GET_FAILURE("interactions.plot-help-get-failed"),
     FEEDBACK_GET_FAILURE("interactions.plot-feedback-get-failed");
 

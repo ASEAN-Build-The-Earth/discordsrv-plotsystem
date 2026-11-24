@@ -1,6 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
@@ -17,11 +17,11 @@ import static asia.buildtheearth.asean.discord.plotsystem.Constants.PLOT_IMAGE_F
 
 /**
  * Class responsible for managing plot information/metadata
- * provided by an initial sets of information provided by the API.
+ * from a Plot-System {@link PlotSnapshotData} snapshot adapter.
  *
  * <p>Data collections:</p>
  * <ul>
- *     <li>Parse {@link PlotCreateData initial} data for plot specific metadata.<ul>
+ *     <li>Parse {@link PlotSnapshotData} for plot specific metadata.<ul>
  *         <li>Plot's initial status</li>
  *         <li>Plot's geographic location</li></ul></li>
  *     <li>Fetch plot's image file(s) in their respective data folder.</li>
@@ -33,7 +33,7 @@ public class PlotData extends MemberOwnable {
     private final Map<String, File> imageFiles;
     private final File imagesFolder;
 
-    private final PlotCreateData plot;
+    private final PlotSnapshotData plot;
     private final String geoCoordinates;
     private final String displayCords;
 
@@ -41,19 +41,19 @@ public class PlotData extends MemberOwnable {
     private final @NotNull Set<Long> statusTags;
 
     /**
-     * Construct a plot data using an initial create data.
+     * Construct plot data from a Plot-System snapshot adapter.
      *
-     * @param plot The initial information defining this plot.
+     * @param plot The snapshot-derived information defining this plot.
      * @see PlotData
      */
-    public PlotData(@NotNull PlotCreateData plot) {
+    public PlotData(@NotNull PlotSnapshotData plot) {
         super(plot.ownerUUID());
         this.plot = plot;
 
         // Plot location
-        double[] geoCords = plot.geoCoordinates() == null? new double[] {0, 0} : plot.geoCoordinates();
-        this.geoCoordinates = CoordinatesUtil.formatGeoCoordinatesNumeric(geoCords);
-        this.displayCords = CoordinatesUtil.formatGeoCoordinatesNSEW(geoCords);
+        double[] geoCords = plot.geoCoordinates();
+        this.geoCoordinates = geoCords == null ? "" : CoordinatesUtil.formatGeoCoordinatesNumeric(geoCords);
+        this.displayCords = geoCords == null ? "" : CoordinatesUtil.formatGeoCoordinatesNSEW(geoCords);
 
         // Fetch plot specific image files
         this.imagesFolder = prepareMediaFolder(plot.plotID());
@@ -140,7 +140,7 @@ public class PlotData extends MemberOwnable {
      *
      * @return Un-modified plot-create data instance.
      */
-    public PlotCreateData getPlot() {
+    public PlotSnapshotData getPlot() {
         return plot;
     }
 

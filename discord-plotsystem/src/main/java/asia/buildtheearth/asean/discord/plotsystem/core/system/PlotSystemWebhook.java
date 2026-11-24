@@ -2,7 +2,7 @@ package asia.buildtheearth.asean.discord.plotsystem.core.system;
 
 import asia.buildtheearth.asean.discord.components.PluginComponent;
 import asia.buildtheearth.asean.discord.plotsystem.Constants;
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.LanguageFile;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Format;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.ReviewComponent;
@@ -13,7 +13,7 @@ import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.But
 import github.scarsz.discordsrv.dependencies.jda.api.utils.concurrent.DelayedCompletableFuture;
 import github.scarsz.discordsrv.dependencies.jda.api.utils.data.DataObject;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.*;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.*;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.LayoutComponentProvider;
@@ -80,7 +80,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     protected CompletableFuture<Void> newThreadForPlotID(@NotNull PlotSystemThread thread,
-                                                         @Nullable PlotCreateData plot,
+                                                         @Nullable PlotSnapshotData plot,
                                                          boolean register,
                                                          boolean force) {
 
@@ -125,7 +125,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     public CompletableFuture<Void> createAndRegisterNewPlot(int plotID,
-                                                            @NotNull PlotCreateData plotData) {
+                                                            @NotNull PlotSnapshotData plotData) {
         return this.createAndRegisterNewPlot(new PlotSystemThread(plotID), plotData);
     }
 
@@ -137,7 +137,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     public CompletableFuture<Void> forceRegisterNewPlot(@NotNull PlotSystemThread thread,
-                                                        @NotNull PlotCreateData plotData) {
+                                                        @NotNull PlotSnapshotData plotData) {
         return this.newThreadForPlotID(thread, plotData, true, true);
     }
 
@@ -149,7 +149,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     public CompletableFuture<Void> createAndRegisterNewPlot(@NotNull PlotSystemThread thread,
-                                                            @NotNull PlotCreateData plotData) {
+                                                            @NotNull PlotSnapshotData plotData) {
         return this.newThreadForPlotID(thread, plotData, true, false);
     }
 
@@ -162,7 +162,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     public CompletableFuture<Void> createNewUntrackedPlot(@NotNull PlotSystemThread thread,
-                                                          @NotNull PlotCreateData plotData) {
+                                                          @NotNull PlotSnapshotData plotData) {
         return this.newThreadForPlotID(thread, plotData, false, true);
     }
 
@@ -171,7 +171,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @Nullable
     protected CompletableFuture<Void> addNewExistingPlot(@NotNull PlotSystemThread thread,
-                                                         @NotNull PlotCreateData plot,
+                                                         @NotNull PlotSnapshotData plot,
                                                          @Nullable String removeMemberID,
                                                          @Nullable Consumer<PlotData> onSuccess) {
         Optional<String> threadID = thread.getOptID().map(Long::toUnsignedString);
@@ -456,7 +456,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                 );
 
                 Notification.notify(
-                    PlotMessage.getAbandonMessage(event.getType()),
+                    PlotMessage.getAbandonMessage(event.getReason()),
                     plot.threadID(),
                     String.valueOf(event.getPlotID())
                 );
@@ -536,32 +536,50 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     }
 
     /**
-     * Send notification to a plot for inactivity notice using {@link InactivityNoticeEvent}
+     * Deliver an integration-owned inactivity reminder to a tracked plot thread.
      *
-     * @param event The {@link InactivityNoticeEvent} containing the plot ID and abandonment timestamp
+     * <p>Honours {@code plot-notification.on-plot-inactivity} and Plot-System's
+     * cancellable {@link com.alpsbte.plotsystem.api.event.PlotNotificationIntentEvent}.</p>
+     *
+     * @return {@code true} when Discord accepted the reminder for delivery
      */
-    @SuppressWarnings("deprecation")
-    public void onPlotInactivity(@NotNull InactivityNoticeEvent event) {
-        WebhookEntry.ifPlotExisted(event.getPlotID()).ifPresent(entry -> {
-            String threadID = Long.toUnsignedString(entry.threadID());
-            String owner = parseOwnerMention(entry);
-            Instant timestamp = switch (event.getTimestamp()) {
-                case java.time.LocalDate date -> date.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
-                case java.time.LocalDateTime dateTime -> dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant();
-                case java.time.ZonedDateTime zonedDateTime -> zonedDateTime.toInstant();
-                case java.time.OffsetDateTime offsetDateTime -> offsetDateTime.toInstant();
-                default -> throw new IllegalArgumentException(
-                    "Unsupported timestamp given by: " + event.getClass().getSimpleName()
-                    + " type: " + event.getTimestamp().getClass()
-                );
-            };
+    public CompletableFuture<Boolean> sendInactivityReminder(@NotNull InactivityNoticeEvent event) {
+        PlotNotification notification = PlotNotification.ON_INACTIVITY;
+        if(!this.plugin.getConfig().getBoolean(notification.getKey(), true)) {
+            return CompletableFuture.completedFuture(false);
+        }
+        if(!NotificationIntents.allow(NotificationType.ON_INACTIVITY, event.getPlotID())) {
+            return CompletableFuture.completedFuture(false);
+        }
 
-            onNotification(NotificationType.ON_INACTIVITY, event.getPlotID(), notification ->
-                this.sendNotification(notification, threadID, content -> content
-                    .replace(Format.OWNER, owner)
-                    .replace(Format.TIMESTAMP, String.valueOf(timestamp.getEpochSecond())))
-            );
-        });
+        Optional<WebhookEntry> optionalEntry = WebhookEntry.ifPlotExisted(event.getPlotID());
+        if(optionalEntry.isEmpty()) return CompletableFuture.completedFuture(false);
+
+        WebhookEntry entry = optionalEntry.get();
+        String owner = parseOwnerMention(entry);
+        String timestamp = event.getAbandonmentAt() == null
+            ? ""
+            : String.valueOf(event.getAbandonmentAt().getEpochSecond());
+        String abandonment = event.getAbandonmentAt() == null
+            ? DiscordPS.getMessagesLang().get(PlotNotification.INACTIVITY_ABANDONMENT_NONE)
+            : DiscordPS.getMessagesLang().get(PlotNotification.INACTIVITY_ABANDONMENT_SCHEDULED)
+                .replace(Format.TIMESTAMP, timestamp);
+        String message = DiscordPS.getMessagesLang().get(notification)
+            .replace(Format.OWNER, owner)
+            .replace(Format.DAYS, String.valueOf(event.getInactivityDays()))
+            .replace(Format.ABANDONMENT, abandonment)
+            .replace(Format.TIMESTAMP, timestamp);
+
+        Container container = new Container();
+        container.addComponent(new TextDisplay(message));
+        WebhookData data = new WebhookDataBuilder()
+            .forceComponentV2()
+            .setComponentsV2(Collections.singletonList(container))
+            .build();
+
+        return this.webhook.sendMessageInThread(Long.toUnsignedString(entry.threadID()), data, true, true)
+            .submit()
+            .thenApply(ignored -> true);
     }
 
     /**
@@ -598,12 +616,23 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         }
 
         // Send notification to owner when feedback button is set
+        long feedbackUserID = resolveFeedbackUserID(action.entry());
+        long feedbackMessageID = action.entry().messageID();
         MessageUpdater messageUpdater = message -> {
-            if(message.getActionRows().isEmpty()) return Optional.empty();
+            if(message.getActionRows().isEmpty()) {
+                Button button = style.apply(
+                    AvailableButton.FEEDBACK_BUTTON.resolve(feedbackMessageID, feedbackUserID, action.plotID()),
+                    label
+                );
+                return Optional.of(new WebhookDataBuilder()
+                    .setComponents(Collections.singletonList(ActionRow.of(button)))
+                    .build());
+            }
 
             ActionRow componentRow = message.getActionRows().getFirst();
 
-            return this.fetchReviewButton(componentRow, action.plotID(), label, style, Function.identity())
+            return this.fetchReviewButton(
+                    componentRow, action.plotID(), feedbackMessageID, feedbackUserID, label, style, Function.identity())
                     .map(new WebhookDataBuilder()::setComponents)
                     .map(WebhookDataBuilder::build);
         };
@@ -894,7 +923,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
         ActionRow componentRow = message.getActionRows().getFirst();
 
         Optional<Collection<? extends ActionRow>> interactions = switch (event) {
-            case PlotReviewEvent review -> fetchReviewButton(componentRow, review, entry.feedback());
+            case PlotReviewEvent review -> fetchReviewButton(componentRow, review, entry);
             case null, default -> fetchInteractionButton(event, componentRow);
         };
 
@@ -970,14 +999,14 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     }
 
     /**
-     * Retrieve a {@link PlotReviewEvent} and a feedback message and fetch a review button in the given {@linkplain ActionRow}.
+     * Retrieve a {@link PlotReviewEvent} and fetch a review button in the given {@linkplain ActionRow}.
      *
      * <p>This will either add a disabled button if the feedback is {@code null} or blank,
      * or an enabled button referencing to the feedback data.</p>
      *
      * @param actionRow The action row to be checked and apply new button to.
      * @param reviewEvent The event instance (Must be review event)
-     * @param feedback The feedback message of this review (can be {@code null})
+     * @param entry Plot webhook entry (for feedback text and owner identity)
      * @return Optional of the modified {@linkplain ActionRow}
      * @param <T> The type of the review event, currently only {@link PlotApprovedEvent} and {@link PlotRejectedEvent} is functional.
      */
@@ -985,19 +1014,21 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     private <T extends PlotReviewEvent>
     Optional<Collection<? extends ActionRow>> fetchReviewButton(@NotNull ActionRow actionRow,
                                                                 @NotNull T reviewEvent,
-                                                                @Nullable String feedback) {
+                                                                @NotNull WebhookEntry entry) {
         // Plot Reviews: Check and update feedback button
-        boolean hasFeedback = StringUtils.isNotBlank(feedback);
+        boolean hasFeedback = StringUtils.isNotBlank(entry.feedback());
         Function<Button, Button> style = hasFeedback? Button::asEnabled : Button::asDisabled;
+        long userID = resolveFeedbackUserID(entry);
+        long messageID = entry.messageID();
 
         return switch (reviewEvent) {
             case PlotApprovedEvent ignored -> {
                 String label = hasFeedback? this.getMetadata().approvedFeedbackLabel() : this.getMetadata().approvedNoFeedbackLabel();
-                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), label, Button::success, style);
+                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), messageID, userID, label, Button::success, style);
             }
             case PlotRejectedEvent ignored -> {
                 String label = hasFeedback? this.getMetadata().rejectedFeedbackLabel() : this.getMetadata().rejectedNoFeedbackLabel();
-                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), label, Button::danger, style);
+                yield this.fetchReviewButton(actionRow, reviewEvent.getPlotID(), messageID, userID, label, Button::danger, style);
             }
             case PlotReviewEvent ignored -> Optional.empty();
         };
@@ -1012,6 +1043,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      *
      * @param actionRow The action row to be checked and apply new button to.
      * @param plotID The plotID of this reviewing button.
+     * @param messageID Fallback message ID when no help button exists to copy identity from.
+     * @param userID Fallback Discord user ID ({@code 0} when the owner is not linked).
      * @param label New button label text.
      * @param style New button style as its reference function.
      *              ({@link Button#primary(String, String) Button::primary},
@@ -1023,6 +1056,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      */
     @NotNull
     private Optional<Collection<? extends ActionRow>> fetchReviewButton(@NotNull ActionRow actionRow, int plotID,
+                                                                        long messageID, long userID,
                                                                         @NotNull String label,
                                                                         @NotNull BiFunction<String, String, Button> style,
                                                                         @NotNull Function<Button, Button> modifier) {
@@ -1051,8 +1085,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
                     .map(Collections::singletonList);
         }
 
-        return this.addFeedbackButton(actionRow, (messageID, userID) -> modifier.apply(
-                style.apply(AvailableButton.FEEDBACK_BUTTON.resolve(messageID, userID, plotID), label)
+        return this.addFeedbackButton(actionRow, messageID, userID, (msgID, usrID) -> modifier.apply(
+                style.apply(AvailableButton.FEEDBACK_BUTTON.resolve(msgID, usrID, plotID), label)
         ));
     }
 
@@ -1060,27 +1094,63 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
     /**
      * Fetch a new feedback button into message.
      *
+     * @param fallbackMessageID Used when the row has no help button to copy IDs from
+     * @param fallbackUserID Used when the row has no help button ({@code 0} = unlinked owner)
      * @param onButtonSet Invoke when setting button with message ID and owner ID, use this to supply button style.
      * @return The updated component data built as {@link WebhookData}
      */
     @NotNull
     private Optional<Collection<? extends ActionRow>> addFeedbackButton(@NotNull ActionRow componentRow,
+                                                                        long fallbackMessageID,
+                                                                        long fallbackUserID,
                                                                         @NotNull BiFunction<Long, Long, Button> onButtonSet) {
         List<Button> buttons = new ArrayList<>();
+        boolean[] createdFromHelp = { false };
 
         fetchButtons(componentRow, (component, optButton) -> {
             optButton // Find settings from attached help button then apply it as a new feedback button
                     .filter(button -> button.getType().equals(AvailableButton.HELP_BUTTON.name()))
                     .map(button -> onButtonSet.apply(button.getIDLong(), button.getUserIDLong()))
-                    .ifPresent(buttons::add);
+                    .ifPresent(button -> {
+                        buttons.add(button);
+                        createdFromHelp[0] = true;
+                    });
 
             // Retain all component(s) of the message
             if(component != null) buttons.add(component);
         });
 
+        if(!createdFromHelp[0]) {
+            buttons.add(0, onButtonSet.apply(fallbackMessageID, fallbackUserID));
+        }
+
         return Optional.of(buttons)
                 .filter(data -> !data.isEmpty()).map(ActionRow::of)
                 .map(Collections::singletonList);
+    }
+
+    /**
+     * Resolve the Discord user ID stored on a feedback button.
+     * Falls back to {@code 0} when the plot owner has no linked Discord account.
+     */
+    private static long resolveFeedbackUserID(@NotNull WebhookEntry entry) {
+        if(entry.ownerID() != null) {
+            try {
+                return Long.parseUnsignedLong(entry.ownerID());
+            }
+            catch (NumberFormatException ignored) {
+                // fall through to live lookup
+            }
+        }
+        try {
+            Member member = DiscordPS.getPlugin().getAsDiscordMember(
+                Bukkit.getOfflinePlayer(UUID.fromString(entry.ownerUUID())));
+            if(member != null) return member.getIdLong();
+        }
+        catch (RuntimeException ignored) {
+            // keep unlinked sentinel
+        }
+        return 0L;
     }
 
     /**

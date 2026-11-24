@@ -1,20 +1,20 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageChannel;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.commands.OptionType;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.components.ActionRow;
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.PlotArchiveEvent;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.PlotArchiveEvent;
 import asia.buildtheearth.asean.discord.commands.interactions.InteractionEvent;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotArchive;
 import asia.buildtheearth.asean.discord.plotsystem.commands.interactions.OnPlotShowcase;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.*;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSnapshotLookup;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.InfoComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
 import org.jetbrains.annotations.NotNull;
@@ -23,6 +23,7 @@ import java.io.File;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -305,41 +306,43 @@ sealed class PlotArchiveCommand extends AbstractPlotArchiveCommand permits Revie
     }
 
 
-    private void archiveAsNewThread(@NotNull BiFunction<PlotSystemThread, PlotCreateData, CompletableFuture<Void>> creator,
+    private void archiveAsNewThread(@NotNull BiFunction<PlotSystemThread, PlotSnapshotData, CompletableFuture<Void>> creator,
                                     @NotNull PlotArchiveEvent event,
                                     @NotNull Consumer<Void> onSuccess,
                                     @NotNull Consumer<Throwable> onFailure) {
-        PlotSystemThread thread;
-        PlotCreateData plot;
+        PlotSnapshotLookup.get(event.getPlotID()).whenComplete((snapshot, lookupError) -> {
+            if(lookupError != null) {
+                onFailure.accept(lookupError instanceof CompletionException completion && completion.getCause() != null
+                    ? completion.getCause() : lookupError);
+                return;
+            }
 
-        try {
-            plot = DiscordPlotSystemAPI.getDataProvider().getData(event.getPlotID());
-
+            PlotSnapshotData plot = snapshot.orElse(null);
             if(plot == null) {
                 onFailure.accept(Error.PLOT_FETCH_RETURNED_NULL.get());
                 return;
-            } else if (plot.ownerUUID() == null) {
+            }
+            if(plot.ownerUUID() == null) {
                 onFailure.accept(Error.PLOT_FETCH_UNKNOWN_OWNER.get());
                 return;
             }
 
-            thread = makeArchiveThread(event, plot);
-        }
-        catch (IllegalArgumentException ex) {
-            onFailure.accept(ex);
-            return;
-        }
-
-        CompletableFuture<Void> createAction =  creator.apply(thread, plot);
-
-        if(createAction == null) onFailure.accept(Error.PLOT_CREATE_RETURNED_NULL.get());
-        else createAction.whenComplete((ok, error) -> {
-            if(error != null) onFailure.accept(error);
-            else onSuccess.accept(ok);
+            try {
+                PlotSystemThread thread = makeArchiveThread(event, plot);
+                CompletableFuture<Void> createAction = creator.apply(thread, plot);
+                if(createAction == null) onFailure.accept(Error.PLOT_CREATE_RETURNED_NULL.get());
+                else createAction.whenComplete((ok, error) -> {
+                    if(error != null) onFailure.accept(error);
+                    else onSuccess.accept(ok);
+                });
+            }
+            catch (RuntimeException ex) {
+                onFailure.accept(ex);
+            }
         });
     }
 
-    private @NotNull PlotSystemThread makeArchiveThread(@NotNull PlotArchiveEvent event, @NotNull PlotCreateData plot) {
+    private @NotNull PlotSystemThread makeArchiveThread(@NotNull PlotArchiveEvent event, @NotNull PlotSnapshotData plot) {
         PlotSystemThread thread = new PlotSystemThread(event.getPlotID());
 
         thread.setProvider(data -> {

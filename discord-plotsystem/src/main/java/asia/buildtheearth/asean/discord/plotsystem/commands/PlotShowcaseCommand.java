@@ -1,8 +1,7 @@
 package asia.buildtheearth.asean.discord.plotsystem.commands;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.DiscordPlotSystemAPI;
-import asia.buildtheearth.asean.discord.plotsystem.api.PlotCreateData;
-import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.NotificationType;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Message;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.MessageReference;
 import github.scarsz.discordsrv.dependencies.jda.api.interactions.InteractionHook;
@@ -15,6 +14,7 @@ import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.WebhookEntry;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotData;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSnapshotLookup;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Optional;
@@ -43,51 +43,48 @@ final class PlotShowcaseCommand extends AbstractPlotShowcaseCommand {
                 return;
             }
 
-            // Fetch plot information from plot-system provider
-            PlotCreateData plot;
-
-            try {
-                plot = DiscordPlotSystemAPI.getDataProvider().getData(interaction.getPlotID());
-
-                if(plot == null) {
+            PlotSnapshotLookup.get(interaction.getPlotID()).whenComplete((snapshot, error) -> {
+                if(error != null || snapshot.isEmpty()) {
                     this.queueEmbed(hook, errorEmbed(
                         MESSAGE_DATA_RETURNED_NULL,
-                        Error.PLOT_FETCH_RETURNED_NULL.getMessage())
+                        error == null
+                            ? Error.PLOT_FETCH_RETURNED_NULL.getMessage()
+                            : error.toString())
                     );
                     return;
-                } else if (plot.ownerUUID() == null) {
+                }
+
+                PlotSnapshotData plot = snapshot.get();
+                if(plot.ownerUUID() == null) {
                     this.queueEmbed(hook, errorEmbed(
                         MESSAGE_DATA_RETURNED_NULL,
                         Error.PLOT_FETCH_UNKNOWN_OWNER.getMessage())
                     );
                     return;
                 }
-            }
-            catch (IllegalArgumentException ex) {
-                this.queueEmbed(hook, errorEmbed(
-                    MESSAGE_DATA_RETURNED_NULL,
-                    Error.PLOT_FETCH_RETURNED_NULL.getMessage())
-                );
-                return;
-            }
 
-            PlotData plotData = new PlotData(plot);
+                try {
+                    PlotData plotData = new PlotData(plot);
+                    interaction.setPlotInfo(plotData, entry);
 
-            interaction.setPlotInfo(plotData, entry);
+                    ActionRow interactions = ActionRow.of(
+                        this.getConfirmButton(interaction),
+                        this.getCancelButton(interaction)
+                    );
 
-            ActionRow interactions = ActionRow.of(
-                this.getConfirmButton(interaction),
-                this.getCancelButton(interaction)
-            );
+                    final WebhookMessageAction<Message> action = hook
+                        .sendMessageEmbeds(this.formatShowcaseInfo(plotData))
+                        .setEphemeral(true)
+                        .addActionRows(interactions);
 
-            final WebhookMessageAction<Message> action = hook
-                .sendMessageEmbeds(this.formatShowcaseInfo(plotData))
-                .setEphemeral(true)
-                .addActionRows(interactions);
-
-            if(plotData.getAvatarFile().isPresent())
-                action.addFile(plotData.getAvatarFile().get()).queue();
-            else action.queue();
+                    if(plotData.getAvatarFile().isPresent())
+                        action.addFile(plotData.getAvatarFile().get()).queue();
+                    else action.queue();
+                }
+                catch (RuntimeException ex) {
+                    this.queueEmbed(hook, errorEmbed(MESSAGE_DATA_RETURNED_NULL, ex.toString()));
+                }
+            });
 
         }, () -> this.queueEmbed(hook, getEmbed(ORANGE, EMBED_NOTHING_TO_SHOWCASE)));
     }

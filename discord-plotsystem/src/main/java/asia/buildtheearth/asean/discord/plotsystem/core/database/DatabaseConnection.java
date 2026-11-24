@@ -47,6 +47,15 @@ public class DatabaseConnection {
         return webhookTableName;
     }
 
+    /**
+     * Whether a Hikari datasource has been created and is still open.
+     *
+     * @return {@code true} if {@link #getConnection()} can be attempted
+     */
+    public static boolean isInitialized() {
+        return dataSource != null && !dataSource.isClosed();
+    }
+
     public static boolean InitializeDatabase() throws ClassNotFoundException {
         FileConfiguration configFile = DiscordPS.getPlugin().getConfig();
         String URL = configFile.getString(ConfigPaths.DATABASE_URL);
@@ -56,7 +65,11 @@ public class DatabaseConnection {
         String webhookTable = configFile.getString(ConfigPaths.DATABASE_WEBHOOK_TABLE);
 
         // Validate config
-        if(StringUtils.isBlank(URL)) return false;
+        if(StringUtils.isBlank(URL)) {
+            DiscordPS.error(DATABASE_NOT_INITIALIZED,
+                "Database URL is not set in config.yml (database.url).");
+            return false;
+        }
         Matcher matcher = JDBC_PATTERN.matcher(URL);
 
         if(!matcher.matches()) {
@@ -172,11 +185,14 @@ public class DatabaseConnection {
     }
 
     public static void shutdown() {
+        if(dataSource == null) return;
         dataSource.close();
+        dataSource = null;
     }
 
     static void validateWebhookTable(String table) throws SQLException {
         if(StringUtils.isBlank(table)) throw new SQLException("Configured Database webhook table name is blank");
+        if(!isInitialized()) throw new SQLException("Database connection is not initialized");
 
         try (Connection connection = dataSource.getConnection()) {
            boolean sqlite = ConnectionUtil.checkIfSQLite(connection);
@@ -214,8 +230,11 @@ public class DatabaseConnection {
         }
 
         private void openConnection() throws SQLException {
+            if(!isInitialized()) {
+                throw new SQLException("Database connection is not initialized");
+            }
             connection = dataSource.getConnection();
-            if (connection == null) throw new NullPointerException("Connection is invalid: null");
+            if (connection == null) throw new SQLException("Connection is invalid: null");
         }
 
         public ResultSet executeQuery() throws SQLException {
