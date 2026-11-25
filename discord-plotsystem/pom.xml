@@ -7,11 +7,14 @@
     <parent>
         <groupId>asia.buildtheearth.asean.discord</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.2.3</version>
+        <version>1.2.5</version>
     </parent>
 
-    <name>Discord Plot-System Plugin</name>
+    <name>[DEPRECATED] Discord Plot-System Plugin</name>
     <description>
+    [RELEASE NOTICE]: Project will no loner publish as Maven POM library,
+    for further release starting 1.3.0 please check our the project page.
+
     Minecraft server plugin for Discord Plot-System integration via DiscordSRV;
     listens to lifecycle events from Plot-System's public API.
     </description>
@@ -204,7 +207,7 @@
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>1.21.3-R0.1-SNAPSHOT</version>
+            <version>1.21.3-R0.1-20241203.162251-46</version>
             <scope>provided</scope>
         </dependency>
         <!-- DiscordSRV -->
@@ -218,7 +221,7 @@
         <dependency>
             <groupId>asia.buildtheearth.asean.discord</groupId>
             <artifactId>discordsrv-bridge</artifactId>
-            <version>1.1.2</version>
+            <version>1.1.3</version>
             <scope>compile</scope>
         </dependency>
         <!-- Jetbrains Annotations -->

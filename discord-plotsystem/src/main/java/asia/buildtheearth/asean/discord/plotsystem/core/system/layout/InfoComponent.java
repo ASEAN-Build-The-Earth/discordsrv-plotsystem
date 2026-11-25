@@ -24,6 +24,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.Unmodifiable;
 
+import static asia.buildtheearth.asean.discord.plotsystem.ConfigPaths.PLOT_KEEP_PLOT_HISTORIES;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent.INFO;
 import static asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent.InfoComponent.*;
 
@@ -71,6 +72,13 @@ public final class InfoComponent
 
     private static Metadata getMetadata() {
         return DiscordPS.getMetadata().getAs(Metadata.class);
+    }
+
+    @Override
+    protected void register(AvailableComponent.InfoComponent component, Builder<ComponentV2> builder) {
+        if(INFO_HISTORY == component && !DiscordPS.getPlugin().getConfig().getBoolean(PLOT_KEEP_PLOT_HISTORIES))
+            return;
+        super.register(component, builder);
     }
 
     public InfoComponent(int id, int layout, Color color) {

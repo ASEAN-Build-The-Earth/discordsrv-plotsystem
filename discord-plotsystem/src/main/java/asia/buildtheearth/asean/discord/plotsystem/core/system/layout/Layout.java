@@ -16,16 +16,16 @@ import java.util.Collection;
 import java.util.EnumMap;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
- * Plot-System thread layout constructor class.
+ * Helper class to retrieve {@linkplain LayoutComponentProvider layout}
+ * component instances from raw discord api {@linkplain DataObject}
  *
- * <p>When constructed, create an array as {@link LayoutData}
- * that currently include {@link InfoComponent} and {@link StatusComponent}.</p>
- *
+ * @see #fromRawData(DataArray, AvailableComponent...) Construct a new layout from raw data
  * @see #getLayout() Get the layout data
- * @see #from(DataArray) Construct a new layout from raw data
  */
 public class Layout {
 
@@ -50,10 +50,16 @@ public class Layout {
     private final LayoutData layout;
 
     /**
+     * Acts as whitelists if not empty.
+     */
+    private final AvailableComponent[] filter;
+
+    /**
      * Constructs a new layout with empty data.
      */
-    private Layout() {
+    private Layout(AvailableComponent... filter) {
         this.layout = new LayoutData();
+        this.filter = filter;
     }
 
     /**
@@ -65,8 +71,7 @@ public class Layout {
     @Contract("_ -> this")
     private Layout from(@NotNull DataArray rawData) throws ParsingException, IllegalArgumentException {
         for (int i = 0; i < rawData.length(); i++) {
-            LayoutComponentProvider<? extends ComponentV2, ? extends Enum<?>> data = Layout.parseData(rawData.getObject(i));
-            if(data != null) this.layout.add(Layout.parseData(rawData.getObject(i)));
+            this.parseData(rawData.getObject(i)).ifPresent(this.layout::add);
         }
         return this;
     }
@@ -77,9 +82,10 @@ public class Layout {
      * @param rawData The raw data as a {@link DataArray} containing component objects
      * @return An optional for a new {@code Layout} instance populated with parsed data
      */
-    public static Optional<Layout> fromRawData(@NotNull DataArray rawData) {
+    public static Optional<Layout> fromRawData(@NotNull DataArray rawData,
+                                               AvailableComponent... filter) {
         try {
-            Layout layout = new Layout().from(rawData);
+            Layout layout = new Layout(filter).from(rawData);
             return Optional.ofNullable(layout.getLayout().isEmpty()? null : layout);
         }
         catch (ParsingException | IllegalArgumentException ex) {
@@ -105,8 +111,8 @@ public class Layout {
      */
     public Collection<ComponentV2> buildLayout(EnumMap<AvailableComponent, LayoutBuilder> builder) {
         return this.layout.stream().map(layout -> {
-            if(builder.containsKey(layout.getType()))
-                builder.get(layout.getType()).accept(layout);
+            if(builder.containsKey(layout.getLayoutType()))
+                builder.get(layout.getLayoutType()).accept(layout);
             return layout.build();
         }).collect(Collectors.toList());
     }
@@ -119,22 +125,44 @@ public class Layout {
      * @throws ParsingException If the parser failed to parse raw data keys
      * @throws IllegalArgumentException If an internal/unknown error occurred during the parsing process
      */
-    public static @Nullable LayoutComponentProvider<? extends ComponentV2, ? extends Enum<?>> parseData(@NotNull DataObject rawData) throws ParsingException, IllegalArgumentException  {
-        if(!rawData.hasKey("id")) return null;
+    public Optional<
+        LayoutComponentProvider<? extends ComponentV2, ? extends Enum<?>
+    >> parseData(@NotNull DataObject rawData) throws ParsingException, IllegalArgumentException  {
+        if(!rawData.hasKey("id")) return Optional.empty();
 
         int id = rawData.getInt("id");
 
         int type = AvailableComponent.unpackComponent(id);
 
-        AvailableComponent componentType = AvailableComponent.get(type);
+        AvailableComponent layoutType = AvailableComponent.get(type);
+        Optional<DataObject> optional = Optional.of(rawData);
 
-        if(componentType == AvailableComponent.UNKNOWN) return null;
+        return Optional
+            .ofNullable(this.rebuild(layoutType))
+            .flatMap(layout -> optional.map(layout::apply));
+    }
 
-        return switch (componentType) {
-            case INFO: yield InfoComponent.from(rawData);
-            case STATUS: yield StatusComponent.from(rawData);
-            case SHOWCASE: yield ShowcaseComponent.from(rawData);
-            default: yield null;
+    /**
+     * Static mapper on to each available components' rebuild function.
+     *
+     * @param component Component type to map its static rebuilding function.
+     * @return Rebuild function which returns rebuilt instance.
+     */
+    @Nullable
+    @Contract(pure = true)
+    public Function<DataObject, LayoutComponentProvider<
+        ? extends ComponentV2,
+        ? extends Enum<?>
+    >> rebuild(@NotNull AvailableComponent component) {
+        if(this.filter.length > 0 && Stream.of(this.filter).noneMatch(component::equals))
+            return null; // whitelist components inside our filter (if exist)
+
+        return switch (component) {
+            case INFO -> InfoComponent::from;
+            case STATUS -> StatusComponent::from;
+            case SHOWCASE -> ShowcaseComponent::from;
+            case NOTIFICATION -> NotificationComponent::from;
+            case UNKNOWN -> null;
         };
     }
 }

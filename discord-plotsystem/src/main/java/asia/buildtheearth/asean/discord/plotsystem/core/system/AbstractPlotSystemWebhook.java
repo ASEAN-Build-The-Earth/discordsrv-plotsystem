@@ -188,7 +188,7 @@ sealed abstract class AbstractPlotSystemWebhook extends PluginProvider permits P
      * This will fetch the plot as {@link PlotReclaimEvent} internally.
      *
      * @param entry The existing entry to be reclaimed as
-     * @param register Whether to register this plot to database ot make untracked
+     * @param register Whether to register this plot to database or make untracked
      * @return The handled future that completed when all queued action is done
      */
     @Nullable

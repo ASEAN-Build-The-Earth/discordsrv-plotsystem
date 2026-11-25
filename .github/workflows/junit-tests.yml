@@ -44,4 +44,4 @@ jobs:
           detailed_summary: true # display detailed summary of the report
           include_passed: true # include passed tests in the results table
           group_suite: true # Group tests by suite name
-          comment: true # send comment in pull request
+          comment: false # send comment in pull request
