@@ -88,8 +88,8 @@ import static asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.No
  *
  */
 public class DiscordPS extends JavaPlugin implements DiscordSRVBridge {
-    public static final String VERSION = "1.2.5";
-    public static final String DISCORD_SRV_VERSION = "1.29.0";
+    public static final String VERSION = "1.3.0";
+    public static final String DISCORD_SRV_VERSION = "1.30.5";
 
     public static final String DISCORD_SRV_SYMBOL = "DiscordSRV"; // DiscordSRV main class symbol
 
@@ -456,7 +456,16 @@ public class DiscordPS extends JavaPlugin implements DiscordSRVBridge {
     }
 
     /**
-     * {@inheritDoc}
+     * Check is the plugin fully ready.
+     *
+     * <p>If and only if:</p>
+     * <ul>
+     *     <li>The main webhook has been initialized</li>
+     *     <li>This plugin has subscribed to DiscordSRV</li>
+     *     <li>This plugin is not shutting down</li>
+     *     <li>IF debugging is enabled in the config file, Then the debugger MUST not detect any error</li>
+     * </ul>
+     * @return If the plugin is fully ready and functional.
      */
     public boolean isReady() {
         return getWebhook() != null
