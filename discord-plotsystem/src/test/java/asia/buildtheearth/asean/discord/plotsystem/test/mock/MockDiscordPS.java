@@ -5,10 +5,17 @@ import asia.buildtheearth.asean.discord.plotsystem.core.listeners.DiscordSRVList
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.WebhookProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.ShowcaseWebhook;
+import com.alpsbte.plotsystem.api.model.PlotSnapshot;
+import com.alpsbte.plotsystem.api.model.PlotStatus;
+import com.alpsbte.plotsystem.api.provider.PlotSnapshotProvider;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Optional;
 
 public class MockDiscordPS extends DiscordPS implements MockDiscordSRVBridge {
     private PlotSystemWebhook mockWebhook;
@@ -29,6 +36,7 @@ public class MockDiscordPS extends DiscordPS implements MockDiscordSRVBridge {
 
         // Create configs
         createConfig();
+        registerPlotSystemListener();
 
         // Initialize plugin
         Thread initThread = createInitThread();
@@ -37,6 +45,29 @@ public class MockDiscordPS extends DiscordPS implements MockDiscordSRVBridge {
         // Thread have to be joined to prevent potential interruption from junit
         try { initThread.join(); }
         catch (InterruptedException ex) { throw new RuntimeException(ex); }
+    }
+
+    @Override
+    protected void registerPlotSystemListener() {
+        this.plotSystemListener = new MockDiscordSRVListener.MockPlotSystemListener();
+        getServer().getPluginManager().registerEvents(this.plotSystemListener, this);
+        getServer().getServicesManager().register(
+            PlotSnapshotProvider.class,
+            new PlotSnapshotProvider() {
+                @Override
+                public Optional<PlotSnapshot> getPlotSnapshot(int plotId) {
+                    return Optional.empty();
+                }
+
+                @Override
+                public List<PlotSnapshot> getPlotSnapshots(PlotStatus... statuses) {
+                    return List.of();
+                }
+            },
+            this,
+            ServicePriority.Normal
+        );
+        this.registerInactivityReminderManager();
     }
 
     @Override

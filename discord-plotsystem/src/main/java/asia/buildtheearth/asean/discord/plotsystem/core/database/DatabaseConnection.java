@@ -9,14 +9,13 @@ import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static asia.buildtheearth.asean.discord.plotsystem.Debug.Error.DATABASE_NOT_INITIALIZED;
 import static asia.buildtheearth.asean.discord.plotsystem.Debug.Warning.DATABASE_STRUCTURE_NOT_MATCH;
@@ -27,17 +26,11 @@ public class DatabaseConnection {
      * Default database table name, which can be configured differently in config.yml
      */
     private static String webhookTableName = "discord_webhook";
-    private final static Properties config = new Properties();
     private static HikariDataSource dataSource;
 
     /**
-     * Matches {@code  <proto>:<engine>://<HOST>:<PORT>/?<params>}
-     * <a href="https://regex101.com/r/qtakRP/1">regex101.com</a>
+     * The default database table name (we only use 1 table for everything)
      */
-    public final static Pattern JDBC_PATTERN = Pattern.compile(
-            "^(?<proto>\\w+):(?<engine>\\w+)://(?<host>.+?)(:(?<port>\\d{1,5}|PORT))?((/\\w+)+|/)\\??(?<params>.+)?$"
-    );
-
     public final static String DEFAULT_TABLE_NAME = "discord_webhook";
 
     private static int connectionClosed, connectionOpened;
@@ -45,6 +38,15 @@ public class DatabaseConnection {
     @Contract(pure = true)
     public static String getWebhookTableName() {
         return webhookTableName;
+    }
+
+    /**
+     * Whether a Hikari datasource has been created and is still open.
+     *
+     * @return {@code true} if {@link  HikariDataSource#getConnection()} can be attempted
+     */
+    public static boolean isInitialized() {
+        return dataSource != null && !dataSource.isClosed();
     }
 
     public static boolean InitializeDatabase() throws ClassNotFoundException {
@@ -56,75 +58,77 @@ public class DatabaseConnection {
         String webhookTable = configFile.getString(ConfigPaths.DATABASE_WEBHOOK_TABLE);
 
         // Validate config
-        if(StringUtils.isBlank(URL)) return false;
-        Matcher matcher = JDBC_PATTERN.matcher(URL);
-
-        if(!matcher.matches()) {
-            DiscordPS.error(DATABASE_NOT_INITIALIZED,"Not using JDBC because the JDBC connection string is invalid!");
+        if(StringUtils.isBlank(URL)) {
+            DiscordPS.error(DATABASE_NOT_INITIALIZED,
+                "Database URL is not set in config.yml (database.url).");
             return false;
         }
 
-        if(!matcher.group("proto").equalsIgnoreCase("jdbc")) {
-            DiscordPS.error(DATABASE_NOT_INITIALIZED, "Not using JDBC because the protocol of the JDBC URL is wrong!");
-            return false;
-        }
-
-        // Decide SQL driver to choose, else HikariDataSource will try to automatically find it
-        String engine = matcher.group("engine");
-
-        // MariaDB: Provided by our plugin since Plot-System mainly use mariadb
-        if(engine.equalsIgnoreCase("mariadb")) {
-            Class.forName("org.mariadb.jdbc.MariaDbDataSource");
-
-            config.setProperty("dataSourceClassName", org.mariadb.jdbc.MariaDbDataSource.class.getName());
-            config.setProperty("dataSource.user", username);
-            config.setProperty("dataSource.password", password);
-            config.setProperty("dataSource.databaseName", name);
-            config.setProperty("maximumPoolSize", String.valueOf(3));
-
-            if(matcher.group("host") != null)
-                config.setProperty("dataSource.serverName", matcher.group("host"));
-            if(matcher.group("port") != null)
-                config.setProperty("dataSource.portNumber", matcher.group("port"));
-        }
-
-        // MySQL: Provided by DiscordSRV 1.29.0
-        if(engine.equalsIgnoreCase("mysql")) {
-            // The MySQL DataSource is known to be broken with respect to network timeout support.
-            // Use jdbcUrl configuration with a specified driver instead.
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            config.setProperty("jdbcUrl", URL);
-            config.setProperty("username", username);
-            config.setProperty("password", password);
-            config.setProperty("dataSource.databaseName", name);
-            config.setProperty("dataSource.cachePrepStmts", "true");
-            config.setProperty("dataSource.prepStmtCacheSize", String.valueOf(250));
-            config.setProperty("dataSource.prepStmtCacheSqlLimit", String.valueOf(2048));
-            config.setProperty("driverClassName", com.mysql.cj.jdbc.Driver.class.getName());
-            config.setProperty("maximumPoolSize", String.valueOf(3));
-        }
+        // Prep URL and Driver
+        String jdbcURL, driverClass;
+        boolean sqlite = false;
 
         // SQLite: Partial support for unit testing (driver is in test scope)
-        if(engine.equalsIgnoreCase("sqlite")) {
-            Class.forName("org.sqlite.SQLiteDataSource");
+        if (URL.regionMatches(true, 0, "jdbc:sqlite:", 0, 12)) {
+            driverClass = "org.sqlite.JDBC";
+            jdbcURL = URL;
+            sqlite = true;
 
-            config.setProperty("dataSourceClassName", "org.sqlite.SQLiteDataSource");
-            String filename = matcher.group("host");
-            if(filename != null) {
-                DiscordPS.debug("SQLite detected, treating the host '" + filename + "' as connection file.");
-                config.setProperty("jdbcUrl", "jdbc:sqlite:" + filename);
+            String filename = URL.substring(12);
+
+            if (StringUtils.isBlank(filename)) {
+                DiscordPS.error(DATABASE_NOT_INITIALIZED,
+                    "No filename detected for SQLite database connection");
+                return false;
             }
-            else DiscordPS.error("No filename detected for SQLite database connection");
 
-            config.setProperty("maximumPoolSize", String.valueOf(3));
+            DiscordPS.debug("SQLite detected, treating '" + filename + "' as connection file.");
+        }
+        // MariaDB: Provided by our plugin since Plot-System mainly use mariadb
+        else if (URL.regionMatches(true, 0, "jdbc:mariadb://", 0, 15)) {
+            driverClass = "org.mariadb.jdbc.Driver";
+            jdbcURL = withDatabase(URL, name);
+        }
+        // MySQL: Provided by DiscordSRV 1.30.5,
+        // Tho they use mysql:mysql-connector-java:8.0.28
+        else if (URL.regionMatches(true, 0, "jdbc:mysql://", 0, 13)) {
+            driverClass = "com.mysql.cj.jdbc.Driver";
+            jdbcURL = withDatabase(URL, name);
+        }
+        else {
+            DiscordPS.error(DATABASE_NOT_INITIALIZED,
+                "No supported database protocol found, supports mariadb & mysql");
+            return false;
+        }
+        if (jdbcURL == null) {
+            DiscordPS.error(DATABASE_NOT_INITIALIZED,
+                "Configured JDBC URL are invalid, supports <proto>:<engine>://<HOST>:<PORT>/?<params>");
+            return false;
         }
 
-        dataSource = new HikariDataSource(new HikariConfig(config));
-        DiscordPS.info("Initialized database with: " + (
-            dataSource.getDriverClassName() == null?
-            dataSource.getDataSourceClassName()
-            : dataSource.getDriverClassName())
-        );
+        // Make sure the driver exists, and complete datasource config
+        Class.forName(driverClass);
+        HikariConfig hikariConfig = new HikariConfig();
+
+        hikariConfig.setDriverClassName(driverClass);
+        hikariConfig.setJdbcUrl(jdbcURL);
+
+        if(sqlite) {
+            // SQLite is only used for unit testing.
+            hikariConfig.setMaximumPoolSize(1);
+        }
+        else {
+            hikariConfig.setMaximumPoolSize(3);
+            hikariConfig.setUsername(username);
+            hikariConfig.setPassword(password);
+            hikariConfig.addDataSourceProperty("cachePrepStmts", "true");
+            hikariConfig.addDataSourceProperty("prepStmtCacheSize", "250");
+            hikariConfig.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+            hikariConfig.addDataSourceProperty("useServerPrepStmts", "false");
+        }
+
+        dataSource = new HikariDataSource(hikariConfig);
+        DiscordPS.info("Initialized database with: " + dataSource.getDriverClassName());
 
         // Validate webhook table and create if not exist.
         try {
@@ -172,11 +176,14 @@ public class DatabaseConnection {
     }
 
     public static void shutdown() {
+        if(dataSource == null) return;
         dataSource.close();
+        dataSource = null;
     }
 
     static void validateWebhookTable(String table) throws SQLException {
         if(StringUtils.isBlank(table)) throw new SQLException("Configured Database webhook table name is blank");
+        if(!isInitialized()) throw new SQLException("Database connection is not initialized");
 
         try (Connection connection = dataSource.getConnection()) {
            boolean sqlite = ConnectionUtil.checkIfSQLite(connection);
@@ -201,6 +208,29 @@ public class DatabaseConnection {
         }
     }
 
+    @Nullable
+    private static String withDatabase(String url, String database) {
+        if (StringUtils.isBlank(database))
+            return url;
+
+        // Preserve JDBC URL query parameters.
+        int queryIndex = url.indexOf('?');
+        String base = queryIndex >= 0? url.substring(0, queryIndex) : url;
+        String query = queryIndex >= 0? url.substring(queryIndex) : "";
+
+        // Remove any existing database path.
+        int authorityStart = base.indexOf("://");
+        if (authorityStart < 0) {
+            return null;
+        }
+
+        int pathStart = base.indexOf('/', authorityStart + 3);
+        if (pathStart >= 0)
+            base = base.substring(0, pathStart);
+
+        return base + "/" + database + query;
+    }
+
     public static class StatementBuilder implements AutoCloseable {
         private final String sql;
         private final List<Object> values = new ArrayList<>();
@@ -214,8 +244,11 @@ public class DatabaseConnection {
         }
 
         private void openConnection() throws SQLException {
+            if(!isInitialized()) {
+                throw new SQLException("Database connection is not initialized");
+            }
             connection = dataSource.getConnection();
-            if (connection == null) throw new NullPointerException("Connection is invalid: null");
+            if (connection == null) throw new SQLException("Connection is invalid: null");
         }
 
         public ResultSet executeQuery() throws SQLException {

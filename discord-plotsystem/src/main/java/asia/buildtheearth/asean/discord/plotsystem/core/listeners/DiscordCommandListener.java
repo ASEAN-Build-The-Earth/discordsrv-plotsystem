@@ -24,7 +24,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.EventListener;
 import java.util.Objects;
-import java.util.function.Function;
 
 /**
  * Discord slash command listener

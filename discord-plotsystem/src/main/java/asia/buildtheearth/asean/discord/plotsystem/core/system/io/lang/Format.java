@@ -25,6 +25,12 @@ public abstract class Format {
     /** Replaced with a Discord snowflake timestamp. */
     public static final String TIMESTAMP = "{timestamp}";
 
+    /** Replaced with the inactivity threshold in days. */
+    public static final String DAYS = "{days}";
+
+    /** Replaced with the current Plot-System abandonment deadline description. */
+    public static final String ABANDONMENT = "{abandonment}";
+
     /** Replaced with the filename of a referenced {@link java.io.File}. */
     public static final String FILENAME = "{filename}";
 

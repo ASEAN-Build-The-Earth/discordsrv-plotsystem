@@ -7,20 +7,23 @@
     <parent>
         <groupId>asia.buildtheearth.asean.discord</groupId>
         <artifactId>discordsrv-plotsystem</artifactId>
-        <version>1.2.4</version>
+        <version>1.3.0</version>
     </parent>
 
-    <name>Discord Plot-System Plugin</name>
+    <name>[DEPRECATED] Discord Plot-System Plugin</name>
     <description>
+    [RELEASE NOTICE]: Project will no loner publish as Maven POM library,
+    for further release starting 1.3.0 please check our the project page.
+
     Minecraft server plugin for Discord Plot-System integration via DiscordSRV;
-    use the discord-plotsystem-api module for external integration.
+    listens to lifecycle events from Plot-System's public API.
     </description>
     <url>https://github.com/ASEAN-Build-The-Earth/discordsrv-plotsystem/</url>
     <artifactId>discord-plotsystem</artifactId>
     <packaging>jar</packaging>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <build.number>${project.parent.version}</build.number>
     </properties>
@@ -45,6 +48,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>25</source>
+                    <target>25</target>
+                </configuration>
             </plugin>
             <!-- Shade Dependencies-->
             <plugin>
@@ -63,13 +70,14 @@
                                 <exclude>META-INF/*.MF</exclude>
                                 <exclude>META-INF/*.DSA</exclude>
                                 <exclude>META-INF/*.RSA</exclude>
-                                <exclude>META-INF/**</exclude>
+                                <exclude>META-INF/versions/**/*</exclude>
                             </excludes>
                         </filter>
                     </filters>
                     <!-- Add our manifest data -->
                     <transformers>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"/>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                     </transformers>
                 </configuration>
                 <executions>
@@ -95,23 +103,6 @@
                 </executions>
                 <configuration>
                     <doclint>none</doclint>
-                    <tags>
-                        <tag>
-                            <name>apiNote</name>
-                            <placement>a</placement>
-                            <head>API Note:</head>
-                        </tag>
-                        <tag>
-                            <name>implSpec</name>
-                            <placement>a</placement>
-                            <head>Implementation Requirements:</head>
-                        </tag>
-                        <tag>
-                            <name>implNote</name>
-                            <placement>a</placement>
-                            <head>Implementation Note:</head>
-                        </tag>
-                    </tags>
                 </configuration>
             </plugin>
             <!-- Test Runner -->
@@ -122,7 +113,7 @@
                     <dependency>
                         <groupId>me.fabriciorby</groupId>
                         <artifactId>maven-surefire-junit5-tree-reporter</artifactId>
-                        <version>1.4.0</version>
+                        <version>2.2.0</version>
                     </dependency>
                 </dependencies>
                 <configuration>
@@ -156,11 +147,6 @@
     </build>
 
     <repositories>
-        <!-- Spigot API -->
-        <repository>
-            <id>spigot-repo</id>
-            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
-        </repository>
         <!-- DiscordSRV -->
         <repository>
             <id>Scarsz-Nexus</id>
@@ -176,14 +162,18 @@
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
+        <repository>
+            <id>alps-bte</id>
+            <url>https://mvn.alps-bte.com/repository/alps-bte/</url>
+        </repository>
     </repositories>
 
     <dependencies>
         <!-- MockBukkit Test -->
         <dependency>
             <groupId>org.mockbukkit.mockbukkit</groupId>
-            <artifactId>mockbukkit-v1.21</artifactId>
-            <version>4.66.0</version>
+            <artifactId>mockbukkit-v26.1.2</artifactId>
+            <version>4.115.0</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -198,44 +188,44 @@
         </dependency>
         <!-- Spigot API -->
         <dependency>
-            <groupId>org.spigotmc</groupId>
-            <artifactId>spigot-api</artifactId>
-            <version>1.21.3-R0.1-20241203.162251-46</version>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>26.1.2.build.74-stable</version>
             <scope>provided</scope>
         </dependency>
         <!-- DiscordSRV -->
         <dependency>
             <groupId>com.discordsrv</groupId>
             <artifactId>discordsrv</artifactId>
-            <version>1.29.0</version>
+            <version>1.30.5</version>
             <scope>provided</scope>
         </dependency>
         <!-- Bridge for connecting to DiscordSRV -->
         <dependency>
             <groupId>asia.buildtheearth.asean.discord</groupId>
             <artifactId>discordsrv-bridge</artifactId>
-            <version>1.1.3</version>
+            <version>1.2.0</version>
             <scope>compile</scope>
         </dependency>
         <!-- Jetbrains Annotations -->
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>26.0.2</version>
+            <version>26.1.0</version>
             <scope>provided</scope>
         </dependency>
         <!-- MariaDB Connector -->
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
-            <version>2.7.4</version>
+            <version>3.5.11</version>
             <scope>compile</scope>
         </dependency>
         <!-- MySQL , Provided by DiscordSRV -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
-            <version>8.3.0</version>
+            <version>26.10.0</version>
             <scope>provided</scope>
             <!--  GHSA-735f-pc8j-v9w8 Vulnerability, we only use the API anyway. -->
             <exclusions>
@@ -249,35 +239,35 @@
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
-            <version>3.49.1.0</version>
+            <version>3.54.1.0</version>
             <scope>test</scope>
         </dependency>
         <!-- Hikari-CP (MariaDB) -->
         <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
-            <version>4.0.3</version>
+            <version>7.1.0</version>
             <scope>compile</scope>
         </dependency>
-        <!-- This Plugin's API -->
+        <!-- Plot-System API -->
         <dependency>
-            <groupId>asia.buildtheearth.asean.discord</groupId>
-            <artifactId>discord-plotsystem-api</artifactId>
-            <version>${project.parent.version}</version>
-            <scope>compile</scope>
+            <groupId>com.alpsbte</groupId>
+            <artifactId>plot-system-api</artifactId>
+            <version>5.3.2</version>
+            <scope>provided</scope>
         </dependency>
         <!-- JUnit 5 Test Runner -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>5.11.2</version>
+            <version>6.1.3</version>
             <scope>test</scope>
         </dependency>
         <!-- Log4j required for mocking DiscordSRV -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-            <version>2.24.3</version>
+            <version>2.26.1</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>

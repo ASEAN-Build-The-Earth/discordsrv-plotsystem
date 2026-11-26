@@ -1,6 +1,6 @@
 package asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang;
 
-import asia.buildtheearth.asean.discord.plotsystem.api.events.NotificationType;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.NotificationType;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.MessageLang;
 import org.jetbrains.annotations.NotNull;

@@ -19,6 +19,9 @@
 # {label} - A custom-defined label or name related to the message.
 # {event} - The simple name of the event class triggering this message.
 # {count} - A dynamic, incrementing number (e.g., for listing or tracking).
+# {days} - The number of days without recorded plot activity.
+# {abandonment} - Plot-System's current inactivity abandonment deadline text
+#                 (from on-plot-inactivity-abandonment-none / -scheduled).
 
 plot:
   # -------------------------------------------
@@ -124,12 +127,21 @@ build-team:
 # Interaction Messages
 # Available:
 # - plot-button-bad-owner: when a member interact with an un-authorized button
+# - plot-button-not-linked: when feedback was attached before the owner linked Discord
 # - plot-feedback-get-failed: when an internal exception occurred trying to get feedback data of a plot
+# - plot-help-get-failed: when help message failed to response for some reason
+# - plot-abandonment-none: replaces {abandonment} in plot-notification
+# - plot-abandonment-scheduled: replaces {abandonment} in plot-notification
 # ============================================
 interactions:
   plot-button-bad-owner:
     - "You don't own this plot"
     - "Go build a plot!"
+  plot-button-not-linked:
+    - "Discord account not linked"
+    - |
+      Link your Minecraft account to Discord to view this feedback.
+      Use your server's DiscordSRV link command (for example `/discord link`), then try again.
   plot-feedback-get-failed:
     - "Error :("
     - |
@@ -140,6 +152,8 @@ interactions:
     - |
       Sorry an error occurred trying to get your help message. 
       Please message our staff to ask for it instead.
+  plot-abandonment-none: "Plot-System currently has no inactivity abandonment deadline scheduled."
+  plot-abandonment-scheduled: "Plot-System may abandon this plot <t:{timestamp}:R>."
 
 # ============================================
 # Plot notification message
@@ -178,8 +192,8 @@ plot-notification:
     -# Plot has been marked as abandoned due to inactivity or manual action.
     -# {owner}, if this was a mistake, please contact a staff member or reclaim it if allowed.
   on-plot-inactivity: |
-    ## :warning: {owner} Your plot is getting abandoned <t:{timestamp}:R>
-    -# Plot is detected inactive, please join your plot world to extend this.
+    ## :warning: {owner} Your plot has been inactive for {days} days.
+    -# {abandonment} Please visit your plot to reset its inactivity reminder.
 
 # ============================================
 # Plot history messages
