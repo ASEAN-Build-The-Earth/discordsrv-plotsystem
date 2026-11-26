@@ -4,6 +4,7 @@ import asia.buildtheearth.asean.discord.DiscordSRVBridge;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.ForumWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.*;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
 import github.scarsz.discordsrv.dependencies.google.common.util.concurrent.ThreadFactoryBuilder;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
 import github.scarsz.discordsrv.dependencies.jda.api.requests.RestAction;
@@ -350,6 +351,7 @@ public class DiscordPS extends JavaPlugin implements DiscordSRVBridge {
             this.webhookConfig.load(webhookConfig);
             this.showcaseConfig.load(showcaseConfig);
 
+            // TODO: This config migrations is so cheap but im lazy to make them proper
             boolean configUpdated = false;
             if(!this.config.contains(ConfigPaths.INACTIVITY_NOTIFICATION_ENABLED)) {
                 this.config.set(ConfigPaths.INACTIVITY_NOTIFICATION_ENABLED, true);
@@ -367,7 +369,30 @@ public class DiscordPS extends JavaPlugin implements DiscordSRVBridge {
                 this.config.set(ConfigPaths.INACTIVITY_NOTIFICATION_TIMEZONE, "");
                 configUpdated = true;
             }
-            if(configUpdated) this.config.save(pluginConfig);
+            // Plot Forum Settings
+            if(!this.config.contains(ConfigPaths.PLOT_RECLAIM_SAME_ENABLE)) {
+                this.config.set(ConfigPaths.PLOT_RECLAIM_SAME_ENABLE, true);
+                configUpdated = true;
+            }
+            if(!this.config.contains(ConfigPaths.PLOT_RECLAIM_CLEAR_NOTIFICATION)) {
+                this.config.set(ConfigPaths.PLOT_RECLAIM_CLEAR_NOTIFICATION,
+                    Arrays.asList( // Default notifs clearing
+                    PlotNotification.ON_CREATED.getPath(),
+                    PlotNotification.ON_ABANDONED.getPath(),
+                    PlotNotification.ON_INACTIVITY.getPath()));
+                configUpdated = true;
+            }
+            if(!this.config.contains(ConfigPaths.PLOT_KEEP_ABANDONED_USER)) {
+                this.config.set(ConfigPaths.PLOT_KEEP_ABANDONED_USER, false);
+                configUpdated = true;
+            }
+            if(!this.config.contains(ConfigPaths.PLOT_KEEP_PLOT_HISTORIES)) {
+                this.config.set(ConfigPaths.PLOT_KEEP_PLOT_HISTORIES, true);
+                configUpdated = true;
+            }
+            if(configUpdated) {
+                this.config.save(pluginConfig);
+            }
 
             this.debuggingEnabled = this.config.getBoolean("debugging", true);
 
