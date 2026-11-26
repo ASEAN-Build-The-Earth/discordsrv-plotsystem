@@ -23,6 +23,7 @@ import asia.buildtheearth.asean.discord.components.api.TextDisplay;
 import asia.buildtheearth.asean.discord.components.api.ComponentV2;
 import asia.buildtheearth.asean.discord.components.WebhookDataBuilder;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotNotification;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.PlotInteraction;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.InfoComponent;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.Layout;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.layout.StatusComponent;
@@ -576,8 +577,8 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
             ? ""
             : String.valueOf(event.getAbandonmentAt().getEpochSecond());
         String abandonment = event.getAbandonmentAt() == null
-            ? DiscordPS.getMessagesLang().get(PlotNotification.INACTIVITY_ABANDONMENT_NONE)
-            : DiscordPS.getMessagesLang().get(PlotNotification.INACTIVITY_ABANDONMENT_SCHEDULED)
+            ? DiscordPS.getMessagesLang().get(PlotInteraction.INACTIVITY_ABANDONMENT_NONE)
+            : DiscordPS.getMessagesLang().get(PlotInteraction.INACTIVITY_ABANDONMENT_SCHEDULED)
                 .replace(Format.TIMESTAMP, timestamp);
         String message = DiscordPS.getMessagesLang().get(notification)
             .replace(Format.OWNER, owner)

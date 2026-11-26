@@ -15,9 +15,7 @@ public enum PlotNotification implements MessageLang {
     ON_UNDO_SUBMIT("on-undo-submit"),
     ON_SHOWCASED("on-plot-showcased"),
     ON_ABANDONED("on-plot-abandoned"),
-    ON_INACTIVITY("on-plot-inactivity"),
-    INACTIVITY_ABANDONMENT_NONE("on-plot-inactivity-abandonment-none"),
-    INACTIVITY_ABANDONMENT_SCHEDULED("on-plot-inactivity-abandonment-scheduled");
+    ON_INACTIVITY("on-plot-inactivity");
 
     private final String path;
 
