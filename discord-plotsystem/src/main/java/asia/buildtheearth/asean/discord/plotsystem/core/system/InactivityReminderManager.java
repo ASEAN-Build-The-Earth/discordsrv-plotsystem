@@ -5,7 +5,6 @@ import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents.InactivityNoticeEvent;
 import com.alpsbte.plotsystem.api.event.PlotAbandonedEvent;
 import com.alpsbte.plotsystem.api.event.PlotActivityChangedEvent;
-import com.alpsbte.plotsystem.api.event.PlotArchivedEvent;
 import com.alpsbte.plotsystem.api.event.PlotStatusChangedEvent;
 import com.alpsbte.plotsystem.api.model.PlotSnapshot;
 import com.alpsbte.plotsystem.api.model.PlotStatus;
@@ -33,13 +32,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CompletionException;
@@ -101,11 +94,6 @@ public final class InactivityReminderManager implements Listener, AutoCloseable 
 
     @EventHandler
     public void onPlotAbandoned(@NotNull PlotAbandonedEvent event) {
-        updateSnapshot(event.getPlot());
-    }
-
-    @EventHandler
-    public void onPlotArchived(@NotNull PlotArchivedEvent event) {
         updateSnapshot(event.getPlot());
     }
 
@@ -350,11 +338,8 @@ public final class InactivityReminderManager implements Listener, AutoCloseable 
 
         try {
             if(days < 1) throw new IllegalArgumentException("inactivity-notification-days must be at least 1");
-            if(timeValue == null) throw new IllegalArgumentException("inactivity-notification-time is missing");
             LocalTime time = LocalTime.parse(timeValue);
-            ZoneId zone = (timezone == null || timezone.isBlank())
-                ? ZoneId.systemDefault()
-                : ZoneId.of(timezone);
+            ZoneId zone = timezone.isBlank()? ZoneId.systemDefault() : ZoneId.of(timezone);
             lastInvalidSettings = null;
             return new Settings(days, time, zone);
         }
@@ -403,13 +388,20 @@ public final class InactivityReminderManager implements Listener, AutoCloseable 
                     int plotID = Integer.parseInt(key);
                     ConfigurationSection reminder = section.getConfigurationSection(key);
                     if(reminder == null) continue;
+
+                    boolean sent = reminder.getBoolean("sent", false);
+                    String owner = Objects.requireNonNull(reminder.getString("owner"));
+                    String notifyAt = Objects.requireNonNull(reminder.getString("notify-at"));
+                    String lastActivity = Objects.requireNonNull(reminder.getString("last-activity-at"));
+                    String abandonmentAt = reminder.getString("abandonment-at");
+
                     reminders.put(plotID, new Reminder(
                         plotID,
-                        UUID.fromString(reminder.getString("owner")).toString(),
-                        Instant.parse(reminder.getString("last-activity-at")),
-                        parseInstant(reminder.getString("abandonment-at")),
-                        Instant.parse(reminder.getString("notify-at")),
-                        reminder.getBoolean("sent", false)
+                        UUID.fromString(owner).toString(),
+                        Instant.parse(lastActivity),
+                        parseInstant(abandonmentAt),
+                        Instant.parse(notifyAt),
+                        sent
                     ));
                 }
                 catch (RuntimeException ex) {

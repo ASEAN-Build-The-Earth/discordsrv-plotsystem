@@ -11,6 +11,8 @@ import asia.buildtheearth.asean.discord.plotsystem.core.listeners.PlotSystemList
 import asia.buildtheearth.asean.discord.plotsystem.core.providers.NotificationProvider;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.AvailableTag;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemThread;
+import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents;
 import asia.buildtheearth.asean.discord.plotsystem.test.mock.MockDiscordSRV;
 import asia.buildtheearth.asean.discord.plotsystem.test.mock.MockPluginServer;
 import com.alpsbte.plotsystem.api.event.PlotCreatedEvent;
@@ -299,7 +301,7 @@ public class PluginTest implements MockPluginServer {
         @EnumSource(com.alpsbte.plotsystem.api.model.PlotAbandonReason.class)
         @ParameterizedTest
         public void abandonPlot(com.alpsbte.plotsystem.api.model.PlotAbandonReason reason) {
-            fire(new com.alpsbte.plotsystem.api.event.PlotAbandonedEvent(snapshot(PlotStatus.UNCLAIMED), reason));
+            fire(new com.alpsbte.plotsystem.api.event.PlotAbandonedEvent(snapshot(PlotStatus.UNCLAIMED), reason, plotOwner));
             this.expectStatus(ThreadStatus.abandoned);
         }
 
@@ -321,11 +323,20 @@ public class PluginTest implements MockPluginServer {
         @Test @Order(8)
         @DisplayName("Archive Plot")
         public void archivePlot() {
-            fire(new com.alpsbte.plotsystem.api.event.PlotArchivedEvent(
-                snapshot(PlotStatus.UNCLAIMED),
-                com.alpsbte.plotsystem.api.model.PlotAbandonReason.SYSTEM,
-                plotOwner
-            ));
+            PlotSystemEvents.PlotArchiveEvent event = new PlotSystemEvents.PlotArchiveEvent(
+                plotID,
+                "John PlotSystem"
+            );
+            WebhookEntry.ifPlotExisted(plotID).ifPresentOrElse(entry -> {
+                PlotSystemThread.UpdateAction action = new PlotSystemThread.UpdateAction(
+                        plotID,
+                        entry,
+                        Long.toUnsignedString(entry.messageID()),
+                        Long.toUnsignedString(entry.threadID())
+                );
+                plugin.getWebhook().updatePlot(action, event, ThreadStatus.archived);
+            }, () -> Assertions.fail("Expected plot does not exist in the database"));
+
             this.expectStatus(ThreadStatus.archived);
         }
     }
@@ -380,22 +391,22 @@ public class PluginTest implements MockPluginServer {
 
         protected void expectStatus(ThreadStatus expected, UUID owner, BiConsumer<Object, Object> comparison) {
             WebhookEntry.ifPlotExisted(plotID).ifPresentOrElse(created -> {
-                Assertions.assertSame(created.status(), expected);
-                comparison.accept(created.ownerUUID(), owner.toString());
+                Assertions.assertSame(expected, created.status());
+                comparison.accept(owner.toString(), created.ownerUUID());
             }, () -> Assertions.fail("Expected plot does not exist in the database"));
         }
 
         protected void expectStatus(ThreadStatus expected) {
             WebhookEntry.ifPlotExisted(plotID).ifPresentOrElse(created -> {
-                Assertions.assertSame(created.status(), expected);
+                Assertions.assertSame(expected, created.status());
             }, () -> Assertions.fail("Expected plot does not exist in the database"));
         }
 
         protected void expectStatus(ThreadStatus expected, String feedback) {
             WebhookEntry.ifPlotExisted(plotID).ifPresentOrElse(created -> {
-                Assertions.assertSame(created.status(), expected);
+                Assertions.assertSame(expected, created.status());
                 Assertions.assertNotNull(created.feedback());
-                Assertions.assertEquals(created.feedback(), feedback);
+                Assertions.assertEquals(feedback, created.feedback());
             }, () -> Assertions.fail("Expected plot does not exist in the database"));
         }
     }

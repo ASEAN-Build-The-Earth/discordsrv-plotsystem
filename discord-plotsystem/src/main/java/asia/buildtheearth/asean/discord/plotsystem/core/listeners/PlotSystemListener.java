@@ -2,15 +2,10 @@ package asia.buildtheearth.asean.discord.plotsystem.core.listeners;
 
 import asia.buildtheearth.asean.discord.plotsystem.DiscordPS;
 import asia.buildtheearth.asean.discord.plotsystem.core.database.DatabaseConnection;
-import asia.buildtheearth.asean.discord.plotsystem.core.database.ThreadStatus;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.MemberOwnable;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.Notification;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.PlotSystemWebhook;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSnapshotData;
 import asia.buildtheearth.asean.discord.plotsystem.core.system.events.PlotSystemEvents;
-import asia.buildtheearth.asean.discord.plotsystem.core.system.io.lang.Notification.PlotMessage;
 import com.alpsbte.plotsystem.api.event.PlotAbandonedEvent;
-import com.alpsbte.plotsystem.api.event.PlotArchivedEvent;
 import com.alpsbte.plotsystem.api.event.PlotCreatedEvent;
 import com.alpsbte.plotsystem.api.event.PlotFeedbackUpdatedEvent;
 import com.alpsbte.plotsystem.api.event.PlotRejectedEvent;
@@ -28,13 +23,11 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
  * Translates Plot-System's public lifecycle events into the plugin's webhook actions.
  */
-@SuppressWarnings("unused")
 public class PlotSystemListener implements Listener {
     /** Allow Plot-System three seconds to finish its update before updating the Discord thread. */
     protected static final long DELAYED_TASK = 60;
@@ -121,20 +114,6 @@ public class PlotSystemListener implements Listener {
     }
 
     @EventHandler
-    public void onPlotArchived(@NotNull PlotArchivedEvent event) {
-        PlotSystemEvents.PlotArchiveEvent translated = new PlotSystemEvents.PlotArchiveEvent(
-            event.getPlot().id(), resolveArchiveOwner(event)
-        );
-        queue(translated, webhook -> webhook.updatePlot(translated, ThreadStatus.archived, plot ->
-            Notification.notify(
-                PlotMessage.PLOT_ARCHIVE,
-                plot.threadID(),
-                String.valueOf(translated.getPlotID())
-            )
-        ));
-    }
-
-    @EventHandler
     public void onPlotSubmitted(@NotNull PlotSubmittedEvent event) {
         PlotSystemEvents.PlotSubmitEvent translated = new PlotSystemEvents.PlotSubmitEvent(event.getPlot().id());
         queue(translated, webhook -> webhook.onPlotSubmit(translated));
@@ -180,17 +159,5 @@ public class PlotSystemListener implements Listener {
             return null;
         }
         return plot.id();
-    }
-
-    private static @NotNull String resolveArchiveOwner(@NotNull PlotArchivedEvent event) {
-        UUID actor = event.getActor();
-        if(actor != null) {
-            return new MemberOwnable(actor.toString()).getOwnerMentionOrName();
-        }
-        UUID owner = event.getPlot().owner();
-        if(owner != null) {
-            return new MemberOwnable(owner.toString()).getOwnerMentionOrName();
-        }
-        return "Plot-System";
     }
 }
