@@ -50,7 +50,7 @@ public class DatabaseConnection {
     /**
      * Whether a Hikari datasource has been created and is still open.
      *
-     * @return {@code true} if {@link #getConnection()} can be attempted
+     * @return {@code true} if {@link  HikariDataSource#getConnection()} can be attempted
      */
     public static boolean isInitialized() {
         return dataSource != null && !dataSource.isClosed();
