@@ -602,7 +602,7 @@ public final class PlotSystemWebhook extends AbstractPlotSystemWebhook {
      * Set the plot's feedback data and update its review button according to the plot status.
      * (given by {@linkplain PlotSystemThread.UpdateAction the update action})
      *
-     * @apiNote The feedback value of blank/null string or the exact match of {@code "No Feedback"} is ignored.
+     * <p>Note: The feedback value of blank/null string or the exact match of {@code "No Feedback"} is ignored.</p>
      *
      * @param feedback The feedback to be saved in {@link WebhookEntry}
      * @param action The update action for where the feedback button located
